@@ -22,6 +22,20 @@ services:
       - .:/app
     command: ["python", "MonaaLisa/src/main.py"]
 
+  rest:
+    build:
+      context: ./MonaaLisa/src/REST
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+    volumes:
+      - ./MonaaLisa/src/REST:/app
+    networks:
+      default:
+        aliases:
+          - app
+
   frontend:
     build:
       context: ./MonaaLisa/src/Frontend
@@ -34,6 +48,7 @@ services:
     environment:
       VITE_API_URL: "http://app:5000"
     command: ["sh", "-c", "npm install && npx vite dev --host 0.0.0.0 --port 5173"]
+
 
 
     

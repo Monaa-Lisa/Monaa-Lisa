@@ -71,8 +71,8 @@ timeout /t 10 /nobreak >nul
 echo 3. Creating database tables...
 docker-compose run --rm -e PYTHONPATH=/app/MonaaLisa/src app python MonaaLisa/src/Database/db.py
 
-echo 4. Starting application and frontend...
-docker-compose up -d app frontend
+echo 4. Starting application, RESTful API and frontend...
+docker-compose up -d app frontend rest
 
 echo.
 echo Docker has been contacted - wait a good minute and check the logs =)!
@@ -109,8 +109,8 @@ timeout /t 10 /nobreak >nul
 echo 6. Creating database tables...
 docker-compose run --rm -e PYTHONPATH=/app/MonaaLisa/src app python MonaaLisa/src/Database/db.py
 
-echo 7. Starting the application and frontend...
-docker-compose up -d app frontend
+echo 7. Starting the application, RESTful API and frontend...
+docker-compose up -d app frontend rest
 
 echo.
 echo Docker has been contacted - wait a good minute and check the logs =)!
