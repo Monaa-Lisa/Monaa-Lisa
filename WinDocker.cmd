@@ -77,11 +77,12 @@ docker-compose up -d app frontend rest
 echo.
 echo Docker has been contacted - wait a good minute and check the logs =)!
 echo   - Frontend: http://localhost:5173
-echo   - Database: localhost:5432
+echo   - Database: http://localhost:5432
+echo   - RESTful API: http://localhost:5000
 echo.
 echo Press any key to see application logs (Ctrl+C to exit logs)
 pause >nul
-docker-compose logs -f app
+docker-compose logs -f app rest
 goto menu
 
 :reset_app
@@ -115,11 +116,12 @@ docker-compose up -d app frontend rest
 echo.
 echo Docker has been contacted - wait a good minute and check the logs =)!
 echo   - Frontend: http://localhost:5173
-echo   - Database: localhost:5432
+echo   - Database: http://localhost:5432
+echo   - RESTful API: http://localhost:5000
 echo.
 echo Press any key to see application logs (Ctrl+C to exit logs)
 pause >nul
-docker-compose logs -f app
+docker-compose logs -f app rest
 goto menu
 
 :check_db

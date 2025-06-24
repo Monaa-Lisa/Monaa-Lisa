@@ -30,7 +30,9 @@ services:
     depends_on:
       - db
     volumes:
-      - ./MonaaLisa/src/REST:/app
+      # Include the Util package
+      - ./MonaaLisa/src/Util:/app/Util
+    working_dir: /app
     networks:
       default:
         aliases:
