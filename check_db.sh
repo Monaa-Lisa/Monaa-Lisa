@@ -1,3 +1,4 @@
+# TODO Nico : KEINE DIREKTEN DB CALLS (Übers Backend laufen lassen)
 #!/bin/bash
 
 echo "Checking database tables:"
