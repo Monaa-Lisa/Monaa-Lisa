@@ -1,6 +1,6 @@
 # Nico
 from typing import List
-import requests # TODO: evt eigene Lösung für die Anfragen
+import requests # TODO: potentially implement own solution for requests
 from .models import Publication
 from datetime import datetime
 from .data_source import DataSource
