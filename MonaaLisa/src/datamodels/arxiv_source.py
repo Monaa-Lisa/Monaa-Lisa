@@ -11,7 +11,7 @@ class ArxivSource(DataSource):
         retrieves all publications matching query from ArXiv
         
         Raises:
-            Exception: Wenn der Status der Antwort != 200
+            Exception: When the response status != 200
         '''
         url = f'http://export.arxiv.org/api/query?search_query={query}&start=0&max_results={max_results}'
         response = requests.get(url)
@@ -27,9 +27,9 @@ class ArxivSource(DataSource):
         
         publications = [] # List of all pubs
         
-        for entry in root.findall("{http://www.w3.org/2005/Atom}entry"): # Erst durch alle entries
-            title = entry.find("{http://www.w3.org/2005/Atom}title").text # Alle Titel holen
-            authors = [author.find("{http://www.w3.org/2005/Atom}name").text for author in entry.findall("{http://www.w3.org/2005/Atom}author")] # Dann die autoren
+        for entry in root.findall("{http://www.w3.org/2005/Atom}entry"): # First iterate through all entries
+            title = entry.find("{http://www.w3.org/2005/Atom}title").text # Get all titles
+            authors = [author.find("{http://www.w3.org/2005/Atom}name").text for author in entry.findall("{http://www.w3.org/2005/Atom}author")] # Then the authors
             summary = entry.find("{http://www.w3.org/2005/Atom}summary").text
             published = entry.find("{http://www.w3.org/2005/Atom}published").text
             url = entry.find("{http://www.w3.org/2005/Atom}id").text

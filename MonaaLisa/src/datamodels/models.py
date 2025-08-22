@@ -5,9 +5,9 @@ from typing import List
 @dataclass
 class Publication:
     '''
-    Basic Informationen die jede Publikation hat.
-    Also name, autor, jahr, titel ...
-    Macht es einfacher entsprechende Daten isoliert zu betrachten
+    Basic information that every publication has.
+    Includes name, author, year, title, etc.
+    Makes it easier to examine corresponding data in isolation.
     '''
     title: str
     authors: List[str]
@@ -23,7 +23,7 @@ class Publication:
             "title": self.title,
             "authors": self.authors,
             "summary": self.summary,
-            "published": self.published.isoformat(), # self.published kann nicht stringified werden deshalb iso
+            "published": self.published.isoformat(), # self.published cannot be stringified directly, so use iso format
             "url": self.url
         }
         

@@ -4,12 +4,12 @@ from typing import List
 from .models import Publication
 
 
-class DataSource(ABC): # ABC = abstrakte BASISklasse
+class DataSource(ABC): # ABC = abstract base class
     '''
-    Die DataSource-Oberklasse definiert ein generisches Interface für das Abrufen und Parsen von 
-    Publikationendas von spezifischen Datenquellen abgeleitet
-    Es ist eine ABC also abstrakt.
-    So können wir für arxiv, open-access usw eigene Klassen erstellen die der scraper dann sammeln kann
+    The DataSource superclass defines a generic interface for fetching and parsing
+    publications that is derived from specific data sources.
+    It is an ABC, so it's abstract.
+    This allows us to create specific classes for arxiv, open-access, etc. that the scraper can then collect.
     '''
     @abstractmethod
     def fetch_publications(self, query: str, max_results: int = 5) -> List[Publication]:

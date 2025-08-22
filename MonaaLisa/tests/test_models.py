@@ -3,7 +3,7 @@ from MonaaLisa.src.datamodels.arxiv_source import ArxivSource
 import datetime
 
 # No online connection req. all data is mocked
-# Tests basic behaivour of Publication
+# Tests basic behaviour of Publication
 def test_publication():
     publication = Publication("Test Title", ["Test Author"], "Test Summary", datetime.datetime.fromisoformat("2025-05-06"), "Test Url")
     assert publication.title == "Test Title"
@@ -14,7 +14,7 @@ def test_publication():
     assert isinstance(publication.to_json(), dict)
     assert publication.to_json().keys() == {"title", "authors", "summary", "published", "url"}
 
-# Tests basic behaivour of Publication
+# Tests basic behaviour of ArxivSource
 def test_arxivsource():
     arxiv_source = ArxivSource()
     assert isinstance(arxiv_source.fetch_publications("test"), list)
