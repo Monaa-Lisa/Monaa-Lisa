@@ -2,11 +2,13 @@ import json
 import os
 import sys
 import tempfile
+import threading
+import time
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Optional, cast, List
 import numpy as np
 import requests
-from arxiv import arxiv
 from pymupdf import pymupdf
 
 
@@ -27,9 +29,53 @@ load_dotenv()
 
 logger = Logger("Database")
 
+class DatabaseTimeout(Exception):
+    pass
+
+@contextmanager  
+def db_timeout(seconds=30):
+
+    try:
+        yield
+    except Exception as e:
+        error_msg = str(e).lower()
+        if any(keyword in error_msg for keyword in ['timeout', 'connection', 'pool']):
+            raise DatabaseTimeout(f"Database operation failed (likely timeout): {e}")
+        raise e
+
 DATABASE_URL = os.environ.get("DATABASE_URL")
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine)
+engine = create_engine(
+    DATABASE_URL, 
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    pool_size=5,  # Limit concurrent connections
+    max_overflow=10,  # Maximum additional connections
+    pool_timeout=30,  # Timeout when getting connection from pool
+    echo=bool(os.getenv("DATABASE_DEBUG", True)),
+    connect_args={
+        "connect_timeout": 30,
+        "application_name": "MonaaLisa-SemanticPaper",
+        "options": "-c statement_timeout=60000 -c idle_in_transaction_session_timeout=30000"
+    }
+)
+SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+
+def log_pool_status():
+    pool = engine.pool
+    logger.debug(f"DB Pool - Size: {pool.size()}, Checked out: {pool.checkedout()}, "
+                f"Overflow: {pool.overflow()}, Invalid: {pool.invalidated()}")
+
+import threading
+import time
+
+def pool_monitor():
+    while True:
+        time.sleep(60)  
+        log_pool_status()
+
+if os.getenv("DATABASE_POOL_MONITORING", "false").lower() == "true":
+    monitor_thread = threading.Thread(target=pool_monitor, daemon=True)
+    monitor_thread.start()
 
 
 """
@@ -37,17 +83,32 @@ SessionLocal = sessionmaker(bind=engine)
 Abstract: Fetches all embeddings from the database and returns them as a dictionary.
 Returns: A dictionary where keys are paper entry IDs and values are Embedding objects.
 """
-def get_all_embeddings():
+def get_all_embeddings(limit=1000):
     session = SessionLocal()
     try:
-        db_embeddings_rows = session.query(DBEmbedding).all()
-        # Get rid of the warning in pycharm
-        db_embeddings = cast(List[DBEmbedding], db_embeddings_rows)
-        embedding_dict = {
-            db_embedding.belonging_paper_entry_id: Embedding.from_db(db_embedding)
-            for db_embedding in db_embeddings if db_embedding.content is not None
-        }
-        return embedding_dict
+        with db_timeout(60): 
+            # Add limit and timeout to prevent hanging on large datasets
+            db_embeddings_rows = (
+                session.query(DBEmbedding)
+                .filter(DBEmbedding.content.isnot(None))
+                .order_by(DBEmbedding.id.desc())  
+                .limit(limit)
+                .all()
+            )
+            # Get rid of the warning in pycharm
+            db_embeddings = cast(List[DBEmbedding], db_embeddings_rows)
+            embedding_dict = {
+                db_embedding.belonging_paper_entry_id: Embedding.from_db(db_embedding)
+                for db_embedding in db_embeddings if db_embedding.content is not None
+            }
+            logger.info(f"Loaded {len(embedding_dict)} embeddings from database")
+            return embedding_dict
+    except DatabaseTimeout as e:
+        logger.error(f"Timeout loading embeddings: {e}")
+        return {}
+    except Exception as e:
+        logger.error(f"Error loading embeddings: {e}")
+        return {}
     finally:
         session.close()
 
@@ -63,43 +124,52 @@ Annotation: Removed redundant parameters hash and date, these should come from t
 
 def save_paper_to_db(paper: Paper):
     session = SessionLocal()
-
-    if paper_exists(session, paper.hash):
-        logger.info(f"Paper already exists in DB: {paper.title} (hash: {paper.hash})")
-        session.close()
-        return True
-
-    db_paper = paper.to_db_model()
-    logger.info("hash: " + paper.hash)
-    db_paper.hash = paper.hash
-    session.add(db_paper)
-
-    # Flush the session to save the paper and make its ID available for foreign keys
+    
     try:
-        session.flush()
-    except Exception as e:
-        logger.error(f"DB error on flush: {e}")
+        with db_timeout(45):  
+            if paper_exists(session, paper.hash):
+                logger.info(f"Paper already exists in DB: {paper.title} (hash: {paper.hash})")
+                return True
+
+            db_paper = paper.to_db_model()
+            logger.info("hash: " + paper.hash)
+            db_paper.hash = paper.hash
+            session.add(db_paper)
+
+            # Flush the session to save the paper and make its ID available for foreign keys
+            try:
+                session.flush()
+            except Exception as e:
+                logger.error(f"DB error on flush: {e}")
+                session.rollback()
+                return False
+
+            # in the future when we have more calls to grobid this should not happen but rather in a sooner step so we process each paper only once
+            references = paper.references if paper.references else []
+            for ref in references:
+                db_reference = ref.to_db_model()
+                logger.info(f"Adding reference to DB: {db_reference.title}")
+                session.add(db_reference)
+            if paper.embedding is not None:
+                db_embedding = paper.embedding.to_db_model()
+                logger.info(f"Adding embedding to DB for paper: {paper.title}")
+                session.add(db_embedding)
+
+            try:
+                session.commit()
+                logger.info(f"Saved paper to DB: {paper.title}")
+                return True
+            except Exception as e:
+                logger.error(f"DB error: {e}")
+                session.rollback()
+                return False
+                
+    except DatabaseTimeout as e:
+        logger.error(f"Timeout saving paper {paper.title}: {e}")
         session.rollback()
-        session.close()
         return False
-
-    # in the future when we have more calls to grobid this should not happen but rather in a sooner step so we process each paper only once
-    references = paper.references if paper.references else []
-    for ref in references:
-        db_reference = ref.to_db_model()
-        logger.info(f"Adding reference to DB: {db_reference.title}")
-        session.add(db_reference)
-    if paper.embedding is not None:
-        db_embedding = paper.embedding.to_db_model()
-        logger.info(f"Adding embedding to DB for paper: {paper.title}")
-        session.add(db_embedding)
-
-    try:
-        session.commit()
-        logger.info(f"Saved paper to DB: {paper.title}")
-        return True
     except Exception as e:
-        logger.error(f"DB error: {e}")
+        logger.error(f"Unexpected error saving paper {paper.title}: {e}")
         session.rollback()
         return False
     finally:
@@ -114,20 +184,25 @@ PaperRelation: The relation object containing source_id, target_id, and confiden
 def save_paper_relation(paper_relation: Relation):
     session = SessionLocal()
     try:
-        if not relation_exists(session, paper_relation.source_id, paper_relation.target_id):
-            db_paper_relation = paper_relation.to_db_model()
-            session.add(db_paper_relation)
-            session.commit()
-            logger.info(
-                f"Saved paper relation: {paper_relation.source_id} -> "
-                f"{paper_relation.target_id} with confidence {paper_relation.confidence}"
-            )
-            return True
-        else:
-            logger.info(
-                f"Relation already exists: {paper_relation.source_id} -> {paper_relation.target_id}"
-            )
-            return True
+        with db_timeout(30): 
+            if not relation_exists(session, paper_relation.source_id, paper_relation.target_id):
+                db_paper_relation = paper_relation.to_db_model()
+                session.add(db_paper_relation)
+                session.commit()
+                logger.info(
+                    f"Saved paper relation: {paper_relation.source_id} -> "
+                    f"{paper_relation.target_id} with confidence {paper_relation.confidence}"
+                )
+                return True
+            else:
+                logger.info(
+                    f"Relation already exists: {paper_relation.source_id} -> {paper_relation.target_id}"
+                )
+                return True
+    except DatabaseTimeout as e:
+        logger.error(f"Timeout saving paper relation: {e}")
+        session.rollback()
+        return False
     except Exception as e:
         logger.error(f"DB error saving paper relation: {e}")
         session.rollback()
@@ -260,6 +335,40 @@ def mark_category_historically_completed(program_run_id, category, oldest_paper_
         return True
     except Exception as e:
         logger.error(f"Error marking completion: {e}")
+        session.rollback()
+        return False
+    finally:
+        session.close()
+
+"""
+30-August-2025 - Basti
+Abstract: Starts historical fetch tracking for a category.
+"""
+def start_category_historical_fetch(program_run_id, category):
+    session = SessionLocal()
+    try:
+        existing = (
+            session.query(HistoricalCompletion)
+            .filter_by(program_run_id=program_run_id, category=category)
+            .filter(HistoricalCompletion.end_date.is_(None))
+            .first()
+        )
+        
+        if existing:
+            logger.debug(f"Historical fetch already started for {category} in run {program_run_id}")
+            return True
+            
+        record = HistoricalCompletion(
+            program_run_id=program_run_id,
+            category=category,
+            start_date=datetime.now()
+        )
+        session.add(record)
+        session.commit()
+        logger.info(f"Started historical fetch for {category} in run {program_run_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Error starting historical fetch: {e}")
         session.rollback()
         return False
     finally:

@@ -239,7 +239,7 @@ class Paper:
         local_logger = Paper.get_grobid_logger()
         temp_file_path = None
         try:
-            response = requests.get(self.url)
+            response = requests.get(self.url, timeout=60)
             if not response.ok:
                 raise Exception(f"Failed to download PDF: HTTP Error Code is - {response.status_code}")
 
@@ -255,7 +255,8 @@ class Paper:
                 grobid_response = requests.post(
                     grobid_url,
                     files=files,
-                    headers={'Accept': 'application/xml'}
+                    headers={'Accept': 'application/xml'},
+                    timeout=120 
                 )
 
             if not grobid_response.ok:
@@ -263,6 +264,9 @@ class Paper:
             local_logger.info(f"Grobid processing finished successfully!")
             return grobid_response.text
 
+        except requests.Timeout as e:
+            local_logger.error(f"Timeout while processing paper {self.title}: {str(e)}")
+            return None
         except Exception as e:
             local_logger.error(f"Error while extracting text: {str(e)}")
             return None

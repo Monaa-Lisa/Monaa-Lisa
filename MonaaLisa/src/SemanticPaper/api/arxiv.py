@@ -3,12 +3,14 @@ import feedparser
 import requests
 import random
 import hashlib
+import urllib.parse
 from datetime import datetime
 
 from object.paper import Paper
 from util.logger import Logger
 import os
 from SemanticPaper.api.rate_limiter import RateLimiter
+from SemanticPaper.api.arxiv_result import SimpleResult
 
 logger = Logger("arxiv")
 
@@ -131,24 +133,34 @@ def fetch_papers(category: str = CS_CG_CATEGORY, amount: int = 10) -> list:
 def fetch_historical_batch(category: str, batch_size: int = 50, start_offset: int = 0) -> tuple[list[Paper], bool]:
     rate_limiter.wait()
     try:
-        total_needed = start_offset + batch_size        
-        search = arx.Search(
-            query=f"cat:{category}",
-            max_results=total_needed,
-            sort_by=arx.SortCriterion.SubmittedDate,
-            sort_order=arx.SortOrder.Ascending
-        )
+        query_encoded = urllib.parse.quote(f"cat:{category}")
+        feed_url = f"https://export.arxiv.org/api/query?search_query={query_encoded}&sortBy=submittedDate&sortOrder=ascending&start={start_offset}&max_results={batch_size}"
         
-        all_results = list(client.results(search))
-        target_results = all_results[start_offset:start_offset + batch_size]
+        response = requests.get(feed_url)
+        if response.status_code != 200:
+            logger.error(f"Failed to fetch from arXiv API: {response.status_code}")
+            return [], False
+            
+        feed = feedparser.parse(response.content)
+        
+        total_results = int(feed.feed.opensearch_totalresults) if hasattr(feed.feed, 'opensearch_totalresults') else 0
+        
+        if start_offset == 0:
+            logger.info(f"Got first page: {len(feed.entries)} of {total_results} total results")
+        
         papers = []
-        for result in target_results:
-            if result:
+        for entry in feed.entries:
+            try:
+                result = SimpleResult(entry)
                 paper = Paper.from_arxiv(result)
                 paper.category = category
                 papers.append(paper)
+            except Exception as e:
+                logger.warning(f"Error creating paper from entry {entry.id}: {e}")
+                continue
         
-        has_more = len(all_results) > total_needed
+        has_more = len(feed.entries) >= batch_size and (start_offset + len(feed.entries)) < total_results
+        
         logger.info(f"Fetched {len(papers)} historical papers for {category} (offset: {start_offset})")
         return papers, has_more
         

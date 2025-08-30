@@ -1,4 +1,3 @@
-from SemanticPaper.api.semanticscholar import SemanticScholarAPI
 from SemanticPaper.machine_learning.mapper import Mapper
 from SemanticPaper.machine_learning.processor import PaperProcessor
 from SemanticPaper.scheduler import start_scheduler, paper_queue
@@ -9,6 +8,7 @@ from SemanticPaper.machine_learning.model import Model
 from SemanticPaper.config.category_loader import get_semanticpaper_categories
 from util.bounded_cache import BoundedEmbeddingCache
 import threading
+import queue
 import time
 import os
 import signal
@@ -16,7 +16,6 @@ import sys
 
 logger = Logger("Main")
 
-semantic = SemanticScholarAPI()
 
 load_dotenv(".env_public")
 
@@ -59,41 +58,84 @@ Returns: None
 """
 def paper_worker(worker_id, known_hashes):
     logger.info(f"Worker {worker_id} started")
+    consecutive_failures = 0
+    max_failures = 5
+    last_activity = time.time()
+    
     while True:
-        paper = paper_queue.get()
-        if paper is None:
-            break
-        active_categories = get_semanticpaper_categories()
-        if getattr(paper, 'category', None) and paper.category not in active_categories:
-            logger.warning(f"Worker {worker_id}: Category '{paper.category}' removed; skipping paper '{paper.title}'")
-            continue
-        processor = PaperProcessor(paper, model)
-        if processor.prepare_paper(known_hashes):
-            embedding = processor.create_structured_embedding()
-            if embedding is not None:
-                tsne = (0.0, 0.0)
-                """
-                21-August-2025 - Lenio
-                Abstract: Save TSNE into the appropriate field of the paper object, compare the papers embedding to the existing embeddings
-                """
-                data = {"tsne1": tsne[0], "tsne2": tsne[1]}
-                processor.paper.tsne = data
-                processor.paper.embedding = embedding
-                mapper = Mapper(processor.paper)
-                # Get all embeddings from the cache
-                with embedding_cache_lock:
-                    current_embeddings = embedding_cache.copy()
-                relations = mapper.map_paper(current_embeddings)
-                logger.info(f"Found {len(relations)} relations for {paper.title}")
-                if save_paper_to_db(processor.paper):
-                    for relation in relations:
-                        logger.info(f"Similar paper: {relation.source_id} with similarity score: {relation.confidence}")
-                        save_paper_relation(relation)
-                    # Save the embedding to the cache
+        try:
+            paper = paper_queue.get(timeout=30)
+            last_activity = time.time()
+            
+            if paper is None:
+                logger.info(f"Worker {worker_id}: Received stop signal")
+                break
+                
+            consecutive_failures = 0
+            
+            logger.debug(f"Worker {worker_id}: Processing paper '{getattr(paper, 'title', 'Unknown')}'")
+            
+            active_categories = get_semanticpaper_categories()
+            if getattr(paper, 'category', None) and paper.category not in active_categories:
+                logger.warning(f"Worker {worker_id}: Category '{paper.category}' removed; skipping paper '{paper.title}'")
+                paper_queue.task_done()
+                continue
+                
+            processor = PaperProcessor(paper, model)
+            if processor.prepare_paper(known_hashes):
+                embedding = processor.create_structured_embedding()
+                if embedding is not None:
+                    tsne = (0.0, 0.0)
+                    """
+                    21-August-2025 - Lenio
+                    Abstract: Save TSNE into the appropriate field of the paper object, compare the papers embedding to the existing embeddings
+                    """
+                    data = {"tsne1": tsne[0], "tsne2": tsne[1]}
+                    processor.paper.tsne = data
+                    processor.paper.embedding = embedding
+                    mapper = Mapper(processor.paper)
+                    # Get all embeddings from the cache
                     with embedding_cache_lock:
-                        embedding_cache[processor.paper.entry_id] = processor.paper.embedding
-                    save_hash(processor.paper.hash)
-                    known_hashes.add(processor.paper.hash)
+                        current_embeddings = embedding_cache.copy()
+                    relations = mapper.map_paper(current_embeddings)
+                    logger.info(f"Found {len(relations)} relations for {paper.title}")
+                    if save_paper_to_db(processor.paper):
+                        for relation in relations:
+                            logger.info(f"Similar paper: {relation.source_id} with similarity score: {relation.confidence}")
+                            save_paper_relation(relation)
+                        # Save the embedding to the cache
+                        with embedding_cache_lock:
+                            embedding_cache[processor.paper.entry_id] = processor.paper.embedding
+                        save_hash(processor.paper.hash)
+                        known_hashes.add(processor.paper.hash)
+            
+            paper_queue.task_done()
+            logger.debug(f"Worker {worker_id}: Completed processing paper '{getattr(paper, 'title', 'Unknown')}'")
+            """
+            
+            """
+        except queue.Empty:
+            current_time = time.time()
+            idle_time = current_time - last_activity
+            logger.info(f"Worker {worker_id} - queue empty for {idle_time:.1f}s, queue size: {paper_queue.qsize()}")
+            
+            if idle_time > 300: 
+                logger.warning(f"Worker {worker_id} No papers received for {idle_time:.1f} seconds")
+            continue
+        except Exception as e:
+            consecutive_failures += 1
+            logger.error(f"Worker {worker_id}: Error processing paper: {e}")
+            
+            if consecutive_failures >= max_failures:
+                logger.error(f"Worker {worker_id}: Too many consecutive failures, exiting")
+                break
+
+            time.sleep(1)
+            try:
+                paper_queue.task_done() 
+            except ValueError:
+                pass  
+    
     logger.info(f"Worker {worker_id} exiting")
 
 """
@@ -112,7 +154,8 @@ def main(num_workers: int = 5):
     logger.info(f"Loaded {len(known_hashes)} known hashes")
     logger.info("Loading existing embeddings into cache...")
     with embedding_cache_lock:
-        embedding_cache.update(get_all_embeddings())
+        limit = int(os.getenv("INITIAL_EMBEDDING_LIMIT", "500"))
+        embedding_cache.update(get_all_embeddings(limit=limit))
     logger.info(f"Loaded {len(embedding_cache)} embeddings into cache.")
     logger.info("Starting scheduler...")
     scheduler = start_scheduler()

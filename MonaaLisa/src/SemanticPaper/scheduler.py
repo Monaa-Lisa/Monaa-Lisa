@@ -1,5 +1,5 @@
-import multiprocessing
 import threading
+import queue
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 from Database.db import db_base, engine
@@ -10,13 +10,14 @@ from SemanticPaper.config.category_loader import get_semanticpaper_categories
 from Database.db import (
     create_program_run,
     is_category_historically_completed,
-    mark_category_historically_completed
+    mark_category_historically_completed,
+    start_category_historical_fetch
 )
 
 logger = Logger("Scheduler")
 
 # Queue to buffer fetched Paper objects for embedding workers
-paper_queue = multiprocessing.Queue()
+paper_queue = queue.Queue(maxsize=50)
 
 current_program_run_id = None
 scheduler_lock = threading.Lock()
@@ -38,8 +39,15 @@ def daily_fetch():
         papers = fetch_papers(category=cat, amount=1)
         for paper in papers:
             if paper:
-                paper_queue.put(paper)
-                logger.info(f"Enqueued paper: {paper.title}")
+                try:
+                    paper_queue.put_nowait(paper)  
+                    logger.info(f"Enqueued paper: {paper.title} (queue size: {paper_queue.qsize()})")
+                except queue.Full:
+                    logger.warning(f"Queue full, skipping paper: {paper.title}")
+                    break
+                except Exception as e:
+                    logger.error(f"Error queuing daily paper: {e}")
+                    break
 
 """
 13-August-2025 - Basti
@@ -63,18 +71,55 @@ def historical_fetch():
         for cat in categories:
             if is_category_historically_completed(current_program_run_id, cat):
                 continue
+            
+            start_category_historical_fetch(current_program_run_id, cat)
+            
             offset = historical_fetch_state.get(cat, 0)
-            rate_limiter.wait()
-            papers, has_more = fetch_historical_batch(cat, batch_size=50, start_offset=offset)
-            if papers:
-                for paper in papers:
-                    if paper:
-                        paper_queue.put(paper)
-                logger.info(f"Enqueued {len(papers)} historical papers for {cat}")
-            historical_fetch_state[cat] = offset + 50
-            if not has_more:
-                mark_category_historically_completed(current_program_run_id, cat)
-                logger.info(f"Category {cat} historical fetch completed")
+            total_papers_queued = 0
+            
+            while True:
+                if paper_queue.qsize() >= 45:  
+                    logger.info(f"Queue nearly full ({paper_queue.qsize()}/50), waiting for space to continue {cat} at offset {offset}")
+                    threading.Event().wait(2)  
+                    continue
+                    
+                rate_limiter.wait()
+                papers, has_more = fetch_historical_batch(cat, batch_size=50, start_offset=offset)
+                
+                if papers:
+                    papers_queued = 0
+                    queue_full_hit = False
+                    for paper in papers:
+                        if paper:
+                            try:
+                                paper_queue.put_nowait(paper)  
+                                papers_queued += 1
+                                total_papers_queued += 1
+                            except queue.Full:
+                                logger.warning(f"Queue full (size: {paper_queue.qsize()}), pausing {cat} fetch at offset {offset}")
+                                historical_fetch_state[cat] = offset
+                                queue_full_hit = True
+                                break  
+                            except Exception as e:
+                                logger.error(f"Error queuing paper for {cat}: {e}")
+                                break
+                    
+                    if queue_full_hit:
+                        logger.info(f"Waiting for queue space, will retry {cat} at offset {offset}")
+                        threading.Event().wait(5)  
+                        continue
+                        
+                    logger.info(f"Enqueued {papers_queued}/{len(papers)} papers for {cat} at offset {offset} (total: {total_papers_queued}, queue size: {paper_queue.qsize()})")
+                else:
+                    logger.warning(f"No papers fetched for category {cat} at offset {offset}")
+                
+                offset += 50
+                historical_fetch_state[cat] = offset
+                
+                if not has_more:
+                    mark_category_historically_completed(current_program_run_id, cat)
+                    logger.info(f"Category {cat} historical fetch completed - processed {total_papers_queued} total papers")
+                    break
     except Exception as e:
         logger.error(f"Error in historical_fetch: {e}")
     finally:
@@ -102,8 +147,8 @@ def start_scheduler():
     # Schedule daily_fetch at 0,6,12,18
     for hr in [0, 6, 12, 18]:
         scheduler.add_job(daily_fetch, 'cron', hour=hr, minute=0, id=f"daily_fetch_{hr}")
-    # Schedule historical_fetch hourly, start now
-    scheduler.add_job(historical_fetch, 'interval', hours=1, next_run_time=datetime.now(), id='historical_fetch')
+    # Schedule historical_fetch 
+    scheduler.add_job(historical_fetch, 'interval', minutes=2, next_run_time=datetime.now(), id='historical_fetch')
     scheduler.start()
     logger.info(f"Scheduler started (run ID {current_program_run_id})")
     return scheduler
