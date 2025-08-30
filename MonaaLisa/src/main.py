@@ -7,6 +7,7 @@ from Database.db import save_paper_to_db, save_paper_relation, get_all_embedding
 from dotenv import load_dotenv
 from SemanticPaper.machine_learning.model import Model
 from SemanticPaper.config.category_loader import get_semanticpaper_categories
+from util.bounded_cache import BoundedEmbeddingCache
 import threading
 import time
 import os
@@ -23,8 +24,7 @@ UPDATE_INTERVAL = int(os.environ.get("ARXIV_FETCH_INTERVAL", 3600))
 HASH_FILE = 'parsed_hashes.txt'
 
 model = Model()
-# Initialize the embedding cache, which will store embeddings of papers to avoid fetching them from the db everytime
-embedding_cache = {}
+embedding_cache = BoundedEmbeddingCache(max_size=int(os.getenv("MAX_EMBEDDING_CACHE_SIZE", "100")))
 embedding_cache_lock = threading.Lock()
 
 """
