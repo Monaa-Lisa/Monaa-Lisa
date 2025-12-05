@@ -74,7 +74,7 @@ def paper_worker(worker_id, known_hashes):
         if processor.prepare_paper(known_hashes):
             embedding = processor.create_structured_embedding()
             if embedding is not None:
-                tsne = (0.0, 0.0)
+                tsne = model.extract_tsne_coordinates(embedding)
                 """
                 21-August-2025 - Lenio
                 Abstract: Save TSNE into the appropriate field of the paper object, compare the papers embedding to the existing embeddings

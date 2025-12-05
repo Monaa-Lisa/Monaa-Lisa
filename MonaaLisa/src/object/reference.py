@@ -30,3 +30,6 @@ class Reference:
             title=self.title
         )
 
+    def try_query_belonging_paper(self):
+        if self.title:
+            print(self.title)
