@@ -8,6 +8,8 @@ from object.paper import Paper
 from util.logger import Logger
 from config import cfg
 
+from object.embedding import Embedding
+
 """
 03-August-2025 - Lenio
 Abstract: This class is used to handle the model and its methods
@@ -91,9 +93,30 @@ class Model:
     """
     @staticmethod
     def extract_tsne_coordinates(embeddings, random_state=42):
-        embeddings = np.array(embeddings)
+
+        cleaned = []
+        for e in embeddings:
+            # extra check ob wir hier wirklich ein object.Embedding haben
+            if isinstance(e, Embedding):
+                vector = e.content
+            # weiterer fall falls wir direkt nparrays oder lists bekommen
+            elif hasattr(e, "content"):
+                vector = getattr(e, "content")
+            else:
+                # letzter seltener fall wo wir direkt nparray/list kriegen
+                vector = e
+
+            # failed -> raise error und skip
+            if vector is None:
+                raise ValueError("Embedding content cannot be None")
+
+            
+            cleaned.append(np.asarray(vector, dtype=np.float32))
+
+        embeddings = np.array(cleaned)
         if len(embeddings) < 2:
             raise ValueError("At least two embeddings are required for t-SNE.")
+        
         perplexity = min(30, len(embeddings) - 1)
         tsne = TSNE(n_components=2, random_state=random_state, perplexity=perplexity)
         reduced = tsne.fit_transform(embeddings)
