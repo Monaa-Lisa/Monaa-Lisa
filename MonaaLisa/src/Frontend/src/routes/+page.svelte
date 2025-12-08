@@ -1,6 +1,7 @@
 <script lang="ts">
   import MapCanvas from '$lib/components/MapCanvas.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
+  import GraphCanvas from "$lib/components/GraphCanvas.svelte";
 
   // --- 1. IMPORTE ALLER TEST-DATEN ---
 
@@ -126,14 +127,20 @@
 </script>
 
 <div class="layout">
-    <div class="map-container">
+<div class="map-container">
+    {#if currentLevel < 2}
         <MapCanvas
             data={activeData}
             level={currentLevel}
-            bind:selectedPaper
             on:drilldown={handleDrillDown}
         />
-    </div>
+    {:else}
+        <GraphCanvas
+            data={activeData}
+            on:paperClick={(e) => selectedPaper = e.detail}
+        />
+    {/if}
+</div>
 
     <Sidebar
         selectedPaper={selectedPaper}
