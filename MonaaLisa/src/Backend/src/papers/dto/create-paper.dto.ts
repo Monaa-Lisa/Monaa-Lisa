@@ -2,6 +2,7 @@ import {
   IsISO8601,
   IsNotEmpty,
   IsOptional,
+  IsArray,
   IsString,
   IsUrl,
 } from 'class-validator';
@@ -16,8 +17,9 @@ export class CreatePaperDto {
   title!: string;
 
   @IsNotEmpty()
-  @IsString()
-  authors!: string;
+  @IsArray()
+  @IsString({ each: true })
+  authors!: string[];
 
   @IsNotEmpty()
   @IsString()

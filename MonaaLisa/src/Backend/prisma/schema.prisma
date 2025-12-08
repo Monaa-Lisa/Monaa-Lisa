@@ -18,7 +18,7 @@ model Paper {
   id        Int      @id @default(autoincrement())
   entry_id  String   @unique
   title     String
-  authors   String
+  authors   String[]
   summary   String
   published DateTime?
   category  String?
