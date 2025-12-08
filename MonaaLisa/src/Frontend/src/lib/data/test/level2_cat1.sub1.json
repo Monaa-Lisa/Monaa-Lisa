@@ -1,0 +1,1102 @@
+[
+  {
+    "id": "cat1.sub1.p0",
+    "title": "Paper 0",
+    "authors": [
+      "Author 6"
+    ],
+    "x": -0.002536016042106938,
+    "y": -0.029297474709210083,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p1",
+    "title": "Paper 1",
+    "authors": [
+      "Author 40"
+    ],
+    "x": -0.035235923099627565,
+    "y": -0.04251604440961126,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p2",
+    "title": "Paper 2",
+    "authors": [
+      "Author 23"
+    ],
+    "x": -0.04027320433640683,
+    "y": 0.021235928413582933,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p3",
+    "title": "Paper 3",
+    "authors": [
+      "Author 20"
+    ],
+    "x": -0.008071207589895671,
+    "y": 0.014225615683974471,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p4",
+    "title": "Paper 4",
+    "authors": [
+      "Author 45"
+    ],
+    "x": -0.03953397730371394,
+    "y": 0.0368601000609953,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p5",
+    "title": "Paper 5",
+    "authors": [
+      "Author 8"
+    ],
+    "x": -0.013205828734804526,
+    "y": -0.04232397658025794,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p6",
+    "title": "Paper 6",
+    "authors": [
+      "Author 35"
+    ],
+    "x": 0.0032132650400789747,
+    "y": -0.011085770952156425,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p7",
+    "title": "Paper 7",
+    "authors": [
+      "Author 32"
+    ],
+    "x": -0.015545149811708549,
+    "y": -0.024524335317518065,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p8",
+    "title": "Paper 8",
+    "authors": [
+      "Author 39"
+    ],
+    "x": -0.043783946410990496,
+    "y": 0.028206526097537987,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p9",
+    "title": "Paper 9",
+    "authors": [
+      "Author 30"
+    ],
+    "x": -0.015540004345342605,
+    "y": -0.03364539487594197,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p10",
+    "title": "Paper 10",
+    "authors": [
+      "Author 29"
+    ],
+    "x": 0.03727131034760729,
+    "y": -0.02108558108694445,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p11",
+    "title": "Paper 11",
+    "authors": [
+      "Author 13"
+    ],
+    "x": 0.007620773181512351,
+    "y": 0.032010980830926905,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p12",
+    "title": "Paper 12",
+    "authors": [
+      "Author 35"
+    ],
+    "x": -0.022311967692419846,
+    "y": -0.04312758494030244,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p13",
+    "title": "Paper 13",
+    "authors": [
+      "Author 47"
+    ],
+    "x": -0.022398987099376433,
+    "y": 0.01178228920817792,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p14",
+    "title": "Paper 14",
+    "authors": [
+      "Author 37"
+    ],
+    "x": 0.023309390338387068,
+    "y": 0.009469450565164406,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p15",
+    "title": "Paper 15",
+    "authors": [
+      "Author 41"
+    ],
+    "x": -0.03711233872282926,
+    "y": -0.04969054847597282,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p16",
+    "title": "Paper 16",
+    "authors": [
+      "Author 25"
+    ],
+    "x": 0.03459921661012082,
+    "y": -0.02228095327306602,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p17",
+    "title": "Paper 17",
+    "authors": [
+      "Author 39"
+    ],
+    "x": -0.03158453393769595,
+    "y": -0.01325922065459189,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p18",
+    "title": "Paper 18",
+    "authors": [
+      "Author 50"
+    ],
+    "x": -0.03532224462350261,
+    "y": 0.0046349634424899255,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p19",
+    "title": "Paper 19",
+    "authors": [
+      "Author 5"
+    ],
+    "x": -0.012456065416549492,
+    "y": 0.031833618813296535,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p20",
+    "title": "Paper 20",
+    "authors": [
+      "Author 22"
+    ],
+    "x": 0.009427061269104961,
+    "y": -0.03578985319288297,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p21",
+    "title": "Paper 21",
+    "authors": [
+      "Author 37"
+    ],
+    "x": 0.007154326038535719,
+    "y": 0.038365185444214925,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p22",
+    "title": "Paper 22",
+    "authors": [
+      "Author 21"
+    ],
+    "x": 0.04399295318429976,
+    "y": 0.032481945610852464,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p23",
+    "title": "Paper 23",
+    "authors": [
+      "Author 17"
+    ],
+    "x": -0.01821703696461651,
+    "y": -0.023474849256987264,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p24",
+    "title": "Paper 24",
+    "authors": [
+      "Author 34"
+    ],
+    "x": 0.03450974165822608,
+    "y": -0.013080646734224231,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p25",
+    "title": "Paper 25",
+    "authors": [
+      "Author 3"
+    ],
+    "x": -0.0015476699349738707,
+    "y": -0.008606701719098012,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p26",
+    "title": "Paper 26",
+    "authors": [
+      "Author 22"
+    ],
+    "x": -0.048592372556975176,
+    "y": -0.03427094954389921,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p27",
+    "title": "Paper 27",
+    "authors": [
+      "Author 20"
+    ],
+    "x": -0.04023505336354033,
+    "y": 0.0074994607399899715,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p28",
+    "title": "Paper 28",
+    "authors": [
+      "Author 33"
+    ],
+    "x": 0.03443637585540575,
+    "y": -0.03550138712044274,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p29",
+    "title": "Paper 29",
+    "authors": [
+      "Author 30"
+    ],
+    "x": -0.0150271540462368,
+    "y": -0.04994484763232779,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p30",
+    "title": "Paper 30",
+    "authors": [
+      "Author 42"
+    ],
+    "x": 0.0016452532929333921,
+    "y": 0.042653775950799944,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p31",
+    "title": "Paper 31",
+    "authors": [
+      "Author 26"
+    ],
+    "x": -0.017269780280517767,
+    "y": 0.045420752935994055,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p32",
+    "title": "Paper 32",
+    "authors": [
+      "Author 11"
+    ],
+    "x": 0.032960398636672814,
+    "y": 0.019764586999921535,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p33",
+    "title": "Paper 33",
+    "authors": [
+      "Author 23"
+    ],
+    "x": -0.030256151425545053,
+    "y": -0.044582318032350444,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p34",
+    "title": "Paper 34",
+    "authors": [
+      "Author 24"
+    ],
+    "x": 0.010001689200009808,
+    "y": 0.005870729887656259,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p35",
+    "title": "Paper 35",
+    "authors": [
+      "Author 46"
+    ],
+    "x": 0.021477499537648756,
+    "y": -0.045591507020223,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p36",
+    "title": "Paper 36",
+    "authors": [
+      "Author 50"
+    ],
+    "x": -0.005562930128259015,
+    "y": -0.015211218964131336,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p37",
+    "title": "Paper 37",
+    "authors": [
+      "Author 14"
+    ],
+    "x": 0.016933693276507136,
+    "y": 0.014191939529420314,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p38",
+    "title": "Paper 38",
+    "authors": [
+      "Author 8"
+    ],
+    "x": 0.008078110607983559,
+    "y": -0.029534744157006944,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p39",
+    "title": "Paper 39",
+    "authors": [
+      "Author 21"
+    ],
+    "x": -0.04801956039336075,
+    "y": -0.04845275853889337,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p40",
+    "title": "Paper 40",
+    "authors": [
+      "Author 6"
+    ],
+    "x": -0.026653070321974837,
+    "y": -0.04508616058718787,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p41",
+    "title": "Paper 41",
+    "authors": [
+      "Author 17"
+    ],
+    "x": 0.015694227316047443,
+    "y": -0.02276143673640988,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p42",
+    "title": "Paper 42",
+    "authors": [
+      "Author 30"
+    ],
+    "x": -0.04666847632043453,
+    "y": 0.006182985154344553,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p43",
+    "title": "Paper 43",
+    "authors": [
+      "Author 12"
+    ],
+    "x": -0.021290411417739685,
+    "y": -0.024495540218973134,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p44",
+    "title": "Paper 44",
+    "authors": [
+      "Author 23"
+    ],
+    "x": -0.04417438488192045,
+    "y": 0.03247399597309318,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p45",
+    "title": "Paper 45",
+    "authors": [
+      "Author 2"
+    ],
+    "x": -0.03369664056497214,
+    "y": 0.016966614631770724,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p46",
+    "title": "Paper 46",
+    "authors": [
+      "Author 29"
+    ],
+    "x": -0.018056567188484675,
+    "y": 0.044068834544468305,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p47",
+    "title": "Paper 47",
+    "authors": [
+      "Author 36"
+    ],
+    "x": 0.03340753015232806,
+    "y": 0.018442692970025445,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p48",
+    "title": "Paper 48",
+    "authors": [
+      "Author 14"
+    ],
+    "x": 0.025185969238643857,
+    "y": -0.012980938545504042,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p49",
+    "title": "Paper 49",
+    "authors": [
+      "Author 32"
+    ],
+    "x": 0.03831785298488233,
+    "y": -0.02792876194946724,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p50",
+    "title": "Paper 50",
+    "authors": [
+      "Author 16"
+    ],
+    "x": 0.02322693165392578,
+    "y": 0.004689172177794111,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p51",
+    "title": "Paper 51",
+    "authors": [
+      "Author 25"
+    ],
+    "x": 0.01211836307041083,
+    "y": 0.02948133692032913,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p52",
+    "title": "Paper 52",
+    "authors": [
+      "Author 3"
+    ],
+    "x": -0.019099428920482144,
+    "y": -0.002121434434751865,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p53",
+    "title": "Paper 53",
+    "authors": [
+      "Author 4"
+    ],
+    "x": 0.022431482778697914,
+    "y": 0.009383777973602861,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p54",
+    "title": "Paper 54",
+    "authors": [
+      "Author 33"
+    ],
+    "x": -0.024321480408700302,
+    "y": 0.041769990313554745,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p55",
+    "title": "Paper 55",
+    "authors": [
+      "Author 24"
+    ],
+    "x": 0.010802345002477266,
+    "y": -0.035821242756856754,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p56",
+    "title": "Paper 56",
+    "authors": [
+      "Author 7"
+    ],
+    "x": -0.036282489605747106,
+    "y": 0.029877059936770964,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p57",
+    "title": "Paper 57",
+    "authors": [
+      "Author 17"
+    ],
+    "x": 0.04430586404686011,
+    "y": -0.0018109144995876875,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p58",
+    "title": "Paper 58",
+    "authors": [
+      "Author 25"
+    ],
+    "x": 0.010542984299331204,
+    "y": -0.03883530695154841,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p59",
+    "title": "Paper 59",
+    "authors": [
+      "Author 49"
+    ],
+    "x": -0.04924281503382283,
+    "y": -0.005748252515981454,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p60",
+    "title": "Paper 60",
+    "authors": [
+      "Author 36"
+    ],
+    "x": 0.0077290131611695845,
+    "y": 0.01086932126805562,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p61",
+    "title": "Paper 61",
+    "authors": [
+      "Author 30"
+    ],
+    "x": -0.04953251006848217,
+    "y": -0.03921729930970017,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p62",
+    "title": "Paper 62",
+    "authors": [
+      "Author 15"
+    ],
+    "x": -0.00931632220984041,
+    "y": 0.022693232342011704,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p63",
+    "title": "Paper 63",
+    "authors": [
+      "Author 35"
+    ],
+    "x": 0.009355197469032094,
+    "y": 0.03874933209090663,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p64",
+    "title": "Paper 64",
+    "authors": [
+      "Author 34"
+    ],
+    "x": -0.04386068889907477,
+    "y": -0.04470841872136882,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p65",
+    "title": "Paper 65",
+    "authors": [
+      "Author 42"
+    ],
+    "x": 0.04677968078797827,
+    "y": -0.008479327356132674,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p66",
+    "title": "Paper 66",
+    "authors": [
+      "Author 41"
+    ],
+    "x": 0.03336722306689621,
+    "y": 0.04562950701070359,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p67",
+    "title": "Paper 67",
+    "authors": [
+      "Author 28"
+    ],
+    "x": -0.01048489964197099,
+    "y": 0.003728481518337212,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p68",
+    "title": "Paper 68",
+    "authors": [
+      "Author 32"
+    ],
+    "x": -0.040497053167978574,
+    "y": 0.013633803452989132,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p69",
+    "title": "Paper 69",
+    "authors": [
+      "Author 16"
+    ],
+    "x": 0.008110909105935107,
+    "y": -0.0049285498629313765,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p70",
+    "title": "Paper 70",
+    "authors": [
+      "Author 47"
+    ],
+    "x": -0.049398189763914795,
+    "y": -0.04984372526548511,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p71",
+    "title": "Paper 71",
+    "authors": [
+      "Author 3"
+    ],
+    "x": 0.02047918744474299,
+    "y": -0.041325773168557844,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p72",
+    "title": "Paper 72",
+    "authors": [
+      "Author 39"
+    ],
+    "x": 0.009972608909024752,
+    "y": 0.00557076264265579,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p73",
+    "title": "Paper 73",
+    "authors": [
+      "Author 4"
+    ],
+    "x": -0.03118923205327652,
+    "y": -0.04434741003191065,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p74",
+    "title": "Paper 74",
+    "authors": [
+      "Author 15"
+    ],
+    "x": 0.03173488203085184,
+    "y": -0.007320386470608065,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p75",
+    "title": "Paper 75",
+    "authors": [
+      "Author 7"
+    ],
+    "x": 0.04291562782629349,
+    "y": -0.0362910536769283,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p76",
+    "title": "Paper 76",
+    "authors": [
+      "Author 26"
+    ],
+    "x": 0.015814677655919082,
+    "y": 0.01889324368640488,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p77",
+    "title": "Paper 77",
+    "authors": [
+      "Author 36"
+    ],
+    "x": -0.04381771408500265,
+    "y": 0.04844306549880974,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p78",
+    "title": "Paper 78",
+    "authors": [
+      "Author 31"
+    ],
+    "x": -0.019891006444845094,
+    "y": -0.03393913256982121,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p79",
+    "title": "Paper 79",
+    "authors": [
+      "Author 3"
+    ],
+    "x": 0.007365067827143759,
+    "y": -0.047297929248391136,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p80",
+    "title": "Paper 80",
+    "authors": [
+      "Author 15"
+    ],
+    "x": 0.03514060855895196,
+    "y": -0.023351959703961558,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p81",
+    "title": "Paper 81",
+    "authors": [
+      "Author 11"
+    ],
+    "x": -0.048976072126315585,
+    "y": 0.03759311760781674,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p82",
+    "title": "Paper 82",
+    "authors": [
+      "Author 13"
+    ],
+    "x": 0.01285502347483597,
+    "y": -0.006296282522298781,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p83",
+    "title": "Paper 83",
+    "authors": [
+      "Author 22"
+    ],
+    "x": -0.0011704953802301396,
+    "y": 0.023945425810584314,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p84",
+    "title": "Paper 84",
+    "authors": [
+      "Author 50"
+    ],
+    "x": 0.036223391280140224,
+    "y": -0.0022843106951866074,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p85",
+    "title": "Paper 85",
+    "authors": [
+      "Author 22"
+    ],
+    "x": -0.047715955558777105,
+    "y": -0.011967093078016258,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p86",
+    "title": "Paper 86",
+    "authors": [
+      "Author 31"
+    ],
+    "x": -0.0410850826637319,
+    "y": 0.024721246861717755,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p87",
+    "title": "Paper 87",
+    "authors": [
+      "Author 3"
+    ],
+    "x": 0.034004819610523304,
+    "y": -0.03448000077834267,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p88",
+    "title": "Paper 88",
+    "authors": [
+      "Author 27"
+    ],
+    "x": 0.009709187338012272,
+    "y": -0.027173828116852584,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p89",
+    "title": "Paper 89",
+    "authors": [
+      "Author 3"
+    ],
+    "x": 0.006006801127837122,
+    "y": -0.002430960944393379,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p90",
+    "title": "Paper 90",
+    "authors": [
+      "Author 43"
+    ],
+    "x": 0.001749813478024255,
+    "y": 0.03214724376736583,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p91",
+    "title": "Paper 91",
+    "authors": [
+      "Author 29"
+    ],
+    "x": -0.04523728325580099,
+    "y": -0.010439410902233201,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p92",
+    "title": "Paper 92",
+    "authors": [
+      "Author 23"
+    ],
+    "x": -0.042573083854779085,
+    "y": 0.03618141620090154,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p93",
+    "title": "Paper 93",
+    "authors": [
+      "Author 40"
+    ],
+    "x": 0.031925029147791203,
+    "y": 0.021815135521207354,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p94",
+    "title": "Paper 94",
+    "authors": [
+      "Author 50"
+    ],
+    "x": -0.026031374446606692,
+    "y": 0.001127638833974133,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p95",
+    "title": "Paper 95",
+    "authors": [
+      "Author 36"
+    ],
+    "x": -0.049483207904220616,
+    "y": -0.03462027134047305,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p96",
+    "title": "Paper 96",
+    "authors": [
+      "Author 7"
+    ],
+    "x": 0.022068663421356632,
+    "y": -0.008111517117820842,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p97",
+    "title": "Paper 97",
+    "authors": [
+      "Author 26"
+    ],
+    "x": 0.03228108049521411,
+    "y": 0.013920339854638725,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p98",
+    "title": "Paper 98",
+    "authors": [
+      "Author 34"
+    ],
+    "x": -0.011726363015186758,
+    "y": 0.01148479371253007,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  },
+  {
+    "id": "cat1.sub1.p99",
+    "title": "Paper 99",
+    "authors": [
+      "Author 7"
+    ],
+    "x": -0.025157225767090497,
+    "y": -0.03260163767871409,
+    "category": "cat1",
+    "subcategory": "cat1.sub1"
+  }
+]
