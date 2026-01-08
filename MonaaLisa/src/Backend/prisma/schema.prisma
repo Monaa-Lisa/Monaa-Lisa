@@ -1,55 +1,39 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
 generator client {
   provider = "prisma-client-js"
   //output   = "../generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "postgres"
   url      = env("DATABASE_URL")
 }
 
 model Paper {
-  id        Int      @id @default(autoincrement())
-  entry_id  String   @unique
+  id        Int       @id @default(autoincrement())
+  entry_id  String    @unique
   title     String
   authors   String
   summary   String
   published DateTime?
   category  String?
   url       String?
-  hash      String   @unique
+  hash      String    @unique
   tsne      Json?
   added     DateTime
-
-  // Relations
-  relationsAsSource PaperRelation[] @relation("PaperRelationSource")
-  relationsAsTarget PaperRelation[] @relation("PaperRelationTarget")
-
-  references Reference[]
-  citations  Citation[]
-
-  embedding  Embedding?
-
-  // Explicit link tables
-  paperCitations PaperCitation[] @relation("PaperCitationBelonging")
-  citedBy        PaperCitation[] @relation("PaperCitationCited")
-
-  paperReferences PaperReference[] @relation("PaperReferenceBelonging")
-  referencedBy    PaperReference[] @relation("PaperReferenceReferenced")
 
   @@map("paper")
 }
 
 model PaperRelation {
-  source_id  String
-  target_id  String
+  source_id  String @map("source_id")
+  target_id  String @map("target_id")
   confidence Float
-
-  source Paper @relation("PaperRelationSource", fields: [source_id], references: [entry_id])
-  target Paper @relation("PaperRelationTarget", fields: [target_id], references: [entry_id])
 
   @@id([source_id, target_id])
   @@map("paper_relation")
@@ -58,11 +42,8 @@ model PaperRelation {
 model Reference {
   id                       Int    @id @default(autoincrement())
   belonging_paper_entry_id String
-  semanticscholar_obj      Json
+  title                    String
 
-  paper Paper @relation(fields: [belonging_paper_entry_id], references: [entry_id])
-
-  @@index([belonging_paper_entry_id])
   @@map("reference")
 }
 
@@ -70,8 +51,6 @@ model Embedding {
   id                       Int    @id @default(autoincrement())
   belonging_paper_entry_id String @unique
   content                  Json
-
-  paper Paper @relation(fields: [belonging_paper_entry_id], references: [entry_id])
 
   @@map("embedding")
 }
@@ -81,56 +60,19 @@ model ProgramRun {
   start_date DateTime
   is_active  String   @default("true")
 
-  completions HistoricalCompletion[]
-
   @@map("program_run")
 }
 
 model HistoricalCompletion {
-  id                     Int      @id @default(autoincrement())
+  id                     Int       @id @default(autoincrement())
   program_run_id         Int
   category               String
   start_date             DateTime
   end_date               DateTime?
   goal_oldest_paper_date DateTime?
-  goal_reached           String   @default("false")
+  goal_reached           String    @default("false")
   reached_date           DateTime?
   oldest_paper_date      DateTime?
 
-  run ProgramRun @relation(fields: [program_run_id], references: [id])
-
   @@map("historical_completion")
-}
-
-model Citation {
-  id                       Int    @id @default(autoincrement())
-  belonging_paper_entry_id String
-  semanticscholar_obj      Json
-
-  paper Paper @relation(fields: [belonging_paper_entry_id], references: [entry_id])
-
-  @@index([belonging_paper_entry_id])
-  @@map("citation")
-}
-
-model PaperCitation {
-  belonging_paper_entry_id String
-  cited_paper_entry_id     String
-
-  belongingPaper Paper @relation("PaperCitationBelonging", fields: [belonging_paper_entry_id], references: [entry_id])
-  citedPaper     Paper @relation("PaperCitationCited", fields: [cited_paper_entry_id], references: [entry_id])
-
-  @@id([belonging_paper_entry_id, cited_paper_entry_id])
-  @@map("paper_citation")
-}
-
-model PaperReference {
-  belonging_paper_entry_id  String
-  referenced_paper_entry_id String
-
-  belongingPaper  Paper @relation("PaperReferenceBelonging", fields: [belonging_paper_entry_id], references: [entry_id])
-  referencedPaper Paper @relation("PaperReferenceReferenced", fields: [referenced_paper_entry_id], references: [entry_id])
-
-  @@id([belonging_paper_entry_id, referenced_paper_entry_id])
-  @@map("paper_reference")
 }
