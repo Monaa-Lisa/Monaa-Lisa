@@ -18,12 +18,12 @@ model Paper {
   id        Int       @id @default(autoincrement())
   entry_id  String    @unique
   title     String
-  authors   String
-  summary   String
+  authors   String?
+  summary   String?
   published DateTime?
   category  String?
   url       String?
-  hash      String    @unique
+  hash      String?    @unique
   tsne      Json?
   added     DateTime
 
@@ -42,9 +42,35 @@ model PaperRelation {
 model Reference {
   id                       Int    @id @default(autoincrement())
   belonging_paper_entry_id String
-  title                    String
+  semanticscholar_obj      Json
 
+  @@index([belonging_paper_entry_id])
   @@map("reference")
+}
+
+model Citation {
+  id                       Int    @id @default(autoincrement())
+  belonging_paper_entry_id String
+  semanticscholar_obj      Json
+
+  @@index([belonging_paper_entry_id])
+  @@map("citation")
+}
+
+model PaperCitation {
+  belonging_paper_entry_id String
+  cited_paper_entry_id     String
+
+  @@id([belonging_paper_entry_id, cited_paper_entry_id])
+  @@map("paper_citation")
+}
+
+model PaperReference {
+  belonging_paper_entry_id  String
+  referenced_paper_entry_id String
+
+  @@id([belonging_paper_entry_id, referenced_paper_entry_id])
+  @@map("paper_reference")
 }
 
 model Embedding {

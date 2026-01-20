@@ -19,7 +19,7 @@
     void loadPapers();
   });
 
-  // lädt Papers vom Backend
+  // loads Papers from the Backend API
   async function loadPapers() {
     loading = true;
     error = null;
@@ -27,6 +27,7 @@
       const response = await fetch(
         `${API_BASE_URL}/papers?take=${DEFAULT_LIMIT}&skip=0`,
       );
+
       if (!response.ok) {
         throw new Error(`Backend request failed (${response.status})`);
       }

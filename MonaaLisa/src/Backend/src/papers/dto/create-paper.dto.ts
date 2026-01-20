@@ -15,13 +15,13 @@ export class CreatePaperDto {
   @IsString()
   title!: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  authors!: string;
+  authors?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  summary!: string;
+  summary?: string;
 
   // ISO-8601 String; im Service in Date konvertieren
   @IsOptional()
@@ -37,9 +37,9 @@ export class CreatePaperDto {
   url?: string;
 
   // unique
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  hash!: string;
+  hash?: string;
 
   @IsOptional()
   tsne?: unknown;
