@@ -30,7 +30,7 @@ export class PapersService {
       data: {
         entry_id: dto.entry_id,
         title: dto.title,
-        authors: dto.authors ?? null,
+        authors: authorsToString(dto.authors) ?? null,
         summary: dto.summary ?? null,
         published: dto.published ? new Date(dto.published) : null,
         category: dto.category ?? null,
@@ -51,7 +51,7 @@ export class PapersService {
       where: { entry_id: dto.entry_id },
       update: {
         title: dto.title,
-        authors: dto.authors ?? null,
+        authors: authorsToString(dto.authors) ?? null,
         summary: dto.summary ?? null,
         published: dto.published ? new Date(dto.published) : null,
         category: dto.category ?? null,
@@ -61,7 +61,7 @@ export class PapersService {
       create: {
         entry_id: dto.entry_id,
         title: dto.title,
-        authors: dto.authors ?? null,
+        authors: authorsToString(dto.authors) ?? null,
         summary: dto.summary ?? null,
         published: dto.published ? new Date(dto.published) : null,
         category: dto.category ?? null,
@@ -138,9 +138,10 @@ async findMany(q: QueryPaperDto) {
       where: { entry_id },
       data: {
         title: dto.title,
-        authors: dto.authors,
+        authors:
+          dto.authors === undefined ? undefined : authorsToString(dto.authors),
         summary: dto.summary,
-        published: dto.published ? new Date(dto.published) : undefined, // Wichtig: nur setzen, wenn wirklich vorhanden – sonst bleibt DB-Wert unverändert.
+        published: dto.published ? new Date(dto.published) : undefined,
         category: dto.category,
         url: dto.url,
         hash: dto.hash,
@@ -174,4 +175,16 @@ function toNumber(value: unknown, fallback: number): number {
     return parsed;
   }
   return fallback;
+}
+
+/**
+ * Wandelt ein array von authors (string[]) in einen einzelnen String um, welcher im Frontend dann angezeigt werden kann
+ * @param authors Array von Autoren
+ * @returns Autoren konkateniert
+ */
+function authorsToString(
+  authors: string[] | string | null | undefined,
+): string {
+  if (authors == null) return '';
+  return Array.isArray(authors) ? authors.join(', ') : authors;
 }

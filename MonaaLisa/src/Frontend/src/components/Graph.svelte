@@ -74,6 +74,73 @@
     dispatch('nodeSelected', nodeId);
   }
 
+  /* --- Morphological Helper Functions --- */
+
+  /**
+   * Vergrössert die Menge von Punkten ausgehen vom Zentrum eines Polygons
+   */
+  function inflateAroundCenter(
+    points: [number, number][],
+    cx: number,
+    cy: number,
+    factor: number
+  ) {
+    return points.map(([x, y]) => {
+      const dx = x - cx;
+      const dy = y - cy;
+      return [cx + dx * factor, cy + dy * factor] as [number, number];
+    });
+  }
+
+  /**
+   * Berechnet einen Skalierungsfaktor, damit die Hülle (Hull) alle Punkte
+   * inklusive eines Sicherheitsabstands (Padding) umschließt.
+   */
+  function inflateToContainPadding(
+    hull: [number, number][],
+    points: { x: number; y: number }[],
+    cx: number,
+    cy: number,
+    padding: number,
+    maxFactor = 1.6
+  ) {
+    const maxPointR = Math.max(...points.map(p => Math.hypot(p.x - cx, p.y - cy)));
+    const maxHullR  = Math.max(...hull.map(([x,y]) => Math.hypot(x - cx, y - cy))) || 1;
+
+    const targetR = maxPointR + padding;
+    const rawFactor = targetR / maxHullR;
+    const factor = Math.min(Math.max(1, rawFactor), maxFactor);
+
+    return inflateAroundCenter(hull, cx, cy, factor);
+  }
+
+  function clusterSpread(points: {x:number;y:number}[], cx:number, cy:number) {
+    const meanSq = points.reduce((s, p) => s + (p.x - cx)**2 + (p.y - cy)**2, 0) / points.length;
+    return Math.sqrt(meanSq);
+  }
+
+  /**
+   * Chaikin Algorithmus um Ecken "abzurunden"
+   */
+  function chaikinSmooth(points: [number, number][], iterations = 2) {
+    let pts = points;
+    for (let k = 0; k < iterations; k++) {
+      const res: [number, number][] = [];
+      for (let i = 0; i < pts.length; i++) {
+        const p0 = pts[i];
+        const p1 = pts[(i + 1) % pts.length];
+        // Q
+        res.push([0.75 * p0[0] + 0.25 * p1[0], 0.75 * p0[1] + 0.25 * p1[1]]);
+        // R
+        res.push([0.25 * p0[0] + 0.75 * p1[0], 0.25 * p0[1] + 0.75 * p1[1]]);
+      }
+      pts = res;
+    }
+    return pts;
+  }
+
+  /* ------------------------------------- */
+
   $: if (selectedPaperId && selectedPaperId !== selectedNode && graph && renderer) {
     selectNodeById(selectedPaperId);
   }
@@ -294,10 +361,26 @@
             return;
           }
 
+          // 1) glätten
+          let smoothHull = chaikinSmooth(hullPoints as [number, number][], 2);
+
+          // 2) Padding dynamisch aus Spread (statt minOffset=35)
+          const spread = clusterSpread(points, cx, cy);
+          const padding = Math.max(20, spread * 0.35);
+
+          // 3) aufblasen bis alle Punkte + padding "radial" reinpassen (mit cap)
+          smoothHull = inflateToContainPadding(
+            smoothHull,
+            points,
+            cx, cy,
+            padding,
+            1.6
+          );
+
           const color = getClusterColor(cat, cat) || '#cccccc';
 
           hulls.push({
-            path: hullPoints,
+            path: smoothHull,
             color: color + '33',
             strokeColor: color + '66',
             label: getCategoryCountryName(cat),
