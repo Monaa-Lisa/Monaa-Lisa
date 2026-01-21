@@ -46,7 +46,7 @@ services:
     volumes:
       - ./MonaaLisa/src/Backend:/app
       - backend_node_modules:/app/node_modules
-    command: ["sh", "-c", "npm install && npm run build && npm run start:prod"]
+    command: ["sh", "-c", "npm install && npx prisma generate && npm run build && npm run start:prod"]
     ports:
       - "3000:3000"
     stdin_open: true
