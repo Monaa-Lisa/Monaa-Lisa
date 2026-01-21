@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import Graph from 'graphology';
   import Sigma from 'sigma';
   import concaveman from 'concaveman';
   import type { Paper } from '$lib/types/paper';
+  import { fetchPaperCitations, fetchPaperReferences } from '$lib/api';
   import { getClusterColor } from '../utils/clusterColors';
   import { getCategoryCountryName } from '../utils/categoryCountries';
 
@@ -21,6 +22,7 @@
   let selectedNode: string | null = null;
   let renderer: Sigma | null = null;
   let graph: Graph | null = null;
+  let pulseFrameId: number | null = null;
 
   // Hulls state variable (promoted to top-level so listeners can access it)
   let hulls: any[] = [];
@@ -45,8 +47,54 @@
     return { x: 0, y: 0 };
   }
 
-  function selectNodeById(nodeId: string) {
+  function stopPulsing() {
+    if (pulseFrameId) {
+      cancelAnimationFrame(pulseFrameId);
+      pulseFrameId = null;
+    }
+  }
+
+  function startPulsing() {
+    stopPulsing();
+    const start = Date.now();
+
+    const tick = () => {
+      if (!graph || !renderer) return;
+
+      const elapsed = Date.now() - start;
+      const intensity = (Math.sin(elapsed / 300) + 1) / 2; // Slower, smoother pulse
+
+      let hasEdges = false;
+      graph.forEachEdge((edge, attrs) => {
+        hasEdges = true;
+        const baseColor = attrs.baseColor || '0, 255, 255';
+
+        // High dynamic range for alpha: 0.2 (dim) to 0.9 (bright)
+        const alpha = 0.2 + (0.7 * intensity);
+        graph!.setEdgeAttribute(edge, 'color', `rgba(${baseColor}, ${alpha})`);
+
+        // Dynamic thickness: 2 (base) to 5 (peak) for a glowing "beam" effect
+        const size = 2 + (3 * intensity);
+        graph!.setEdgeAttribute(edge, 'size', size);
+      });
+
+      if (hasEdges) {
+        renderer.refresh();
+        pulseFrameId = requestAnimationFrame(tick);
+      }
+    };
+
+    pulseFrameId = requestAnimationFrame(tick);
+  }
+
+  onDestroy(() => {
+    stopPulsing();
+  });
+
+  async function selectNodeById(nodeId: string) {
     if (!graph || !renderer || !graph.hasNode(nodeId)) return;
+
+    stopPulsing();
 
     const edgesToRemove = graph.edges();
     edgesToRemove.forEach((edge) => graph!.dropEdge(edge));
@@ -57,21 +105,109 @@
 
     graph.setNodeAttribute(nodeId, 'color', '#00FF00');
 
-    const paper = graph.getNodeAttribute(nodeId, 'paper') as Paper;
-    selectedPaper = paper;
+    selectedPaper = graph.getNodeAttribute(nodeId, 'paper') as Paper;
 
-    const nodePosition = graph.getNodeAttributes(nodeId);
-    const camera = renderer.getCamera();
-    camera.animatedReset({
-      x: nodePosition.x,
-      y: nodePosition.y,
-      ratio: 0.5,
-      duration: 800
-    } as any);
-
+    // Refresh renderer first to ensure node attributes (color) are updated visually
     selectedNode = nodeId;
     renderer.refresh();
     dispatch('nodeSelected', nodeId);
+
+    // Get the actual displayed position from the renderer (safest source of truth for coordinates)
+    const displayData = renderer.getNodeDisplayData(nodeId);
+
+    if (displayData) {
+        console.log("Zooming to display node:", nodeId, displayData);
+        const camera = renderer.getCamera();
+        const currentRatio = camera.getState().ratio;
+
+        // Animate camera to the node's position
+        camera.animate(
+          {
+            x: displayData.x,
+            y: displayData.y,
+            ratio: Math.min(currentRatio * 0.6, 0.15)
+          },
+          {
+            duration: 800,
+            easing: 'cubicInOut'
+          }
+        );
+    } else {
+        console.warn("Could not get display data for node:", nodeId);
+    }
+
+    try {
+      const [citations, references] = await Promise.all([
+        fetchPaperCitations(nodeId),
+        fetchPaperReferences(nodeId)
+      ]);
+
+      console.log(`Fetched for ${nodeId}:`, { citationsCount: citations.length, referencesCount: references.length });
+      console.log('Citations:', citations);
+      console.log('References:', references);
+
+      const processConnections = (items: any[], type: string) => {
+        const isCitation = type === 'citation';
+        // Citation: Yellow/Gold (Source cites Selected), Reference: Blue (Selected cites Target)
+        const baseColor = isCitation ? '255, 215, 0' : '30, 144, 255';
+        const nodeColor = isCitation ? '#FFD700' : '#1E90FF';
+
+        items.forEach((item: any) => {
+          const candidateIds = [
+              item.source_entry_id, 
+              item.target_entry_id, 
+              item.entry_id, 
+              item.id,
+              item.belonging_paper_entry_id,
+              item.cited_paper_entry_id,
+              item.referenced_paper_entry_id
+          ].filter(Boolean);
+
+          console.log(`[${type}] Check item:`, item, 'Candidates:', candidateIds);
+
+          const targetId = candidateIds.find(id => String(id) !== String(nodeId) && graph?.hasNode(String(id)));
+
+          if (targetId) {
+             console.log(`Found target node in graph: ${targetId}`);
+             // avoid duplicate edges
+             if (!graph?.hasEdge(nodeId, targetId) && !graph?.hasEdge(targetId, nodeId)) {
+                // Add edge with custom styling attributes
+                graph?.addEdge(nodeId, targetId, {
+                  size: 3,
+                  color: `rgba(${baseColor}, 1)`,
+                  type: 'line',
+                  baseColor: baseColor // used by startPulsing
+                });
+
+                // Highlight target node
+                graph?.setNodeAttribute(targetId, 'color', nodeColor);
+                // Make connected nodes slightly larger
+                const currentSize = graph?.getNodeAttribute(targetId, 'size');
+                if (typeof currentSize === 'number') {
+                    graph?.setNodeAttribute(targetId, 'originalSize', currentSize); // save original size? maybe for complex reset logic later
+                    graph?.setNodeAttribute(targetId, 'size', currentSize * 1.5);
+                }
+             } else {
+                console.log(`Edge between ${nodeId} and ${targetId} already exists`);
+             }
+          } else {
+             console.log(`No target node found in graph for candidates: ${candidateIds.join(', ')}`);
+          }
+        });
+      };
+
+      processConnections(citations, 'citation');
+      processConnections(references, 'reference');
+
+      if (graph.edges().length > 0) {
+        startPulsing();
+      } else {
+        console.log('No edges to pulse.');
+      }
+
+    } catch (err) {
+      console.error("Fehler beim Laden der Verbindungen:", err);
+    }
   }
 
   /* --- Morphological Helper Functions --- */
@@ -302,6 +438,7 @@
       });
 
       renderer.on('clickStage', () => {
+        stopPulsing();
         selectedNode = null;
         selectedPaper = null;
         graph!.forEachNode((n) => {
@@ -310,6 +447,16 @@
         });
         const edgesToRemove = graph!.edges();
         edgesToRemove.forEach((edge) => graph!.dropEdge(edge));
+
+        // Reset node sizes if we changed them
+        graph!.forEachNode(n => {
+             const originalSize = graph!.getNodeAttribute(n, 'originalSize');
+             if (originalSize) {
+                 graph!.setNodeAttribute(n, 'size', originalSize);
+                 graph!.removeNodeAttribute(n, 'originalSize');
+             }
+        });
+
         renderer!.getCamera().animatedReset({ duration: 800 });
         renderer!.refresh();
         dispatch('nodeDeselected');
