@@ -77,43 +77,48 @@ export class PapersService {
    * plus optionaler Kategorie & Datumsbereich.
    * Pagination via `skip`/`take`, dazu Gesamtanzahl für UI.
    */
-  async findMany(q: QueryPaperDto) {
-    const skip = toNumber(q.skip, 0);
-    const take = toNumber(q.take, 20);
-    const where: Prisma.PaperWhereInput = {};
+  // `MonaaLisa/src/Backend/src/papers/papers.service.ts`
 
-    // Mini-Volltext: simpel, aber schnell & ausreichend für UI-Suche
-    if (q.search) {
-      const searchTerm = q.search.trim();
-      where.OR = [
-        { title: { contains: searchTerm, mode: 'insensitive' } },
-        { authors: { contains: searchTerm, mode: 'insensitive' } },
-        { summary: { contains: searchTerm, mode: 'insensitive' } },
-      ];
-    }
-    if (q.category) where.category = { equals: q.category };
+async findMany(q: QueryPaperDto) {
+  const skip = toNumber(q.skip, 0);
+  const take = toNumber(q.take, 20);
+  const where: Prisma.PaperWhereInput = {};
 
-    // Datumsbereich (inklusive Grenzen)
-    if (q.dateFrom || q.dateTo) {
-      const publishedFilter: Prisma.DateTimeNullableFilter = {};
-      if (q.dateFrom) publishedFilter.gte = new Date(q.dateFrom);
-      if (q.dateTo) publishedFilter.lte = new Date(q.dateTo);
-      where.published = publishedFilter;
-    }
+  // Stub-Titel grundsätzlich ausschließen
+  where.NOT = [
+    { title: { equals: '[STUB] Pending Fetch', mode: 'insensitive' } },
+  ];
 
-    // wir starten transaction damit keine verwaisten einträge entstehen und falls jemand auch ein paper erstellt oder löscht, count nicht pltz falsch ist
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.paper.findMany({
-        where,
-        orderBy: [{ published: 'desc' }, { added: 'desc' }],
-        skip,
-        take,
-      }),
-      this.prisma.paper.count({ where }),
-    ]);
-
-    return { items, total, skip, take };
+  if (q.search) {
+    const searchTerm = q.search.trim();
+    where.OR = [
+      { title: { contains: searchTerm, mode: 'insensitive' } },
+      { authors: { contains: searchTerm, mode: 'insensitive' } },
+      { summary: { contains: searchTerm, mode: 'insensitive' } },
+    ];
   }
+
+  if (q.category) where.category = { equals: q.category };
+
+  if (q.dateFrom || q.dateTo) {
+    const publishedFilter: Prisma.DateTimeNullableFilter = {};
+    if (q.dateFrom) publishedFilter.gte = new Date(q.dateFrom);
+    if (q.dateTo) publishedFilter.lte = new Date(q.dateTo);
+    where.published = publishedFilter;
+  }
+
+  const [items, total] = await this.prisma.$transaction([
+    this.prisma.paper.findMany({
+      where,
+      orderBy: [{ published: 'desc' }, { added: 'desc' }],
+      skip,
+      take,
+    }),
+    this.prisma.paper.count({ where }),
+  ]);
+
+  return { items, total, skip, take };
+}
 
   /**
    * Holt ein Paper per `entry_id`.

@@ -13,7 +13,9 @@ export async function fetchPapers(limit = 5000, skip = 0): Promise<Paper[]> {
     throw new Error(`Backend request failed (${response.status})`);
   }
 
+  console.log("fetchPapers", limit, skip)
   const payload = (await response.json()) as Partial<PapersResponse> | Paper[];
+  console.log("payload", payload);
   const rawItems = Array.isArray(payload) ? payload : payload?.items ?? [];
 
   return rawItems
@@ -88,16 +90,17 @@ export async function fetchExternalReferences(entryId: string): Promise<Referenc
 }
 
 function normalizePaper(raw: Paper, index: number, total: number): Paper | null {
-  if (!raw || !raw.entry_id || !raw.title) {
+  if (!raw || !raw.entry_id || !raw.title || raw.title === '[STUB] Pending Fetch') {
     return null;
   }
-
+    console.log("normalizePaper", raw.entry_id)
   const anyRaw = raw as any;
   const summary = raw.summary ?? 'Keine Zusammenfassung vorhanden.';
   const authors = formatAuthors(raw.authors);
   const category = (raw.category ?? anyRaw.cluster) ?? null;
   const { tsne1, tsne2 } = deriveTsne(raw.tsne, index, total);
 
+    console.log("alle")
   return {
     id: Number(raw.id ?? index),
     entry_id: raw.entry_id,
@@ -106,10 +109,8 @@ function normalizePaper(raw: Paper, index: number, total: number): Paper | null 
     summary: summary,
     published: raw.published,
     category: category,
-    url: raw.url ?? null,
-    hash: anyRaw.hash,
-    tsne1: tsne1,
-    tsne2: tsne2,
+    url: raw.url ?? "",
+    tsne: [tsne1, tsne2],
     added: raw.added ?? new Date().toISOString(),
     cluster: category ?? 'U',
   };

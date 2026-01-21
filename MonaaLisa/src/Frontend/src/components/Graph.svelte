@@ -10,26 +10,10 @@
   /**
    * array of papers to display in the graph.
    * passed from the parent component.
-   * @type {Paper[]}
-   */export let papers: Paper[] = [];
+   */
+  export let papers: Paper[] = [];
   export let selectedPaperId: string | null = null;
 
-   /**
-   * flag to use dummy data for showcasing.
-   * when true, uses dummypapers instead of the papers prop.
-   * set to true for demo, false for real data.
-   * @type {boolean}
-   
-  export let useDummyData: boolean = true;
-
-  // DEMO-ONLY: easy-to-remove organic layout pass to make dummy clusters look organic (no FA2).
-  // Remove by deleting this export and the block labeled "DEMO-ONLY ORGANIC LAYOUT" below.
-  export let organicDemoLayout: boolean = true;
-
-  // DEMO-ONLY: global compression factor (0..1). Lower brings clusters closer together.
-  // Remove by deleting this export and the block labeled "DEMO-ONLY GLOBAL COMPRESSION" below.
-  export let demoClusterCompression: number = 0.45;
-*/
   //internal state variables for component management
   let container: HTMLDivElement | null = null;
   let hullCanvas: HTMLCanvasElement | null = null;
@@ -38,19 +22,29 @@
   let renderer: Sigma | null = null;
   let graph: Graph | null = null;
 
-    //add cache for quick paper lookup
+  // Hulls state variable (promoted to top-level so listeners can access it)
+  let hulls: any[] = [];
+
+  //add cache for quick paper lookup
   let paperCache: Map<string, Paper> = new Map();
-    //add debounce for hover
+  //add debounce for hover
   let hoverTimeout: number | null = null;
 
   const dispatch = createEventDispatcher();
   const FALLBACK_NODE_COLOR = '#999999';
 
-    /**
-   * selects and highlights a node in the graph, updating visuals and connections.
-   * clears edges, resets colors, highlights related nodes, adds edges, and zooms.
-   * @param {string} nodeId - the id of the node to select.
-   */
+  function getPaperCoords(p: Paper): {x: number, y: number} {
+    if (!p.tsne) return { x: 0, y: 0 };
+    if (Array.isArray(p.tsne)) {
+      return { x: p.tsne[0], y: p.tsne[1] };
+    } else if ('x' in p.tsne) {
+      return { x: p.tsne.x, y: p.tsne.y };
+    } else if ('tsne1' in p.tsne) {
+      return { x: p.tsne.tsne1, y: p.tsne.tsne2 };
+    }
+    return { x: 0, y: 0 };
+  }
+
   function selectNodeById(nodeId: string) {
     if (!graph || !renderer || !graph.hasNode(nodeId)) return;
 
@@ -65,29 +59,9 @@
 
     const paper = graph.getNodeAttribute(nodeId, 'paper') as Paper;
     selectedPaper = paper;
-    const relatedNodes = new Set<string>(paper.citations);
-
-    relatedNodes.forEach(relatedId => {
-      if (graph!.hasNode(relatedId)) {
-        graph!.setNodeAttribute(relatedId, 'color', '#FFFF00');
-      }
-    });
-
-        //add edges only for citations
-    //edges to cited papers
-    paper.citations.forEach(citedId => {
-      if (graph!.hasNode(citedId)) {
-        graph!.addEdge(nodeId, citedId, {
-          color: '#FFFFFF',
-          size: 1.5
-        });
-      }
-    });
 
     const nodePosition = graph.getNodeAttributes(nodeId);
     const camera = renderer.getCamera();
-        // TypeScript's AnimateOptions may not include x/y directly depending on the sigma types;
-    // cast to any to allow passing x/y while keeping runtime behavior unchanged.
     camera.animatedReset({
       x: nodePosition.x,
       y: nodePosition.y,
@@ -98,157 +72,63 @@
     selectedNode = nodeId;
     renderer.refresh();
     dispatch('nodeSelected', nodeId);
-    console.log(`Node ${nodeId} is currently selected lelele`);
   }
-
-  /**
-   * Vergrössert die Menge von Punkten ausgehen vom Zentrum eines Polygons
-   * @param points List[] von Punkten [x,y]
-   * @param cx x Koordinate vom Zentrum
-   * @param cy y Koordinate vom Zentrum
-   * @param factor Skalierungsfaktor (alles > 1 vergrößert, == 1 verändert nichts und < 1 verkleinert entsprechend
-   */
-function inflateAroundCenter(
-  points: [number, number][],
-  cx: number,
-  cy: number,
-  factor: number
-) {
-  return points.map(([x, y]) => {
-    // Berechne den vektroriellen Abstand vom Zentrum zum Punkt
-    const dx = x - cx;
-    const dy = y - cy;
-    // Multipliziere Abstand mit Faktor und addiere zum Zentrum
-    return [cx + dx * factor, cy + dy * factor] as [number, number];
-  });
-}
-
-/**
- * Berechnet einen Skalierungsfaktor, damit die Hülle (Hull) alle Punkte 
- * inklusive eines Sicherheitsabstands (Padding) umschließt.
- * @param hull - Die Eckpunkte der aktuellen Hülle.
- * @param points - Die tatsächlichen Datenpunkte im Cluster.
- * @param padding - Der gewünschte Pufferabstand in Pixeln/Einheiten.
- * @param maxFactor - Begrenzt die Skalierung, um extrem verzerrte Formen zu vermeiden.
- */
-function inflateToContainPadding(
-  hull: [number, number][],
-  points: { x: number; y: number }[],
-  cx: number,
-  cy: number,
-  padding: number,
-  maxFactor = 1.6 // Schutz gegen Monster-Hulls
-) {
-  // Finde Punkt welcher am weitesten vom Zentrum entfernt ist
-  const maxPointR = Math.max(...points.map(p => Math.hypot(p.x - cx, p.y - cy)));
-  // Verhältnis um das die Hülle wachsen muss
-  const maxHullR  = Math.max(...hull.map(([x,y]) => Math.hypot(x - cx, y - cy))) || 1;
-
-  const targetR = maxPointR + padding;
-  const rawFactor = targetR / maxHullR;
-  // Faktor muss [1, maxFactor] liegen
-  const factor = Math.min(Math.max(1, rawFactor), maxFactor);
-
-  return inflateAroundCenter(hull, cx, cy, factor);
-}
-
-// optional: Cluster-"Spread" für dynamisches Padding
-function clusterSpread(points: {x:number;y:number}[], cx:number, cy:number) {
-  const meanSq = points.reduce((s, p) => s + (p.x - cx)**2 + (p.y - cy)**2, 0) / points.length;
-  return Math.sqrt(meanSq);
-}
-
-  /**
-   * Chaikin Algorithmus um Ecken "abzurunden"
-   * @param points Punkte des Landes
-   * @param iterations Anzahl der Durchgänge höher = runder aber rechenintensiver
-   */
-  function chaikinSmooth(points: [number, number][], iterations = 2) {
-  let pts = points;
-  for (let k = 0; k < iterations; k++) {
-    const res: [number, number][] = [];
-    for (let i = 0; i < pts.length; i++) {
-      const p0 = pts[i];
-      const p1 = pts[(i + 1) % pts.length]; // closed ring
-
-      // Q = 0.75*p0 + 0.25*p1
-      res.push([
-        0.75 * p0[0] + 0.25 * p1[0],
-        0.75 * p0[1] + 0.25 * p1[1],
-      ]);
-
-      // R = 0.25*p0 + 0.75*p1
-      res.push([
-        0.25 * p0[0] + 0.75 * p1[0],
-        0.25 * p0[1] + 0.75 * p1[1],
-      ]);
-    }
-    pts = res;
-  }
-  return pts;
-}
 
   $: if (selectedPaperId && selectedPaperId !== selectedNode && graph && renderer) {
     selectNodeById(selectedPaperId);
   }
 
-  function drawHulls(hulls: any[]) {
+  function drawHulls(hullsToDraw: any[]) {
     if (!hullCanvas || !renderer) return;
     const ctx = hullCanvas.getContext('2d');
     if (!ctx) return;
 
-    // Resize canvas to match container
     if (hullCanvas.width !== hullCanvas.offsetWidth || hullCanvas.height !== hullCanvas.offsetHeight) {
-        hullCanvas.width = hullCanvas.offsetWidth;
-        hullCanvas.height = hullCanvas.offsetHeight;
+      hullCanvas.width = hullCanvas.offsetWidth;
+      hullCanvas.height = hullCanvas.offsetHeight;
     }
 
     ctx.clearRect(0, 0, hullCanvas.width, hullCanvas.height);
 
-    hulls.forEach(hull => {
-        if (!hull.path || hull.path.length < 3) return;
+    hullsToDraw.forEach(hull => {
+      if (!hull.path || hull.path.length < 3) return;
 
-        ctx.beginPath();
-        hull.path.forEach((pt: [number, number], i: number) => {
-            const pos = renderer!.graphToViewport({x: pt[0], y: pt[1]});
-            if (i === 0) ctx.moveTo(pos.x, pos.y);
-            else ctx.lineTo(pos.x, pos.y);
-        });
-        ctx.closePath();
-        ctx.fillStyle = hull.color; 
-        ctx.fill();
-        ctx.strokeStyle = hull.strokeColor;
-        ctx.lineWidth = 2;
-        ctx.stroke();
+      ctx.beginPath();
+      hull.path.forEach((pt: [number, number], i: number) => {
+        // Essential: map graph coordinates to current viewport coordinates (handles zoom/pan)
+        const pos = renderer!.graphToViewport({x: pt[0], y: pt[1]});
+        if (i === 0) ctx.moveTo(pos.x, pos.y);
+        else ctx.lineTo(pos.x, pos.y);
+      });
+      ctx.closePath();
+      ctx.fillStyle = hull.color;
+      ctx.fill();
+      ctx.strokeStyle = hull.strokeColor;
+      ctx.lineWidth = 2;
+      ctx.stroke();
 
-        // Draw Label
-        const center = renderer!.graphToViewport({x: hull.cx, y: hull.cy});
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 14px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.shadowColor = 'black';
-        ctx.shadowBlur = 4;
-        ctx.fillText(hull.label, center.x, center.y);
-        ctx.shadowBlur = 0;
+      const center = renderer!.graphToViewport({x: hull.cx, y: hull.cy});
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'black';
+      ctx.shadowBlur = 4;
+      ctx.fillText(hull.label, center.x, center.y);
+      ctx.shadowBlur = 0;
     });
   }
 
   onMount(() => {
     console.log("Graph Component Mounting...");
     graph = new Graph();
-    const dataSource = papers;
-    console.log(`Processing ${dataSource.length} papers...`);
+    const dataSource = papers.filter(p => !!p.entry_id);
 
+    // Stub setup
     const inDegree = new Map<string, number>();
-    dataSource.forEach(p => inDegree.set(p.entry_id, 0));
-    dataSource.forEach(p => {
-      p.citations.forEach(cid => {
-        if (inDegree.has(cid)) inDegree.set(cid, (inDegree.get(cid) || 0) + 1);
-      });
-    });
+    dataSource.forEach(p => inDegree.set(p.entry_id!, 0));
     let maxIn = 0;
-    inDegree.forEach(v => { if (v > maxIn) maxIn = v; });
+
     const minSize = 1;
     const maxSize = 6;
     const sizeFor = (count: number) => {
@@ -257,64 +137,58 @@ function clusterSpread(points: {x:number;y:number}[], cx:number, cy:number) {
       return minSize + t * (maxSize - minSize);
     };
 
-    // Collect points for hulls
     const categoryPoints = new Map<string, {x: number, y: number}[]>();
-
-    // --- FORCE SEPARATION LOGIC ---
-    // 1. Calculate Centroids per Category
     const papersByCategory = new Map<string, Paper[]>();
     const categoryCentroids = new Map<string, {x: number, y: number}>();
-    
+
     dataSource.forEach(p => {
-        const cat = p.category || 'Unknown';
-        if (!papersByCategory.has(cat)) papersByCategory.set(cat, []);
-        papersByCategory.get(cat)!.push(p);
+      const cat = p.category || 'Unknown';
+      if (!papersByCategory.has(cat)) papersByCategory.set(cat, []);
+      papersByCategory.get(cat)!.push(p);
     });
 
     papersByCategory.forEach((papers, cat) => {
-        let sumX = 0, sumY = 0;
-        papers.forEach(p => { sumX += p.tsne1; sumY += p.tsne2; });
-        categoryCentroids.set(cat, { x: sumX / papers.length, y: sumY / papers.length });
+      let sumX = 0, sumY = 0;
+      papers.forEach(p => {
+        const coords = getPaperCoords(p);
+        sumX += coords.x;
+        sumY += coords.y;
+      });
+      categoryCentroids.set(cat, { x: sumX / papers.length, y: sumY / papers.length });
     });
 
-    // 2. Assign Territory Centers (Phyllotaxis Spiral Layout)
     const categories = Array.from(papersByCategory.keys()).sort();
     const territoryCenters = new Map<string, {x: number, y: number}>();
-    
-    // Spiral parameters
-    const SPACING_FACTOR = 400; // Distance between spiral arms
-    const ANGLE_INCREMENT = 137.5 * (Math.PI / 180); // Golden angle in radians
-    
+    const SPACING_FACTOR = 400;
+    const ANGLE_INCREMENT = 137.5 * (Math.PI / 180);
+
     categories.forEach((cat, i) => {
-        // Formula: r = c * sqrt(n), theta = n * 137.5 deg
-        const r = SPACING_FACTOR * Math.sqrt(i + 1); 
-        const theta = i * ANGLE_INCREMENT;
-        
-        territoryCenters.set(cat, {
-            x: r * Math.cos(theta),
-            y: r * Math.sin(theta)
-        });
+      const r = SPACING_FACTOR * Math.sqrt(i + 1);
+      const theta = i * ANGLE_INCREMENT;
+      territoryCenters.set(cat, {
+        x: r * Math.cos(theta),
+        y: r * Math.sin(theta)
+      });
     });
 
     dataSource.forEach(paper => {
+      const entryId = paper.entry_id!;
       const cat = paper.category || 'Unknown';
       const centroid = categoryCentroids.get(cat) || {x: 0, y: 0};
       const territory = territoryCenters.get(cat) || {x: 0, y: 0};
-      
-      // Local coordinates relative to cluster center
-      // Scale local cluster to keep it compact within its territory
-      const LOCAL_SCALE = 20.0; 
-      const localX = (paper.tsne1 - centroid.x) * LOCAL_SCALE;
-      const localY = (paper.tsne2 - centroid.y) * LOCAL_SCALE;
 
+      const LOCAL_SCALE = 20.0;
+      const coords = getPaperCoords(paper);
+      const localX = (coords.x - centroid.x) * LOCAL_SCALE;
+      const localY = (coords.y - centroid.y) * LOCAL_SCALE;
       const finalX = territory.x + localX;
       const finalY = territory.y + localY;
 
-      const inCitations = inDegree.get(paper.entry_id) || 0;
+      const inCitations = inDegree.get(entryId) || 0;
       const nodeSize = sizeFor(inCitations);
       const nodeColor = getClusterColor(paper.category, paper.cluster) ?? FALLBACK_NODE_COLOR;
 
-      graph!.addNode(paper.entry_id, {
+      graph!.addNode(entryId, {
         x: finalX,
         y: finalY,
         size: nodeSize,
@@ -325,16 +199,14 @@ function clusterSpread(points: {x:number;y:number}[], cx:number, cy:number) {
         inCitations
       });
 
-      //cache paper for fast lookup
-      paperCache.set(paper.entry_id, paper);
+      paperCache.set(entryId, paper);
 
-      // Collect points
-      // Kleiner bugfix hier wäre es besser cat zu verwenden statt paper.category
-      if (!categoryPoints.has(cat)) categoryPoints.set(cat, []);
-      categoryPoints.get(cat)!.push({ x: finalX, y: finalY });
+      if (!categoryPoints.has(cat)) {
+        categoryPoints.set(cat, []);
+      }
+      categoryPoints.get(cat)!.push({x: finalX, y: finalY});
     });
 
-    // Initialize Sigma Renderer FIRST to ensure papers are visible! :)
     if (container) {
       console.log("Initializing Sigma Renderer...");
       renderer = new Sigma(graph, container, {
@@ -346,8 +218,6 @@ function clusterSpread(points: {x:number;y:number}[], cx:number, cy:number) {
         renderLabels: false,
       });
 
-      
-      //handle node hover: show paper details with debounce
       renderer.on('enterNode', ({ node }) => {
         if (hoverTimeout) clearTimeout(hoverTimeout);
         hoverTimeout = setTimeout(() => {
@@ -356,12 +226,10 @@ function clusterSpread(points: {x:number;y:number}[], cx:number, cy:number) {
       });
 
       renderer.on('leaveNode', () => {
-          //clear timeout and hide details
         if (hoverTimeout) clearTimeout(hoverTimeout);
         selectedPaper = null;
       });
 
-      // *** FIXED CLICK HANDLER - NO DUPLICATE DISPATCH ***
       renderer.on('clickNode', ({ node }) => {
         selectNodeById(node);
       });
@@ -380,96 +248,65 @@ function clusterSpread(points: {x:number;y:number}[], cx:number, cy:number) {
         dispatch('nodeDeselected');
       });
 
-      // Cleanup
+      // Bind hull drawing to camera update
+      const camera = renderer.getCamera();
+      const hullDrawer = () => drawHulls(hulls); // Uses top-level `hulls` variable
+      camera.on('updated', hullDrawer);
+
       const killRenderer = () => {
-        // Hier stellen wir sicher dass wir IMMER evt. noch offene Listener entfernen sonst memory leak - nico
         if (hoverTimeout) clearTimeout(hoverTimeout);
         if (renderer) {
-          // Listener entfernen
-          renderer.getCamera().off('updated');
+          renderer.getCamera().off('updated', hullDrawer);
           renderer.kill();
-        }        
+        }
         paperCache.clear();
       };
 
-      // Compute Hulls SAFELY and on client side (for now!!)
+      // Compute Hulls
       try {
         console.log("Computing Hulls...");
-        const hulls: any[] = [];
+        hulls = []; // Reset the top-level variable
+
         categoryPoints.forEach((points, cat) => {
-            if (points.length < 3) return;
+          if (points.length < 3) return;
 
-            // 1. Centroid of all points
-            const cx = points.reduce((sum, p) => sum + p.x, 0) / points.length;
-            const cy = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+          const cx = points.reduce((sum, p) => sum + p.x, 0) / points.length;
+          const cy = points.reduce((sum, p) => sum + p.y, 0) / points.length;
 
-            // 2. Filter outliers (98% densest)
-            // this is to prevent concaveman from creating huge hulls due to outliers
-            // we need to name the outliers something cool though
-            const withDist = points.map(p => ({
-                p,
-                // calculate squared distance to centroid
-                dist: (p.x - cx)**2 + (p.y - cy)**2
-            }));
-            // sort by distance
-            withDist.sort((a, b) => a.dist - b.dist);
-            // keep only closest 98%
-            const keepCount = Math.ceil(points.length * 0.98);
-            
-            // ensure at least 3 points to form a hull
-            if (keepCount < 3) return;
-            
-            // extract kept points
-            const keptPoints = withDist.slice(0, keepCount).map(item => [item.p.x, item.p.y] as [number, number]);
+          const withDist = points.map(p => ({
+            p,
+            dist: (p.x - cx)**2 + (p.y - cy)**2
+          }));
+          withDist.sort((a, b) => a.dist - b.dist);
+          const keepCount = Math.ceil(points.length * 0.98);
 
-            // 3. usage of concaveman package to compute hull 
-            // Use lower concavity (1.0) for tighter hulls to avoid visual overlap
-            let hullPoints;
-            if (typeof concaveman === 'function') {
-                hullPoints = concaveman(keptPoints, 1.0);
-            } else if ((concaveman as any).default) {
-                 // Handle potential ESM/CJS interop issues because I had 
-                 // the issue in some setups where concaveman was an object with a default property
-                hullPoints = (concaveman as any).default(keptPoints, 1.0);
-            } else {
-                console.warn("Concaveman not found or invalid type", concaveman);
-                return;
-            }
+          if (keepCount < 3) return;
 
-            // 1) glätten
-            let smoothHull = chaikinSmooth(hullPoints as [number, number][], 2);
+          const keptPoints = withDist.slice(0, keepCount).map(item => [item.p.x, item.p.y] as [number, number]);
 
-            // 2) Padding dynamisch aus Spread (statt minOffset=35)
-            const spread = clusterSpread(points, cx, cy);
-            const padding = Math.max(20, spread * 0.35);
+          let hullPoints;
+          if (typeof concaveman === 'function') {
+            hullPoints = concaveman(keptPoints, 1.0);
+          } else if ((concaveman as any).default) {
+            hullPoints = (concaveman as any).default(keptPoints, 1.0);
+          } else {
+            console.warn("Concaveman not found or invalid type", concaveman);
+            return;
+          }
 
-            // 3) aufblasen bis alle Punkte + padding "radial" reinpassen (mit cap)
-            smoothHull = inflateToContainPadding(
-              smoothHull,
-              points,
-              cx, cy,
-              padding,
-              1.6
-            );
+          const color = getClusterColor(cat, cat) || '#cccccc';
 
-            const color = getClusterColor(cat, cat) || '#cccccc';
-            
-            // finally store hull
-            hulls.push({
-                path: smoothHull,
-                color: color + '33', 
-                strokeColor: color + '66',
-                label: getCategoryCountryName(cat),
-                cx, cy
-            });
+          hulls.push({
+            path: hullPoints,
+            color: color + '33',
+            strokeColor: color + '66',
+            label: getCategoryCountryName(cat),
+            cx, cy
+          });
         });
 
         console.log(`Generated ${hulls.length} hulls.`);
 
-        // Bind hull drawing
-        const camera = renderer.getCamera();
-        camera.on('updated', () => drawHulls(hulls));
-        
         // Initial draw
         setTimeout(() => drawHulls(hulls), 100);
 
@@ -488,7 +325,7 @@ function clusterSpread(points: {x:number;y:number}[], cx:number, cy:number) {
     height: 600px;
     border: none;
     background-color: #1e1e27;
-    position: relative; 
+    position: relative;
   }
 
   canvas {
@@ -497,8 +334,8 @@ function clusterSpread(points: {x:number;y:number}[], cx:number, cy:number) {
     left: 0;
     width: 100%;
     height: 100%;
-    pointer-events: none; 
-    z-index: 1; 
+    pointer-events: none;
+    z-index: 1;
   }
 
   .paper-details {
@@ -513,7 +350,7 @@ function clusterSpread(points: {x:number;y:number}[], cx:number, cy:number) {
     display: none;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     font-size: 14px;
-    z-index: 10; 
+    z-index: 10;
   }
 
   .paper-details.visible {
@@ -533,7 +370,7 @@ function clusterSpread(points: {x:number;y:number}[], cx:number, cy:number) {
 </style>
 
 <div class="graph-container" bind:this={container}>
-    <canvas bind:this={hullCanvas}></canvas>
+  <canvas bind:this={hullCanvas}></canvas>
 </div>
 
 {#if selectedPaper}
@@ -542,6 +379,5 @@ function clusterSpread(points: {x:number;y:number}[], cx:number, cy:number) {
     <p><strong>authors:</strong> {selectedPaper.authors}</p>
     <p><strong>summary:</strong> {selectedPaper.summary}</p>
     <p><strong>published:</strong> {selectedPaper.published ? new Date(selectedPaper.published).toLocaleDateString() : 'Unbekannt'}</p>
-    <p><strong>citations:</strong> {selectedPaper.citations.length}</p>
   </div>
 {/if}

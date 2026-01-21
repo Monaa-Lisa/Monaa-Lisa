@@ -9,6 +9,7 @@ export interface Paper {
   url?: string;
   tsne?: [number, number] | { x: number; y: number } | { tsne1: number; tsne2: number };
   added?: string;
+  cluster?: string;
 }
 
 export interface PapersResponse {
