@@ -20,9 +20,23 @@ export class PaperCitationsService {
   }
 
   async findByBelongingPaper(entryId: string) {
-    return this.prisma.paperCitation.findMany({
+    // Get all citations for this paper
+    const citations = await this.prisma.paperCitation.findMany({
       where: { belonging_paper_entry_id: entryId },
     });
+
+    // Filter out citations where the cited paper has a stub title
+    const citedPaperIds = citations.map((c) => c.cited_paper_entry_id);
+    const validPapers = await this.prisma.paper.findMany({
+      where: {
+        entry_id: { in: citedPaperIds },
+        title: { not: '[STUB] Pending Fetch' },
+      },
+      select: { entry_id: true },
+    });
+
+    const validEntryIds = new Set(validPapers.map((p) => p.entry_id));
+    return citations.filter((c) => validEntryIds.has(c.cited_paper_entry_id));
   }
 
   // To remove a link we need both keys

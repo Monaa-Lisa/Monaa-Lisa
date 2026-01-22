@@ -2,6 +2,7 @@
   import { createEventDispatcher, tick } from 'svelte';
   import type { Paper } from '$lib/types/paper';
   import { getClusterColor } from '../utils/clusterColors';
+  import { paperConnections, citationsWithPapers, referencesWithPapers } from '$lib/stores/paperConnections';
 
   /**
    * array of papers to display.
@@ -40,7 +41,7 @@
       localSelected = foundPaper || null;
       focusSelected = true;
       isOpen = true; // FORCE OPEN SIDEBAR
-      
+
       tick().then(() => {
         const el = document.querySelector(`[data-paper-id="${selectedPaperId}"]`) as HTMLElement | null;
         if (el) {
@@ -63,7 +64,8 @@
     if (!q) return dataSource;
     return dataSource.filter((p) => {
       const inTitle = normalize(p.title).includes(q);
-      const inAuthors = normalize(p.authors).includes(q);
+      const authorsStr = Array.isArray(p.authors) ? p.authors.join(' ') : p.authors;
+      const inAuthors = normalize(authorsStr).includes(q);
       const inSummary = normalize(p.summary).includes(q);
       return inTitle || inAuthors || inSummary;
     });
@@ -181,12 +183,14 @@
     {/if}
   </div>
   
+  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
   <div class="sidebar-content" on:click={() => dispatch('deselect')}>
     {#if displayedPapers.length === 0}
       <div class="empty">No papers found.</div>
     {:else}
       {#each displayedPapers as paper (paper.entry_id)}
-        <div 
+        <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+        <div
           class="paper-item" 
           class:selected={selectedPaperId === paper.entry_id}
           data-paper-id={paper.entry_id}
@@ -199,34 +203,93 @@
             <h4>{paper.title}</h4>
             <p class="paper-authors">{paper.authors}</p>
             <p class="paper-summary">
-              {paper.summary.length > 100
-                ? `${paper.summary.substring(0, 100)}...`
-                : paper.summary}
+              {(paper.summary ?? '').length > 100
+                ? `${(paper.summary ?? '').substring(0, 100)}...`
+                : paper.summary ?? ''}
             </p>
             <div class="paper-meta">
-              <button
-                class="citations"
-                on:click|stopPropagation={() => toggleCitations(paper.entry_id)}
-              >
-                Citations ({paper.citations?.length ?? 0}) {expandedCitations.has(paper.entry_id) ? '▾' : '▸'}
-              </button>
+              {#if selectedPaperId === paper.entry_id}
+                <button
+                  class="citations"
+                  on:click|stopPropagation={() => paper.entry_id && toggleCitations(paper.entry_id)}
+                >
+                  {#if $paperConnections.loading}
+                    Loading...
+                  {:else}
+                    Citations ({$citationsWithPapers.length}) / Refs ({$referencesWithPapers.length}) {paper.entry_id && expandedCitations.has(paper.entry_id) ? '▾' : '▸'}
+                  {/if}
+                </button>
+              {/if}
               <span class="date">{paper.published ? new Date(paper.published).getFullYear() : '—'}</span>
             </div>
 
-            {#if expandedCitations.has(paper.entry_id) && (paper.citations?.length ?? 0) > 0}
+            {#if selectedPaperId === paper.entry_id && paper.entry_id && expandedCitations.has(paper.entry_id)}
               <div class="cited-papers">
-                {#each paper.citations as citedId}
-                  {@const citedPaper = dataSource.find((p) => p.entry_id === citedId)}
-                  {#if citedPaper}
-                    <div 
-                      class="cited-paper-item" 
-                      on:click|stopPropagation={() => selectCitedPaper(citedId)}
-                    >
-                      <h5>{citedPaper.title}</h5>
-                      <p>{citedPaper.authors}</p>
-                    </div>
-                  {/if}
-                {/each}
+                {#if $citationsWithPapers.length > 0}
+                  <div class="connection-section">
+                    <span class="connection-label citation-label">📥 Cited by this paper:</span>
+                    {#each $citationsWithPapers as conn}
+                      {#if conn.paper}
+                        <div
+                          class="cited-paper-item"
+                          role="button"
+                          tabindex="0"
+                          on:click|stopPropagation={() => selectCitedPaper(conn.entry_id)}
+                          on:keydown|stopPropagation={(e) => e.key === 'Enter' && selectCitedPaper(conn.entry_id)}
+                        >
+                          <div class="cited-paper-cluster" style="background-color: {getClusterColor(conn.paper.category, conn.paper.cluster)}">
+                            {conn.paper.cluster}
+                          </div>
+                          <div class="cited-paper-info">
+                            <h5>{conn.paper.title}</h5>
+                            <p class="cited-paper-authors">{conn.paper.authors}</p>
+                            <p class="cited-paper-summary">
+                              {conn.paper.summary && conn.paper.summary.length > 80
+                                ? `${conn.paper.summary.substring(0, 80)}...`
+                                : conn.paper.summary ?? ''}
+                            </p>
+                            <span class="cited-paper-date">{conn.paper.published ? new Date(conn.paper.published).getFullYear() : '—'}</span>
+                          </div>
+                        </div>
+                      {/if}
+                    {/each}
+                  </div>
+                {/if}
+
+                {#if $referencesWithPapers.length > 0}
+                  <div class="connection-section">
+                    <span class="connection-label reference-label">📤 References:</span>
+                    {#each $referencesWithPapers as conn}
+                      {#if conn.paper}
+                        <div
+                          class="cited-paper-item reference-item"
+                          role="button"
+                          tabindex="0"
+                          on:click|stopPropagation={() => selectCitedPaper(conn.entry_id)}
+                          on:keydown|stopPropagation={(e) => e.key === 'Enter' && selectCitedPaper(conn.entry_id)}
+                        >
+                          <div class="cited-paper-cluster" style="background-color: {getClusterColor(conn.paper.category, conn.paper.cluster)}">
+                            {conn.paper.cluster}
+                          </div>
+                          <div class="cited-paper-info">
+                            <h5>{conn.paper.title}</h5>
+                            <p class="cited-paper-authors">{conn.paper.authors}</p>
+                            <p class="cited-paper-summary">
+                              {conn.paper.summary && conn.paper.summary.length > 80
+                                ? `${conn.paper.summary.substring(0, 80)}...`
+                                : conn.paper.summary ?? ''}
+                            </p>
+                            <span class="cited-paper-date">{conn.paper.published ? new Date(conn.paper.published).getFullYear() : '—'}</span>
+                          </div>
+                        </div>
+                      {/if}
+                    {/each}
+                  </div>
+                {/if}
+
+                {#if $citationsWithPapers.length === 0 && $referencesWithPapers.length === 0 && !$paperConnections.loading}
+                  <p class="no-connections">No connections found in current dataset</p>
+                {/if}
               </div>
             {/if}
           </div>
@@ -471,21 +534,108 @@
     margin-bottom: 0.25rem;
     border-radius: 4px;
     cursor: pointer;
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
   }
 
   .cited-paper-item:hover {
     background-color: #4a4a55;
   }
 
+  .cited-paper-item.cited-paper-missing {
+    flex-direction: column;
+    gap: 0.25rem;
+    opacity: 0.6;
+  }
+
+  .cited-paper-cluster {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+
+  .cited-paper-info {
+    flex: 1;
+    min-width: 0;
+  }
+
   .cited-paper-item h5 {
     margin: 0 0 0.15rem 0;
     font-size: 12px;
     color: white;
+    line-height: 1.2;
   }
 
-  .cited-paper-item p {
-    margin: 0;
+  .cited-paper-authors {
+    margin: 0 0 0.25rem 0;
     font-size: 10px;
-    color: #ccc;
+    color: #999;
+    font-style: italic;
+  }
+
+  .cited-paper-summary {
+    margin: 0 0 0.25rem 0;
+    font-size: 10px;
+    color: #bbb;
+    line-height: 1.3;
+  }
+
+  .cited-paper-date {
+    font-size: 9px;
+    color: #888;
+  }
+
+  .missing-paper-id {
+    font-size: 10px;
+    color: #999;
+    font-family: monospace;
+  }
+
+  .missing-paper-note {
+    font-size: 9px;
+    color: #666;
+    font-style: italic;
+  }
+
+  .connection-section {
+    margin-bottom: 0.75rem;
+  }
+
+  .connection-label {
+    display: block;
+    font-size: 11px;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+  }
+
+  .citation-label {
+    color: #FFD700;
+    background-color: rgba(255, 215, 0, 0.15);
+  }
+
+  .reference-label {
+    color: #1E90FF;
+    background-color: rgba(30, 144, 255, 0.15);
+  }
+
+  .reference-item {
+    border-left: 2px solid #1E90FF;
+  }
+
+  .no-connections {
+    color: #888;
+    font-size: 11px;
+    font-style: italic;
+    padding: 0.5rem;
   }
 </style>

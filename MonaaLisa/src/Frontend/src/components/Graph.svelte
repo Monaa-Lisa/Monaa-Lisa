@@ -4,7 +4,7 @@
   import Sigma from 'sigma';
   import concaveman from 'concaveman';
   import type { Paper } from '$lib/types/paper';
-  import { fetchPaperCitations, fetchPaperReferences } from '$lib/api';
+  import { paperConnections } from '$lib/stores/paperConnections';
   import { getClusterColor } from '../utils/clusterColors';
   import { getCategoryCountryName } from '../utils/categoryCountries';
 
@@ -146,37 +146,21 @@
     }
 
     try {
-      const [citations, references] = await Promise.all([
-        fetchPaperCitations(nodeId),
-        fetchPaperReferences(nodeId)
-      ]);
+      // Use the store to fetch connections (shared with Sidebar)
+      const { citations, references } = await paperConnections.fetchConnections(nodeId);
 
       console.log(`Fetched for ${nodeId}:`, { citationsCount: citations.length, referencesCount: references.length });
-      console.log('Citations:', citations);
-      console.log('References:', references);
 
-      const processConnections = (items: any[], type: string) => {
+      const processConnections = (items: { entry_id: string; paper?: Paper; type: string; raw?: any }[], type: string) => {
         const isCitation = type === 'citation';
         // Citation: Yellow/Gold (Source cites Selected), Reference: Blue (Selected cites Target)
         const baseColor = isCitation ? '255, 215, 0' : '30, 144, 255';
         const nodeColor = isCitation ? '#FFD700' : '#1E90FF';
 
-        items.forEach((item: any) => {
-          const candidateIds = [
-              item.source_entry_id,
-              item.target_entry_id,
-              item.entry_id,
-              item.id,
-              item.belonging_paper_entry_id,
-              item.cited_paper_entry_id,
-              item.referenced_paper_entry_id
-          ].filter(Boolean);
+        items.forEach((item) => {
+          const targetId = item.entry_id;
 
-          console.log(`[${type}] Check item:`, item, 'Candidates:', candidateIds);
-
-          const targetId = candidateIds.find(id => String(id) !== String(nodeId) && graph?.hasNode(String(id)));
-
-          if (targetId) {
+          if (graph?.hasNode(targetId) && targetId !== nodeId) {
              console.log(`Found target node in graph: ${targetId}`);
              // avoid duplicate edges
              if (!graph?.hasEdge(nodeId, targetId) && !graph?.hasEdge(targetId, nodeId)) {
@@ -201,14 +185,14 @@
                 // Make connected nodes slightly larger
                 const currentSize = graph?.getNodeAttribute(targetId, 'size');
                 if (typeof currentSize === 'number') {
-                    graph?.setNodeAttribute(targetId, 'originalSize', currentSize); // save original size? maybe for complex reset logic later
+                    graph?.setNodeAttribute(targetId, 'originalSize', currentSize);
                     graph?.setNodeAttribute(targetId, 'size', currentSize * 1.5);
                 }
              } else {
                 console.log(`Edge between ${nodeId} and ${targetId} already exists`);
              }
           } else {
-             console.log(`No target node found in graph for candidates: ${candidateIds.join(', ')}`);
+             console.log(`No target node found in graph for: ${targetId}`);
           }
         });
       };
@@ -362,6 +346,9 @@
     console.log("Graph Component Mounting...");
     graph = new Graph({ multi: true });
     const dataSource = papers.filter(p => !!p.entry_id);
+
+    // Initialize the paper connections store with papers lookup
+    paperConnections.setPapersLookup(dataSource);
 
     // Stub setup
     const inDegree = new Map<string, number>();
