@@ -64,6 +64,11 @@
       const elapsed = Date.now() - start;
       const intensity = (Math.sin(elapsed / 300) + 1) / 2; // Slower, smoother pulse
 
+      // Get zoom ratio to scale edges
+      const cameraRatio = renderer.getCamera().getState().ratio;
+      // Scale factor: grows when zoomed out, shrinks when zoomed in (clamped)
+      const zoomScale = Math.max(0.3, Math.sqrt(Math.min(cameraRatio, 2)));
+
       let hasEdges = false;
       graph.forEachEdge((edge, attrs) => {
         hasEdges = true;
@@ -73,9 +78,9 @@
         const alpha = 0.2 + (0.7 * intensity);
         graph!.setEdgeAttribute(edge, 'color', `rgba(${baseColor}, ${alpha})`);
 
-        // Dynamic thickness: 2 (base) to 5 (peak) for a glowing "beam" effect
-        const size = 2 + (3 * intensity);
-        graph!.setEdgeAttribute(edge, 'size', size);
+        // Dynamic thickness: 4 (base) to 8 (peak) scaled by zoom
+        const baseSize = 4 + (4 * intensity);
+        graph!.setEdgeAttribute(edge, 'size', baseSize * zoomScale);
       });
 
       if (hasEdges) {
@@ -95,10 +100,9 @@
     if (!graph || !renderer || !graph.hasNode(nodeId)) return;
 
     stopPulsing();
+    resetVisuals();
 
-    const edgesToRemove = graph.edges();
-    edgesToRemove.forEach((edge) => graph!.dropEdge(edge));
-
+    // Dim all nodes for focus mode
     graph.forEachNode((n) => {
       graph!.setNodeAttribute(n, 'color', 'rgba(0, 0, 0, 0.25)');
     });
@@ -125,7 +129,7 @@
           {
             x: displayData.x,
             y: displayData.y,
-            ratio: Math.min(currentRatio * 0.6, 0.15)
+            ratio: Math.min(currentRatio, 0.15)
           },
           {
             duration: 800,
@@ -154,9 +158,9 @@
 
         items.forEach((item: any) => {
           const candidateIds = [
-              item.source_entry_id, 
-              item.target_entry_id, 
-              item.entry_id, 
+              item.source_entry_id,
+              item.target_entry_id,
+              item.entry_id,
               item.id,
               item.belonging_paper_entry_id,
               item.cited_paper_entry_id,
@@ -173,7 +177,7 @@
              if (!graph?.hasEdge(nodeId, targetId) && !graph?.hasEdge(targetId, nodeId)) {
                 // Add edge with custom styling attributes
                 graph?.addEdge(nodeId, targetId, {
-                  size: 3,
+                  size: 6, // Thicker base size for easier clicking
                   color: `rgba(${baseColor}, 1)`,
                   type: 'line',
                   baseColor: baseColor // used by startPulsing
@@ -277,6 +281,25 @@
 
   /* ------------------------------------- */
 
+  function resetVisuals() {
+    if (!graph) return;
+
+    // Drop temporary edges
+    graph.forEachEdge(edge => graph!.dropEdge(edge));
+
+    // Reset nodes to original state
+    graph.forEachNode(n => {
+      const originalColor = graph!.getNodeAttribute(n, 'originalColor');
+      if (originalColor) graph!.setNodeAttribute(n, 'color', originalColor);
+
+      const originalSize = graph!.getNodeAttribute(n, 'originalSize');
+      if (originalSize) {
+        graph!.setNodeAttribute(n, 'size', originalSize);
+        graph!.removeNodeAttribute(n, 'originalSize');
+      }
+    });
+  }
+
   $: if (selectedPaperId && selectedPaperId !== selectedNode && graph && renderer) {
     selectNodeById(selectedPaperId);
   }
@@ -332,8 +355,8 @@
     dataSource.forEach(p => inDegree.set(p.entry_id!, 0));
     let maxIn = 0;
 
-    const minSize = 1;
-    const maxSize = 6;
+    const minSize = 3;  // Increased from 1 for better visibility/clicking
+    const maxSize = 12; // Increased from 6 for better visibility/clicking
     const sizeFor = (count: number) => {
       if (maxIn === 0) return minSize;
       const t = count / maxIn;
@@ -419,6 +442,8 @@
         minCameraRatio: 0.001,
         maxCameraRatio: 100,
         renderLabels: false,
+        enableEdgeEvents: true,
+        doubleClickZoomingRatio: 1,
       });
 
       renderer.on('enterNode', ({ node }) => {
@@ -437,27 +462,42 @@
         selectNodeById(node);
       });
 
+      renderer.on('clickEdge', ({ edge }) => {
+        if (!graph) return;
+        const [source, target] = graph.extremities(edge);
+        if (selectedNode === source) {
+            selectNodeById(target);
+        } else {
+            selectNodeById(source);
+        }
+      });
+
+      // Native dblclick listener for reliable double-click detection on background
+      const handleDoubleClick = () => {
+        stopPulsing();
+        selectedNode = null;
+        selectedPaper = null;
+        resetVisuals();
+
+        // Just zoom out from current position, don't change x/y
+        const camera = renderer!.getCamera();
+        const currentState = camera.getState();
+        camera.animate(
+          { x: currentState.x, y: currentState.y, ratio: Math.min(currentState.ratio * 3, 1.5) },
+          { duration: 500, easing: 'cubicInOut' }
+        );
+
+        renderer!.refresh();
+        dispatch('nodeDeselected');
+      };
+
+      container.addEventListener('dblclick', handleDoubleClick);
+
       renderer.on('clickStage', () => {
         stopPulsing();
         selectedNode = null;
         selectedPaper = null;
-        graph!.forEachNode((n) => {
-          const originalColor = graph!.getNodeAttribute(n, 'originalColor');
-          graph!.setNodeAttribute(n, 'color', originalColor);
-        });
-        const edgesToRemove = graph!.edges();
-        edgesToRemove.forEach((edge) => graph!.dropEdge(edge));
-
-        // Reset node sizes if we changed them
-        graph!.forEachNode(n => {
-             const originalSize = graph!.getNodeAttribute(n, 'originalSize');
-             if (originalSize) {
-                 graph!.setNodeAttribute(n, 'size', originalSize);
-                 graph!.removeNodeAttribute(n, 'originalSize');
-             }
-        });
-
-        renderer!.getCamera().animatedReset({ duration: 800 });
+        resetVisuals();
         renderer!.refresh();
         dispatch('nodeDeselected');
       });
@@ -469,6 +509,7 @@
 
       const killRenderer = () => {
         if (hoverTimeout) clearTimeout(hoverTimeout);
+        container?.removeEventListener('dblclick', handleDoubleClick);
         if (renderer) {
           renderer.getCamera().off('updated', hullDrawer);
           renderer.kill();
