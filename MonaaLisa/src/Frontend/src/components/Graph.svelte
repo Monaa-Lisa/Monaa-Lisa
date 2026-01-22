@@ -147,15 +147,16 @@
 
     try {
       // Use the store to fetch connections (shared with Sidebar)
-      const { citations, references } = await paperConnections.fetchConnections(nodeId);
+      const { citations, references, relations } = await paperConnections.fetchConnections(nodeId);
 
-      console.log(`Fetched for ${nodeId}:`, { citationsCount: citations.length, referencesCount: references.length });
+      console.log(`Fetched for ${nodeId}:`, { citationsCount: citations.length, referencesCount: references.length, relationsCount: relations.length });
 
       const processConnections = (items: { entry_id: string; paper?: Paper; type: string; raw?: any }[], type: string) => {
         const isCitation = type === 'citation';
-        // Citation: Yellow/Gold (Source cites Selected), Reference: Blue (Selected cites Target)
-        const baseColor = isCitation ? '255, 215, 0' : '30, 144, 255';
-        const nodeColor = isCitation ? '#FFD700' : '#1E90FF';
+        const isRelation = type === 'relation';
+        // Citation: Yellow/Gold, Reference: Blue, Relation: Green
+        const baseColor = isCitation ? '255, 215, 0' : (isRelation ? '50, 205, 50' : '30, 144, 255');
+        const nodeColor = isCitation ? '#FFD700' : (isRelation ? '#32CD32' : '#1E90FF');
 
         items.forEach((item) => {
           const targetId = item.entry_id;
@@ -199,6 +200,7 @@
 
       processConnections(citations, 'citation');
       processConnections(references, 'reference');
+      processConnections(relations, 'relation');
 
       if (graph.edges().length > 0) {
         startPulsing();

@@ -39,3 +39,9 @@ export interface Reference {
   semanticscholar_obj: Record<string, any>;
 }
 
+export interface Relation {
+  source_id: string;
+  target_id: string;
+  confidence: number;
+}
+

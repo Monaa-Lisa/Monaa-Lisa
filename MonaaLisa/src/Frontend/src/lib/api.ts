@@ -1,5 +1,5 @@
 import { env as publicEnv } from '$env/dynamic/public';
-import type { Paper, PaperCitation, PaperReference, Citation, Reference, PapersResponse } from '$lib/types/paper';
+import type { Paper, PaperCitation, PaperReference, Citation, Reference, Relation, PapersResponse } from '$lib/types/paper';
 
 const API_BASE_URL = publicEnv.PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
@@ -89,6 +89,42 @@ export async function fetchExternalReferences(entryId: string): Promise<Referenc
   return res.json();
 }
 
+/**
+ * Fetches all relations for a given paper (both as source and target).
+ */
+export async function fetchRelationsForPaper(entryId: string): Promise<Relation[]> {
+  const res = await fetch(`${API_BASE_URL}/relations/paper/${encodeURIComponent(entryId)}`);
+  if (!res.ok) throw new Error(`Failed to fetch relations for paper: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Fetches relations where the given paper is the source.
+ */
+export async function fetchRelationsBySource(sourceId: string): Promise<Relation[]> {
+  const res = await fetch(`${API_BASE_URL}/relations/source/${encodeURIComponent(sourceId)}`);
+  if (!res.ok) throw new Error(`Failed to fetch relations by source: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Fetches relations where the given paper is the target.
+ */
+export async function fetchRelationsByTarget(targetId: string): Promise<Relation[]> {
+  const res = await fetch(`${API_BASE_URL}/relations/target/${encodeURIComponent(targetId)}`);
+  if (!res.ok) throw new Error(`Failed to fetch relations by target: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Fetches all relations with optional pagination.
+ */
+export async function fetchAllRelations(limit = 1000, skip = 0): Promise<Relation[]> {
+  const res = await fetch(`${API_BASE_URL}/relations?take=${limit}&skip=${skip}`);
+  if (!res.ok) throw new Error(`Failed to fetch all relations: ${res.status}`);
+  return res.json();
+}
+
 function normalizePaper(raw: Paper, index: number, total: number): Paper | null {
   if (!raw || !raw.entry_id || !raw.title || raw.title === '[STUB] Pending Fetch') {
     return null;
@@ -100,7 +136,6 @@ function normalizePaper(raw: Paper, index: number, total: number): Paper | null 
   const category = (raw.category ?? anyRaw.cluster) ?? null;
   const { tsne1, tsne2 } = deriveTsne(raw.tsne, index, total);
 
-    console.log("alle")
   return {
     id: Number(raw.id ?? index),
     entry_id: raw.entry_id,
@@ -124,38 +159,6 @@ function formatAuthors(authors: Paper['authors']): string {
   return authors;
 }
 
-function deriveStringArray(value: unknown): string[] {
-  if (!value) return [];
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => {
-        if (typeof item === 'string') return item;
-        if (typeof item === 'number') return item.toString();
-        if (item && typeof item === 'object' && 'entry_id' in item) {
-          const candidate = (item as { entry_id?: string }).entry_id;
-          return candidate ?? '';
-        }
-        return '';
-      })
-      .filter(Boolean);
-  }
-  if (typeof value === 'string') {
-    return value
-      .split(',')
-      .map((part) => part.trim())
-      .filter(Boolean);
-  }
-  if (typeof value === 'object') {
-    return Object.values(value as Record<string, unknown>)
-      .map((val) => {
-        if (typeof val === 'string') return val;
-        if (typeof val === 'number') return val.toString();
-        return '';
-      })
-      .filter(Boolean);
-  }
-  return [];
-}
 
 function deriveTsne(value: unknown, index: number, total: number) {
   const fallback = circlePosition(index, total);

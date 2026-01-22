@@ -2,7 +2,7 @@
   import { createEventDispatcher, tick } from 'svelte';
   import type { Paper } from '$lib/types/paper';
   import { getClusterColor } from '../utils/clusterColors';
-  import { paperConnections, citationsWithPapers, referencesWithPapers } from '$lib/stores/paperConnections';
+  import { paperConnections, citationsWithPapers, referencesWithPapers, relationsWithPapers } from '$lib/stores/paperConnections';
 
   /**
    * array of papers to display.
@@ -216,7 +216,7 @@
                   {#if $paperConnections.loading}
                     Loading...
                   {:else}
-                    Citations ({$citationsWithPapers.length}) / Refs ({$referencesWithPapers.length}) {paper.entry_id && expandedCitations.has(paper.entry_id) ? '▾' : '▸'}
+                    Citations ({$citationsWithPapers.length}) / Refs ({$referencesWithPapers.length}) / Rel ({$relationsWithPapers.length}) {paper.entry_id && expandedCitations.has(paper.entry_id) ? '▾' : '▸'}
                   {/if}
                 </button>
               {/if}
@@ -287,7 +287,38 @@
                   </div>
                 {/if}
 
-                {#if $citationsWithPapers.length === 0 && $referencesWithPapers.length === 0 && !$paperConnections.loading}
+                {#if $relationsWithPapers.length > 0}
+                  <div class="connection-section">
+                    <span class="connection-label relation-label">🔗 Relations:</span>
+                    {#each $relationsWithPapers as conn}
+                      {#if conn.paper}
+                        <div
+                          class="cited-paper-item relation-item"
+                          role="button"
+                          tabindex="0"
+                          on:click|stopPropagation={() => selectCitedPaper(conn.entry_id)}
+                          on:keydown|stopPropagation={(e) => e.key === 'Enter' && selectCitedPaper(conn.entry_id)}
+                        >
+                          <div class="cited-paper-cluster" style="background-color: {getClusterColor(conn.paper.category, conn.paper.cluster)}">
+                            {conn.paper.cluster}
+                          </div>
+                          <div class="cited-paper-info">
+                            <h5>{conn.paper.title}</h5>
+                            <p class="cited-paper-authors">{conn.paper.authors}</p>
+                            <p class="cited-paper-summary">
+                              {conn.paper.summary && conn.paper.summary.length > 80
+                                ? `${conn.paper.summary.substring(0, 80)}...`
+                                : conn.paper.summary ?? ''}
+                            </p>
+                            <span class="cited-paper-date">{conn.paper.published ? new Date(conn.paper.published).getFullYear() : '—'}</span>
+                          </div>
+                        </div>
+                      {/if}
+                    {/each}
+                  </div>
+                {/if}
+
+                {#if $citationsWithPapers.length === 0 && $referencesWithPapers.length === 0 && $relationsWithPapers.length === 0 && !$paperConnections.loading}
                   <p class="no-connections">No connections found in current dataset</p>
                 {/if}
               </div>
@@ -630,6 +661,15 @@
 
   .reference-item {
     border-left: 2px solid #1E90FF;
+  }
+
+  .relation-label {
+    color: #32CD32;
+    background-color: rgba(50, 205, 50, 0.15);
+  }
+
+  .relation-item {
+    border-left: 2px solid #32CD32;
   }
 
   .no-connections {

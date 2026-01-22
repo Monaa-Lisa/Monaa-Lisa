@@ -1,11 +1,11 @@
 import { writable, derived } from 'svelte/store';
-import { fetchPaperCitations, fetchPaperReferences } from '$lib/api';
+import { fetchPaperCitations, fetchPaperReferences, fetchRelationsForPaper } from '$lib/api';
 import type { Paper } from '$lib/types/paper';
 
 export interface PaperConnection {
   entry_id: string;
   paper?: Paper; // The actual paper object if found in dataset
-  type: 'citation' | 'reference';
+  type: 'citation' | 'reference' | 'relation';
   // Raw data from API
   raw?: any;
 }
@@ -14,6 +14,7 @@ export interface PaperConnectionsState {
   selectedPaperId: string | null;
   citations: PaperConnection[];
   references: PaperConnection[];
+  relations: PaperConnection[];
   loading: boolean;
   error: string | null;
 }
@@ -22,6 +23,7 @@ const initialState: PaperConnectionsState = {
   selectedPaperId: null,
   citations: [],
   references: [],
+  relations: [],
   loading: false,
   error: null
 };
@@ -58,9 +60,10 @@ function createPaperConnectionsStore() {
       }));
 
       try {
-        const [citationsRaw, referencesRaw] = await Promise.all([
+        const [citationsRaw, referencesRaw, relationsRaw] = await Promise.all([
           fetchPaperCitations(paperId),
-          fetchPaperReferences(paperId)
+          fetchPaperReferences(paperId),
+          fetchRelationsForPaper(paperId)
         ]);
 
         // Process citations - extract entry_ids and resolve papers
@@ -106,14 +109,37 @@ function createPaperConnectionsStore() {
           };
         });
 
+        // Process relations
+        const relations: PaperConnection[] = relationsRaw.map((item: any) => {
+          // Relation has source_id and target_id - find the one that is NOT the selected paper
+          const sourceId = item.source_id;
+          const targetId = item.target_id;
+
+          // Pick the "other" paper ID (not the currently selected one)
+          let entryIdStr: string;
+          if (String(sourceId) === String(paperId)) {
+            entryIdStr = String(targetId);
+          } else {
+            entryIdStr = String(sourceId);
+          }
+
+          return {
+            entry_id: entryIdStr,
+            paper: papersLookup.get(entryIdStr),
+            type: 'relation' as const,
+            raw: item
+          };
+        });
+
         update(state => ({
           ...state,
           citations,
           references,
+          relations,
           loading: false
         }));
 
-        return { citations, references };
+        return { citations, references, relations };
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to fetch connections';
         update(state => ({
@@ -153,5 +179,11 @@ export const citationsWithPapers = derived(
 export const referencesWithPapers = derived(
   paperConnections,
   $state => $state.references.filter(r => r.paper)
+);
+
+// Derived store for relations with resolved papers
+export const relationsWithPapers = derived(
+  paperConnections,
+  $state => $state.relations.filter(r => r.paper)
 );
 
