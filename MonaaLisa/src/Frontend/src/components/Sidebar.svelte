@@ -290,7 +290,7 @@
                 {#if $relationsWithPapers.length > 0}
                   <div class="connection-section">
                     <span class="connection-label relation-label">🔗 Relations:</span>
-                    {#each $relationsWithPapers as conn}
+                    {#each [...$relationsWithPapers].sort((a, b) => (b.raw?.confidence ?? 0) - (a.raw?.confidence ?? 0)) as conn}
                       {#if conn.paper}
                         <div
                           class="cited-paper-item relation-item"
@@ -310,7 +310,10 @@
                                 ? `${conn.paper.summary.substring(0, 80)}...`
                                 : conn.paper.summary ?? ''}
                             </p>
-                            <span class="cited-paper-date">{conn.paper.published ? new Date(conn.paper.published).getFullYear() : '—'}</span>
+                            <div class="cited-paper-meta">
+                              <span class="cited-paper-date">{conn.paper.published ? new Date(conn.paper.published).getFullYear() : '—'}</span>
+                              <span class="relation-confidence">Confidence: {((conn.raw?.confidence ?? 0) * 100).toFixed(1)}%</span>
+                            </div>
                           </div>
                         </div>
                       {/if}
@@ -670,6 +673,19 @@
 
   .relation-item {
     border-left: 2px solid #32CD32;
+  }
+
+  .cited-paper-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .relation-confidence {
+    font-size: 9px;
+    color: #32CD32;
+    font-weight: bold;
   }
 
   .no-connections {
