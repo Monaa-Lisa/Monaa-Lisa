@@ -108,6 +108,20 @@
     return authors.map(a => a.name).join(', ');
   }
 
+  function getPublishedYear(dateStr: string | null | undefined): number {
+    if (!dateStr) return 0;
+    const year = new Date(dateStr).getFullYear();
+    return isNaN(year) ? 0 : year;
+  }
+
+  function sortByPublishedYear<T extends { paper?: { published?: string | null } }>(items: T[]): T[] {
+    return [...items].sort((a, b) => getPublishedYear(b.paper?.published) - getPublishedYear(a.paper?.published));
+  }
+
+  function sortExternalByYear<T extends { semanticscholar_obj: { year?: number } }>(items: T[]): T[] {
+    return [...items].sort((a, b) => (b.semanticscholar_obj?.year ?? 0) - (a.semanticscholar_obj?.year ?? 0));
+  }
+
   function showAll() {
     focusSelected = false;
     localSelected = null;
@@ -253,7 +267,7 @@
                 {#if $citationsWithPapers.length > 0}
                   <div class="connection-section">
                     <span class="connection-label citation-label">📥 Cited by this paper:</span>
-                    {#each $citationsWithPapers as conn}
+                    {#each sortByPublishedYear($citationsWithPapers) as conn}
                       {#if conn.paper}
                         <div
                           class="cited-paper-item"
@@ -284,7 +298,7 @@
                 {#if $referencesWithPapers.length > 0}
                   <div class="connection-section">
                     <span class="connection-label reference-label">📤 References:</span>
-                    {#each $referencesWithPapers as conn}
+                    {#each sortByPublishedYear($referencesWithPapers) as conn}
                       {#if conn.paper}
                         <div
                           class="cited-paper-item reference-item"
@@ -368,7 +382,7 @@
                       {#if $paperConnections.externalCitations.length > 0}
                         <div class="connection-section">
                           <span class="connection-label external-citation-label">📥 External Citations:</span>
-                          {#each $paperConnections.externalCitations as ext}
+                          {#each sortExternalByYear($paperConnections.externalCitations) as ext}
                             {@const sem = ext.semanticscholar_obj}
                             {@const itemId = `ext-cit-${sem?.paperId || ext.id}`}
                             <div
@@ -421,7 +435,7 @@
                       {#if $paperConnections.externalReferences.length > 0}
                         <div class="connection-section">
                           <span class="connection-label external-reference-label">📤 External References:</span>
-                          {#each $paperConnections.externalReferences as ext}
+                          {#each sortExternalByYear($paperConnections.externalReferences) as ext}
                             {@const sem = ext.semanticscholar_obj}
                             {@const itemId = `ext-ref-${sem?.paperId || ext.id}`}
                             <div
