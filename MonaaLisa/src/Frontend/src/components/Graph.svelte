@@ -3,19 +3,14 @@
   import Graph from 'graphology';
   import Sigma from 'sigma';
   import concaveman from 'concaveman';
-  import type { Paper } from '$lib/types/paper';
+  import type { Paper, Hull } from '$lib/types/paper';
   import { paperConnections } from '$lib/stores/paperConnections';
   import { getClusterColor } from '../utils/clusterColors';
   import { getCategoryCountryName } from '../utils/categoryCountries';
 
-  /**
-   * array of papers to display in the graph.
-   * passed from the parent component.
-   */
   export let papers: Paper[] = [];
   export let selectedPaperId: string | null = null;
 
-  //internal state variables for component management
   let container: HTMLDivElement | null = null;
   let hullCanvas: HTMLCanvasElement | null = null;
   let selectedPaper: Paper | null = null;
@@ -23,14 +18,8 @@
   let renderer: Sigma | null = null;
   let graph: Graph | null = null;
   let pulseFrameId: number | null = null;
-
-  // Hulls state variable (promoted to top-level so listeners can access it)
-  let hulls: any[] = [];
-
-  //add cache for quick paper lookup
-  let paperCache: Map<string, Paper> = new Map();
-  //add debounce for hover
-  let hoverTimeout: number | null = null;
+  let hulls: Hull[] = [];
+  let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
 
   const dispatch = createEventDispatcher();
   const FALLBACK_NODE_COLOR = '#999999';
@@ -125,11 +114,9 @@
     const displayData = renderer.getNodeDisplayData(nodeId);
 
     if (displayData) {
-        console.log("Zooming to display node:", nodeId, displayData);
         const camera = renderer.getCamera();
         const currentRatio = camera.getState().ratio;
 
-        // Animate camera to the node's position
         camera.animate(
           {
             x: displayData.x,
@@ -149,7 +136,6 @@
       // Use the store to fetch connections (shared with Sidebar)
       const { citations, references, relations } = await paperConnections.fetchConnections(nodeId);
 
-      console.log(`Fetched for ${nodeId}:`, { citationsCount: citations.length, referencesCount: references.length, relationsCount: relations.length });
 
       const processConnections = (items: { entry_id: string; paper?: Paper; type: string; raw?: any }[], type: string) => {
         const isCitation = type === 'citation';
@@ -162,7 +148,6 @@
           const targetId = item.entry_id;
 
           if (graph?.hasNode(targetId) && targetId !== nodeId) {
-             console.log(`Found target node in graph: ${targetId}`);
              // avoid duplicate edges
              if (!graph?.hasEdge(nodeId, targetId) && !graph?.hasEdge(targetId, nodeId)) {
                 // Add outline edge first
@@ -189,11 +174,7 @@
                     graph?.setNodeAttribute(targetId, 'originalSize', currentSize);
                     graph?.setNodeAttribute(targetId, 'size', currentSize * 1.5);
                 }
-             } else {
-                console.log(`Edge between ${nodeId} and ${targetId} already exists`);
              }
-          } else {
-             console.log(`No target node found in graph for: ${targetId}`);
           }
         });
       };
@@ -204,8 +185,6 @@
 
       if (graph.edges().length > 0) {
         startPulsing();
-      } else {
-        console.log('No edges to pulse.');
       }
 
     } catch (err) {
@@ -345,7 +324,6 @@
   }
 
   onMount(() => {
-    console.log("Graph Component Mounting...");
     graph = new Graph({ multi: true });
     const dataSource = papers.filter(p => !!p.entry_id);
 
@@ -427,7 +405,6 @@
         inCitations
       });
 
-      paperCache.set(entryId, paper);
 
       if (!categoryPoints.has(cat)) {
         categoryPoints.set(cat, []);
@@ -436,7 +413,6 @@
     });
 
     if (container) {
-      console.log("Initializing Sigma Renderer...");
       renderer = new Sigma(graph, container, {
         renderEdgeLabels: false,
         defaultNodeType: 'circle',
@@ -451,8 +427,8 @@
       renderer.on('enterNode', ({ node }) => {
         if (hoverTimeout) clearTimeout(hoverTimeout);
         hoverTimeout = setTimeout(() => {
-          selectedPaper = paperCache.get(node) || null;
-        }, 200) as unknown as number;
+          selectedPaper = graph?.getNodeAttribute(node, 'paper') as Paper || null;
+        }, 200);
       });
 
       renderer.on('leaveNode', () => {
@@ -516,13 +492,11 @@
           renderer.getCamera().off('updated', hullDrawer);
           renderer.kill();
         }
-        paperCache.clear();
       };
 
       // Compute Hulls
       try {
-        console.log("Computing Hulls...");
-        hulls = []; // Reset the top-level variable
+        hulls = [];
 
         categoryPoints.forEach((points, cat) => {
           if (points.length < 3) return;
@@ -578,7 +552,6 @@
           });
         });
 
-        console.log(`Generated ${hulls.length} hulls.`);
 
         // Initial draw
         setTimeout(() => drawHulls(hulls), 100);

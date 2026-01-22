@@ -164,34 +164,24 @@ function createPaperConnectionsStore() {
      */
     clear() {
       set(initialState);
-    },
-
-    /**
-     * Get a paper by entry_id from the lookup
-     */
-    getPaper(entryId: string): Paper | undefined {
-      return papersLookup.get(entryId);
     }
   };
 }
 
 export const paperConnections = createPaperConnectionsStore();
 
-// Derived store for easy access to citations with resolved papers
+// Derived stores for filtered connections with resolved papers
 export const citationsWithPapers = derived(
   paperConnections,
   $state => $state.citations.filter(c => c.paper)
 );
 
-// Derived store for references with resolved papers
 export const referencesWithPapers = derived(
   paperConnections,
   $state => $state.references.filter(r => r.paper)
 );
 
-// Derived store for relations with resolved papers
 export const relationsWithPapers = derived(
   paperConnections,
   $state => $state.relations.filter(r => r.paper)
 );
-

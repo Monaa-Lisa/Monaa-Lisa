@@ -45,3 +45,12 @@ export interface Relation {
   confidence: number;
 }
 
+export interface Hull {
+  path: [number, number][];
+  color: string;
+  strokeColor: string;
+  label: string;
+  cx: number;
+  cy: number;
+}
+
