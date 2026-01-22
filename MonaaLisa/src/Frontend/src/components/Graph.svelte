@@ -72,15 +72,20 @@
       let hasEdges = false;
       graph.forEachEdge((edge, attrs) => {
         hasEdges = true;
-        const baseColor = attrs.baseColor || '0, 255, 255';
 
         // High dynamic range for alpha: 0.2 (dim) to 0.9 (bright)
         const alpha = 0.2 + (0.7 * intensity);
-        graph!.setEdgeAttribute(edge, 'color', `rgba(${baseColor}, ${alpha})`);
-
-        // Dynamic thickness: 4 (base) to 8 (peak) scaled by zoom
+        // Dynamic thickness: 4 (base) to 8 (peak)
         const baseSize = 4 + (4 * intensity);
-        graph!.setEdgeAttribute(edge, 'size', baseSize * zoomScale);
+
+        if (attrs.isOutline) {
+          graph!.setEdgeAttribute(edge, 'color', `rgba(0, 0, 0, ${alpha})`);
+          graph!.setEdgeAttribute(edge, 'size', (baseSize + 5) * zoomScale);
+        } else {
+          const baseColor = attrs.baseColor || '0, 255, 255';
+          graph!.setEdgeAttribute(edge, 'color', `rgba(${baseColor}, ${alpha})`);
+          graph!.setEdgeAttribute(edge, 'size', baseSize * zoomScale);
+        }
       });
 
       if (hasEdges) {
@@ -175,7 +180,15 @@
              console.log(`Found target node in graph: ${targetId}`);
              // avoid duplicate edges
              if (!graph?.hasEdge(nodeId, targetId) && !graph?.hasEdge(targetId, nodeId)) {
-                // Add edge with custom styling attributes
+                // Add outline edge first
+                graph?.addEdge(nodeId, targetId, {
+                  size: 8,
+                  color: '#000000',
+                  type: 'line',
+                  isOutline: true
+                });
+
+                // Add main edge with custom styling attributes
                 graph?.addEdge(nodeId, targetId, {
                   size: 6, // Thicker base size for easier clicking
                   color: `rgba(${baseColor}, 1)`,
@@ -347,7 +360,7 @@
 
   onMount(() => {
     console.log("Graph Component Mounting...");
-    graph = new Graph();
+    graph = new Graph({ multi: true });
     const dataSource = papers.filter(p => !!p.entry_id);
 
     // Stub setup
