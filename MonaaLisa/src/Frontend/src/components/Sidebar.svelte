@@ -31,6 +31,8 @@
   let query = '';
   let focusSelected = false; // if true, only the selected paper is shown
   let expandedCitations = new Set<string>();
+  let expandedExternal = new Set<string>(); // track which papers have external section expanded
+  let expandedExternalItems = new Set<string>(); // track which external items are expanded (by paperId)
   let localSelected: Paper | null = null; // local selected for immediate display
 
   // *** BULLETPROOF REACTIVE - WAITS FOR DATA ***
@@ -101,6 +103,11 @@
     query = '';
   }
 
+  function formatExternalAuthors(authors: { name: string }[] | undefined): string {
+    if (!authors || authors.length === 0) return 'Unknown';
+    return authors.map(a => a.name).join(', ');
+  }
+
   function showAll() {
     focusSelected = false;
     localSelected = null;
@@ -117,6 +124,24 @@
       expandedCitations.add(paperEntryId);
     }
     expandedCitations = new Set(expandedCitations); // trigger reactivity
+  }
+
+  function toggleExternal(paperEntryId: string) {
+    if (expandedExternal.has(paperEntryId)) {
+      expandedExternal.delete(paperEntryId);
+    } else {
+      expandedExternal.add(paperEntryId);
+    }
+    expandedExternal = new Set(expandedExternal); // trigger reactivity
+  }
+
+  function toggleExternalItem(itemId: string) {
+    if (expandedExternalItems.has(itemId)) {
+      expandedExternalItems.delete(itemId);
+    } else {
+      expandedExternalItems.add(itemId);
+    }
+    expandedExternalItems = new Set(expandedExternalItems); // trigger reactivity
   }
 
   function selectPaper(paper: Paper) {
@@ -324,6 +349,134 @@
                 {#if $citationsWithPapers.length === 0 && $referencesWithPapers.length === 0 && $relationsWithPapers.length === 0 && !$paperConnections.loading}
                   <p class="no-connections">No connections found in current dataset</p>
                 {/if}
+
+                <!-- External Section -->
+                <div class="external-section-wrapper">
+                  <button
+                    class="external-toggle-btn"
+                    on:click|stopPropagation={() => paper.entry_id && toggleExternal(paper.entry_id)}
+                  >
+                    {#if $paperConnections.loading}
+                      Loading...
+                    {:else}
+                      🌐 External ({$paperConnections.externalCitations.length + $paperConnections.externalReferences.length}) {paper.entry_id && expandedExternal.has(paper.entry_id) ? '▾' : '▸'}
+                    {/if}
+                  </button>
+
+                  {#if paper.entry_id && expandedExternal.has(paper.entry_id)}
+                    <div class="external-papers">
+                      {#if $paperConnections.externalCitations.length > 0}
+                        <div class="connection-section">
+                          <span class="connection-label external-citation-label">📥 External Citations:</span>
+                          {#each $paperConnections.externalCitations as ext}
+                            {@const sem = ext.semanticscholar_obj}
+                            {@const itemId = `ext-cit-${sem?.paperId || ext.id}`}
+                            <div
+                              class="external-paper-item"
+                              role="button"
+                              tabindex="0"
+                              on:click|stopPropagation={() => toggleExternalItem(itemId)}
+                              on:keydown|stopPropagation={(e) => e.key === 'Enter' && toggleExternalItem(itemId)}
+                            >
+                              <div class="external-paper-header">
+                                <span class="external-paper-title">{sem?.title || 'Unknown Title'}</span>
+                                <span class="external-paper-year">{sem?.year || '—'}</span>
+                                <span class="external-expand-icon">{expandedExternalItems.has(itemId) ? '▾' : '▸'}</span>
+                              </div>
+                              {#if expandedExternalItems.has(itemId)}
+                                <div class="external-paper-details">
+                                  <p class="external-paper-authors">
+                                    <strong>Authors:</strong> {formatExternalAuthors(sem?.authors)}
+                                  </p>
+                                  {#if sem?.abstract}
+                                    <p class="external-paper-abstract">
+                                      <strong>Abstract:</strong> {sem.abstract}
+                                    </p>
+                                  {/if}
+                                  {#if sem?.fieldsOfStudy?.length > 0}
+                                    <p class="external-paper-fields">
+                                      <strong>Fields:</strong> {sem.fieldsOfStudy.join(', ')}
+                                    </p>
+                                  {/if}
+                                  {#if sem?.venue}
+                                    <p class="external-paper-venue">
+                                      <strong>Venue:</strong> {sem.venue}
+                                    </p>
+                                  {/if}
+                                  <p class="external-paper-stats">
+                                    <strong>Citations:</strong> {sem?.citationCount ?? '—'} | <strong>References:</strong> {sem?.referenceCount ?? '—'}
+                                  </p>
+                                  {#if sem?.url}
+                                    <a class="external-paper-link" href={sem.url} target="_blank" rel="noopener noreferrer">
+                                      🔗 View on Semantic Scholar
+                                    </a>
+                                  {/if}
+                                </div>
+                              {/if}
+                            </div>
+                          {/each}
+                        </div>
+                      {/if}
+
+                      {#if $paperConnections.externalReferences.length > 0}
+                        <div class="connection-section">
+                          <span class="connection-label external-reference-label">📤 External References:</span>
+                          {#each $paperConnections.externalReferences as ext}
+                            {@const sem = ext.semanticscholar_obj}
+                            {@const itemId = `ext-ref-${sem?.paperId || ext.id}`}
+                            <div
+                              class="external-paper-item"
+                              role="button"
+                              tabindex="0"
+                              on:click|stopPropagation={() => toggleExternalItem(itemId)}
+                              on:keydown|stopPropagation={(e) => e.key === 'Enter' && toggleExternalItem(itemId)}
+                            >
+                              <div class="external-paper-header">
+                                <span class="external-paper-title">{sem?.title || 'Unknown Title'}</span>
+                                <span class="external-paper-year">{sem?.year || '—'}</span>
+                                <span class="external-expand-icon">{expandedExternalItems.has(itemId) ? '▾' : '▸'}</span>
+                              </div>
+                              {#if expandedExternalItems.has(itemId)}
+                                <div class="external-paper-details">
+                                  <p class="external-paper-authors">
+                                    <strong>Authors:</strong> {formatExternalAuthors(sem?.authors)}
+                                  </p>
+                                  {#if sem?.abstract}
+                                    <p class="external-paper-abstract">
+                                      <strong>Abstract:</strong> {sem.abstract}
+                                    </p>
+                                  {/if}
+                                  {#if sem?.fieldsOfStudy?.length > 0}
+                                    <p class="external-paper-fields">
+                                      <strong>Fields:</strong> {sem.fieldsOfStudy.join(', ')}
+                                    </p>
+                                  {/if}
+                                  {#if sem?.venue}
+                                    <p class="external-paper-venue">
+                                      <strong>Venue:</strong> {sem.venue}
+                                    </p>
+                                  {/if}
+                                  <p class="external-paper-stats">
+                                    <strong>Citations:</strong> {sem?.citationCount ?? '—'} | <strong>References:</strong> {sem?.referenceCount ?? '—'}
+                                  </p>
+                                  {#if sem?.url}
+                                    <a class="external-paper-link" href={sem.url} target="_blank" rel="noopener noreferrer">
+                                      🔗 View on Semantic Scholar
+                                    </a>
+                                  {/if}
+                                </div>
+                              {/if}
+                            </div>
+                          {/each}
+                        </div>
+                      {/if}
+
+                      {#if $paperConnections.externalCitations.length === 0 && $paperConnections.externalReferences.length === 0 && !$paperConnections.loading}
+                        <p class="no-connections">No external connections found</p>
+                      {/if}
+                    </div>
+                  {/if}
+                </div>
               </div>
             {/if}
           </div>
@@ -693,5 +846,137 @@
     font-size: 11px;
     font-style: italic;
     padding: 0.5rem;
+  }
+
+  /* External papers styles */
+  .external-section-wrapper {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(139, 92, 246, 0.3);
+  }
+
+  .external-toggle-btn {
+    width: 100%;
+    padding: 0.5rem;
+    background-color: #8B5CF6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    text-align: left;
+  }
+
+  .external-toggle-btn:hover {
+    background-color: #7C3AED;
+  }
+
+
+  .external-papers {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background-color: rgba(139, 92, 246, 0.1);
+    border-radius: 4px;
+    border-left: 2px solid #8B5CF6;
+  }
+
+  .external-citation-label {
+    color: #A78BFA;
+    background-color: rgba(167, 139, 250, 0.15);
+  }
+
+  .external-reference-label {
+    color: #C4B5FD;
+    background-color: rgba(196, 181, 253, 0.15);
+  }
+
+  .external-paper-item {
+    background-color: rgba(30, 30, 40, 0.6);
+    border-radius: 4px;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    border-left: 2px solid #8B5CF6;
+    transition: background-color 0.2s ease;
+  }
+
+  .external-paper-item:hover {
+    background-color: rgba(139, 92, 246, 0.2);
+  }
+
+  .external-paper-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .external-paper-title {
+    flex: 1;
+    font-size: 11px;
+    font-weight: bold;
+    color: #e0e0e0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .external-paper-year {
+    font-size: 10px;
+    color: #888;
+    flex-shrink: 0;
+  }
+
+  .external-expand-icon {
+    font-size: 10px;
+    color: #8B5CF6;
+    flex-shrink: 0;
+  }
+
+  .external-paper-details {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(139, 92, 246, 0.3);
+  }
+
+  .external-paper-details p {
+    font-size: 10px;
+    color: #bbb;
+    margin: 0.25rem 0;
+    line-height: 1.4;
+  }
+
+  .external-paper-details strong {
+    color: #A78BFA;
+  }
+
+  .external-paper-authors {
+    color: #ccc !important;
+  }
+
+  .external-paper-abstract {
+    max-height: 100px;
+    overflow-y: auto;
+  }
+
+  .external-paper-fields {
+    color: #8B5CF6 !important;
+  }
+
+  .external-paper-link {
+    display: inline-block;
+    margin-top: 0.5rem;
+    font-size: 10px;
+    color: #8B5CF6;
+    text-decoration: none;
+    padding: 0.25rem 0.5rem;
+    background-color: rgba(139, 92, 246, 0.2);
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+  }
+
+  .external-paper-link:hover {
+    background-color: rgba(139, 92, 246, 0.4);
+    text-decoration: underline;
   }
 </style>

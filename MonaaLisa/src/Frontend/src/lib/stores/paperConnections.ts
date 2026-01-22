@@ -1,6 +1,6 @@
 import { writable, derived } from 'svelte/store';
-import { fetchPaperCitations, fetchPaperReferences, fetchRelationsForPaper } from '$lib/api';
-import type { Paper } from '$lib/types/paper';
+import { fetchPaperCitations, fetchPaperReferences, fetchRelationsForPaper, fetchExternalCitations, fetchExternalReferences } from '$lib/api';
+import type { Paper, Citation, Reference } from '$lib/types/paper';
 
 export interface PaperConnection {
   entry_id: string;
@@ -15,6 +15,8 @@ export interface PaperConnectionsState {
   citations: PaperConnection[];
   references: PaperConnection[];
   relations: PaperConnection[];
+  externalCitations: Citation[];
+  externalReferences: Reference[];
   loading: boolean;
   error: string | null;
 }
@@ -24,6 +26,8 @@ const initialState: PaperConnectionsState = {
   citations: [],
   references: [],
   relations: [],
+  externalCitations: [],
+  externalReferences: [],
   loading: false,
   error: null
 };
@@ -60,10 +64,12 @@ function createPaperConnectionsStore() {
       }));
 
       try {
-        const [citationsRaw, referencesRaw, relationsRaw] = await Promise.all([
+        const [citationsRaw, referencesRaw, relationsRaw, externalCitations, externalReferences] = await Promise.all([
           fetchPaperCitations(paperId),
           fetchPaperReferences(paperId),
-          fetchRelationsForPaper(paperId)
+          fetchRelationsForPaper(paperId),
+          fetchExternalCitations(paperId),
+          fetchExternalReferences(paperId)
         ]);
 
         // Process citations - extract entry_ids and resolve papers
@@ -136,10 +142,12 @@ function createPaperConnectionsStore() {
           citations,
           references,
           relations,
+          externalCitations,
+          externalReferences,
           loading: false
         }));
 
-        return { citations, references, relations };
+        return { citations, references, relations, externalCitations, externalReferences };
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to fetch connections';
         update(state => ({
