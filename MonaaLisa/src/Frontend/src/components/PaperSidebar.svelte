@@ -448,15 +448,6 @@
 </script>
 
 <!-- toggle button -->
-<button
-    class="sidebar-toggle"
-    class:open={isOpen}
-    class:db-blurred={dashboardOpen}
-    disabled={dashboardOpen}
-    on:click={() => dispatch("toggle")}
->
-    <span class="toggle-icon">{isOpen ? "→" : "←"}</span>
-</button>
 
 <!-- sidebar panel -->
 <div class="sidebar" class:open={isOpen}>
@@ -1054,48 +1045,6 @@
 
 <style>
     /* ── toggle button ── */
-    .sidebar-toggle {
-        position: absolute;
-        right: -5px;
-        top: 50%;
-        transform: translateY(-50%);
-        background: linear-gradient(
-            135deg,
-            var(--accent-purple, #9333ea),
-            var(--accent-magenta, #e839a0)
-        );
-        border: none;
-        border-radius: 50% 0 0 50%;
-        width: 36px;
-        height: 56px;
-        color: white;
-        cursor: pointer;
-        z-index: 200;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 0 15px rgba(147, 51, 234, 0.3);
-    }
-    .sidebar-toggle:hover {
-        box-shadow: 0 0 25px rgba(147, 51, 234, 0.5);
-        transform: translateY(-50%) scale(1.05);
-    }
-    .sidebar-toggle.open {
-        right: calc(var(--sidebar-width, 385px) - 5px);
-        border-radius: 0 50% 50% 0;
-    }
-    .sidebar-toggle.db-blurred {
-        filter: blur(3px);
-        opacity: 0.4;
-        pointer-events: none;
-        cursor: default;
-    }
-    .toggle-icon {
-        font-size: 16px;
-        font-weight: bold;
-    }
-
     /* ── sidebar panel ── */
     .sidebar {
         position: absolute;
