@@ -23,8 +23,6 @@
     export let selectedPaperId: string | null = null;
     /** When true (dashboard is open), the toggle button is blurred and non-interactive. */
     export let dashboardOpen: boolean = false;
-    /** When true, citations/references can be expanded (paper-detail view only) */
-    export let allowExpand: boolean = false;
     /** Category ID prefix used to scope backend search, e.g. "cs.AI" */
     export let categoryFilter: string = "";
     /** Human-readable label shown in the sidebar header, e.g. "Computer Science" */
@@ -41,18 +39,6 @@
          *  the graph can highlight matching nodes and add any that are missing. */
         searchHighlight: Paper[];
     }>();
-
-    let currentNeighbourIds: string[] = []; // Alle IDs, die wir filtern wollen (Nachbarn)
-
-    // Wir beobachten Änderungen an localSelected, um die Nachbar-IDs zu aktualisieren
-    $: if (localSelected && allowExpand) {
-        currentNeighbourIds = [
-            ...(localSelected.citations || []),
-            ...(localSelected.references || []),
-        ];
-    } else {
-        currentNeighbourIds = [];
-    }
 
     // ─── backend search state ─────────────────────────────────────────
     let searchResults: Paper[] | null = null;
@@ -169,40 +155,6 @@
         searchError = null;
 
         try {
-            // ENTSCHEIDUNG: Global oder Nachbarschaft?
-            const isNeighborhoodFilter =
-                allowExpand && currentNeighbourIds.length > 0;
-
-            if (isNeighborhoodFilter) {
-                // --- PFAD A: Gefilterte Nachbarn (POST) ---
-                const res = await fetch(
-                    `${apiBaseUrl}/papers/neighbours/filtered`,
-                    {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            entryIds: currentNeighbourIds,
-                            filter: {
-                                authorQuery:
-                                    adv.authorQuery.trim() || undefined,
-                                abstractQuery:
-                                    adv.abstractQuery.trim() || undefined,
-                                dateFrom: adv.dateFrom || undefined,
-                                dateTo: adv.dateTo || undefined,
-                                titleQuery: adv.titleQuery.trim() || undefined,
-                            },
-                        }),
-                    },
-                );
-
-                if (!res.ok) throw new Error(`Server error ${res.status}`);
-                const rawItems = await res.json();
-
-                // Mapping der Ergebnisse (wie gewohnt)
-                searchResults = rawItems.map(mapPaperResponse);
-                searchTotal = searchResults.length;
-            } else {
-                // --- PFAD B: Globale Suche (GET - dein bestehender Code) ---
                 const params = new URLSearchParams();
 
                 // 1. Kategorie-Filter (falls vorhanden, z.B. "cs.AI")
@@ -255,7 +207,6 @@
                     : (payload?.total ?? rawItems.length);
 
                 searchResults = rawItems.map(mapPaperResponse);
-            }
 
             dispatch("searchHighlight", searchResults);
         } catch (e) {
@@ -366,8 +317,6 @@
 
     let focusSelected = false;
     let localSelected: Paper | null = null;
-    let expandedCitations = new Set<string>();
-    let expandedReferences = new Set<string>();
 
     $: {
         if (selectedPaperId && dataSource && dataSource.length > 0) {
@@ -413,16 +362,6 @@
         dispatch("toggle");
     }
 
-    function toggleCitations(id: string) {
-        if (expandedCitations.has(id)) expandedCitations.delete(id);
-        else expandedCitations.add(id);
-        expandedCitations = new Set(expandedCitations);
-    }
-    function toggleReferences(id: string) {
-        if (expandedReferences.has(id)) expandedReferences.delete(id);
-        else expandedReferences.add(id);
-        expandedReferences = new Set(expandedReferences);
-    }
 
     function selectPaper(p: Paper) {
         localSelected = p;
@@ -435,11 +374,6 @@
             ) as HTMLElement | null;
             if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
         });
-    }
-
-    function selectCitedPaper(citedId: string) {
-        const target = dataSource.find((p) => p.entry_id === citedId);
-        if (target) selectPaper(target);
     }
 
     function getFirstCategory(cats: string | null | undefined): string {
@@ -684,123 +618,42 @@
                         </p>
                         <h4>{paper.title}</h4>
                         <p class="paper-authors">
-                            {allowExpand
-                                ? paper.authors
-                                : displayAuthors(paper.authors)}
+                            {displayAuthors(paper.authors)}
                         </p>
                         <p class="paper-summary">
-                            {paper.abstract.length > (allowExpand ? 100 : 160)
-                                ? paper.abstract.substring(
-                                      0,
-                                      allowExpand ? 100 : 160,
-                                  ) + "..."
+                            {paper.abstract.length > 160
+                                ? paper.abstract.substring(0, 160) + "..."
                                 : paper.abstract}
                         </p>
                         <div class="paper-meta">
-                            {#if allowExpand}
-                                <div class="meta-actions">
-                                    <button
-                                        class="expand-btn citations-btn"
-                                        on:click|stopPropagation={() =>
-                                            toggleCitations(paper.entry_id)}
+                            <span class="meta-counts">
+                                {#if paper.non_arxiv_citation_count || paper.non_arxiv_reference_count || paper.citations?.length || paper.references?.length}
+                                    <span class="arxiv-count"
+                                        >{paper.citations?.length ?? 0} Citations</span
                                     >
-                                        Citations ({paper.citations?.length ??
-                                            0}){paper.non_arxiv_citation_count
-                                            ? ` +${paper.non_arxiv_citation_count} ext.`
-                                            : ""}
-                                        {expandedCitations.has(paper.entry_id)
-                                            ? "\u25be"
-                                            : "\u25b8"}
-                                    </button>
-                                    <button
-                                        class="expand-btn references-btn"
-                                        on:click|stopPropagation={() =>
-                                            toggleReferences(paper.entry_id)}
+                                    &nbsp;&middot;&nbsp;
+                                    <span class="arxiv-count"
+                                        >{paper.references?.length ?? 0} References</span
                                     >
-                                        References ({paper.references?.length ??
-                                            0}){paper.non_arxiv_reference_count
-                                            ? ` +${paper.non_arxiv_reference_count} ext.`
-                                            : ""}
-                                        {expandedReferences.has(paper.entry_id)
-                                            ? "\u25be"
-                                            : "\u25b8"}
-                                    </button>
-                                </div>
-                            {:else}
-                                <span class="meta-counts">
-                                    {#if paper.non_arxiv_citation_count || paper.non_arxiv_reference_count || paper.citations?.length || paper.references?.length}
-                                        <span class="arxiv-count"
-                                            >{paper.citations?.length ?? 0} Citations</span
-                                        >
+                                    {#if (paper.non_arxiv_citation_count ?? 0) + (paper.non_arxiv_reference_count ?? 0) > 0}
                                         &nbsp;&middot;&nbsp;
-                                        <span class="arxiv-count"
-                                            >{paper.references?.length ?? 0} References</span
+                                        <span class="non-arxiv-count"
+                                            >{(paper.non_arxiv_citation_count ??
+                                                0) +
+                                                (paper.non_arxiv_reference_count ??
+                                                    0)} Non-arXiv</span
                                         >
-                                        {#if (paper.non_arxiv_citation_count ?? 0) + (paper.non_arxiv_reference_count ?? 0) > 0}
-                                            &nbsp;&middot;&nbsp;
-                                            <span class="non-arxiv-count"
-                                                >{(paper.non_arxiv_citation_count ??
-                                                    0) +
-                                                    (paper.non_arxiv_reference_count ??
-                                                        0)} Non-arXiv</span
-                                            >
-                                        {/if}
-                                    {:else}
-                                        No citation data
                                     {/if}
-                                </span>
-                            {/if}
+                                {:else}
+                                    No citation data
+                                {/if}
+                            </span>
                             <span class="date"
                                 >{paper.published
                                     ? new Date(paper.published).getFullYear()
                                     : "\u2014"}</span
                             >
                         </div>
-
-                        {#if allowExpand && expandedCitations.has(paper.entry_id) && (paper.citations?.length ?? 0) > 0}
-                            <div class="connected-papers citation-papers">
-                                {#each paper.citations as citedId}
-                                    {@const citedPaper = dataSource.find(
-                                        (p) => p.entry_id === citedId,
-                                    )}
-                                    {#if citedPaper}
-                                        <div
-                                            class="connected-item"
-                                            on:click|stopPropagation={() =>
-                                                selectCitedPaper(citedId)}
-                                        >
-                                            <h5>{citedPaper.title}</h5>
-                                            <p>{citedPaper.authors}</p>
-                                        </div>
-                                    {:else if !searchResults}
-                                        <div class="connected-item placeholder">
-                                            Paper data not loaded.
-                                        </div>
-                                    {/if}
-                                {/each}
-                            </div>
-                        {/if}
-                        {#if allowExpand && expandedReferences.has(paper.entry_id) && (paper.references?.length ?? 0) > 0}
-                            <div class="connected-papers reference-papers">
-                                {#each paper.references as refId}
-                                    {@const refPaper = dataSource.find(
-                                        (p) => p.entry_id === refId,
-                                    )}
-                                    {#if refPaper}
-                                        <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                        <!-- svelte-ignore a11y-no-static-element-interactions -->
-                                        <div
-                                            class="connected-item ref-item"
-                                            on:click|stopPropagation={() =>
-                                                selectPaper(refPaper)}
-                                        >
-                                            <h5>{refPaper.title}</h5>
-                                            <p>{refPaper.authors}</p>
-                                        </div>
-                                    {/if}
-                                {/each}
-                            </div>
-                        {/if}
                     </div>
                 </div>
             {/each}
@@ -880,15 +733,6 @@
             transparent
         );
         flex-shrink: 0;
-    }
-    .sidebar-header h3 {
-        margin: 0;
-        color: var(--text-primary, #f0f0f8);
-        font-size: 15px;
-        font-weight: 600;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
     }
     .header-text {
         flex: 1;
@@ -1249,11 +1093,6 @@
         gap: 4px;
         flex-wrap: wrap;
     }
-    .meta-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
     .meta-counts {
         color: var(--text-muted, #6b6b8d);
         font-size: 11px;
@@ -1267,67 +1106,8 @@
         color: #888;
         font-size: 10px;
     }
-    .expand-btn {
-        cursor: pointer;
-        background: none;
-        border: none;
-        padding: 0;
-        font-size: 11px;
-        text-align: left;
-        transition: color 0.15s ease;
-    }
-    .citations-btn {
-        color: #ff9999;
-    }
-    .citations-btn:hover {
-        color: #ffd0d0;
-    }
-    .references-btn {
-        color: #7ee8e3;
-    }
-    .references-btn:hover {
-        color: #b5f0ed;
-    }
     .date {
         color: var(--text-muted, #6b6b8d);
         flex-shrink: 0;
-    }
-
-    .connected-papers {
-        margin-top: 0.4rem;
-        padding-left: 0.75rem;
-    }
-    .citation-papers {
-        border-left: 2px solid rgba(255, 107, 107, 0.4);
-    }
-    .reference-papers {
-        border-left: 2px solid rgba(78, 205, 196, 0.4);
-    }
-    .connected-item {
-        padding: 0.3rem 0.5rem;
-        margin-bottom: 0.2rem;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: all 0.15s ease;
-        background: rgba(147, 51, 234, 0.05);
-    }
-    .connected-item:hover {
-        background: rgba(147, 51, 234, 0.14);
-    }
-    .ref-item {
-        background: rgba(78, 205, 196, 0.04);
-    }
-    .ref-item:hover {
-        background: rgba(78, 205, 196, 0.1);
-    }
-    .connected-item h5 {
-        margin: 0 0 0.1rem;
-        font-size: 11px;
-        color: var(--text-primary, #f0f0f8);
-    }
-    .connected-item p {
-        margin: 0;
-        font-size: 10px;
-        color: var(--text-secondary, #a8a8c8);
     }
 </style>
