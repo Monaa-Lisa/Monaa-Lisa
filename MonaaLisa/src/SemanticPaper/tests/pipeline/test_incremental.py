@@ -8,6 +8,7 @@ from unittest.mock import Mock, MagicMock, patch
 sys.modules.setdefault("Database.db", MagicMock())
 
 from MonaaLisa.src.SemanticPaper.pipeline.incremental import (
+    _categories_of,
     _fetch_new_arxiv_papers,
     _normalize_entry_id,
     run_incremental_update,
@@ -30,6 +31,7 @@ def _make_arxiv_result(entry_id="http://arxiv.org/abs/2401.00001v1",
     r.authors = authors or [Mock(__str__=lambda s: "Author A")]
     r.summary = summary
     r.primary_category = primary_category
+    r.categories = [primary_category]
     r.published = published or datetime(2024, 1, 1)
     r.updated = datetime(2024, 1, 2)
     r.doi = "10.1234/test"
@@ -84,6 +86,20 @@ class TestNormalizeEntryId:
         result = _normalize_entry_id("2401.00001")
 
         assert result == "2401.00001"
+
+
+class TestCategoriesOf:
+    def test_keeps_cross_listed_categories(self):
+        result = _make_arxiv_result(primary_category="cs.AI")
+        result.categories = ["cs.LG", "cs.AI", "stat.ML"]
+
+        assert _categories_of(result) == "cs.AI cs.LG stat.ML"
+
+    def test_works_without_category_list(self):
+        result = _make_arxiv_result(primary_category="cs.CV")
+        result.categories = []
+
+        assert _categories_of(result) == "cs.CV"
 
 
 class TestFetchNewArxivPapers:

@@ -105,6 +105,18 @@ def _normalize_entry_id(entry_id_or_url: str) -> str:
     return eid
 
 
+def _categories_of(result) -> str:
+    """
+    Returns all arXiv categories of a result as one space separated string,
+    primary category first. This is the same format the dataset import uses,
+    so category filters work the same for imported and newly fetched papers.
+    """
+    categories = [result.primary_category]
+    for category in result.categories or []:
+        if category not in categories:
+            categories.append(category)
+    return " ".join(categories)
+
 
 def run_incremental_update(
     arxiv_client: ArxivAPI,
@@ -179,7 +191,7 @@ def run_incremental_update(
             title = result.title if result else "[Unknown]"
             authors = ", ".join(str(a) for a in result.authors) if result else None
             abstract = result.summary if result else None
-            categories = result.primary_category if result else None
+            categories = _categories_of(result) if result else None
             published = result.published if result else None
             updated = getattr(result, "updated", None)
             doi = getattr(result, "doi", None)
@@ -221,7 +233,7 @@ def run_incremental_update(
         title = result.title if result else "[Unknown]"
         authors = ", ".join(str(a) for a in result.authors) if result else None
         abstract = result.summary if result else None
-        categories = result.primary_category if result else None
+        categories = _categories_of(result) if result else None
         published = result.published if result else None
         pdf_url = result.pdf_url if result else None
 
