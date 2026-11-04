@@ -53,9 +53,4 @@ export class PapersController {
   findOne(@Param('entryId') entryId: string) {
     return this.papers.findByEntryId(entryId);
   }
-
-  @Post('neighbours/filtered')
-  async getNeighbours(@Body() body: { entryIds: string[]; filter: any }) {
-    return this.papers.findFilteredNeighbours(body.entryIds, body.filter);
-  }
 }
