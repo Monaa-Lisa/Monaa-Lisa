@@ -56,33 +56,6 @@ model Paper {
   @@map("paper")
 }
 
-model PaperRelation {
-  source_id  String @map("source_id")
-  target_id  String @map("target_id")
-  confidence Float
-
-  @@id([source_id, target_id])
-  @@map("paper_relation")
-}
-
-model Reference {
-  id                       Int    @id @default(autoincrement())
-  belonging_paper_entry_id String
-  semanticscholar_obj      Json
-
-  @@index([belonging_paper_entry_id])
-  @@map("reference")
-}
-
-model Citation {
-  id                       Int    @id @default(autoincrement())
-  belonging_paper_entry_id String
-  semanticscholar_obj      Json
-
-  @@index([belonging_paper_entry_id])
-  @@map("citation")
-}
-
 model PaperCitation {
   belonging_paper_entry_id String
   cited_paper_entry_id     String
@@ -112,28 +85,6 @@ model Embedding {
   // migrations/20261104120200_restore_dropped_indexes. If `prisma migrate dev`
   // generates a DROP INDEX "embedding_content_idx", remove that line from the
   // generated migration before applying it.
-}
-
-model ProgramRun {
-  id         Int      @id @default(autoincrement())
-  start_date DateTime
-  is_active  String   @default("true")
-
-  @@map("program_run")
-}
-
-model HistoricalCompletion {
-  id                     Int       @id @default(autoincrement())
-  program_run_id         Int
-  category               String
-  start_date             DateTime
-  end_date               DateTime?
-  goal_oldest_paper_date DateTime?
-  goal_reached           String    @default("false")
-  reached_date           DateTime?
-  oldest_paper_date      DateTime?
-
-  @@map("historical_completion")
 }
 
 model UncaughtPaper {
