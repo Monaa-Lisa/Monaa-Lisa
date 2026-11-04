@@ -5,10 +5,9 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
-import { PrismaModule } from './prisma/prisma.module';
+import { DatabaseModule } from './database/database.module';
 import { PapersModule } from './papers/papers.module';
-import { PaperCitationsModule } from './paper-citations/paper-citations.module';
-import { PaperReferencesModule } from './paper-references/paper-references.module';
+import { EdgesModule } from './edges/edges.module';
 
 // Request flow: Client -> Controller -> Service -> (DB) -> Service -> Controller -> Client
 @Module({
@@ -21,11 +20,10 @@ import { PaperReferencesModule } from './paper-references/paper-references.modul
         limit: Number(process.env.RATE_LIMIT_PER_MINUTE ?? 300),
       },
     ]),
-    // PrismaModule is global, so every service can inject PrismaService
-    PrismaModule,
+    // global, every service can inject DatabaseService
+    DatabaseModule,
     PapersModule,
-    PaperCitationsModule,
-    PaperReferencesModule,
+    EdgesModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

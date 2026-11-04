@@ -3,11 +3,11 @@
  */
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
-import { PrismaService } from './prisma/prisma.service';
+import { DatabaseService } from './database/database.service';
 
 @Controller()
 export class AppController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   /**
    * GET /health
@@ -18,7 +18,7 @@ export class AppController {
   @Get('health')
   async health() {
     try {
-      await this.prisma.$queryRaw`SELECT 1`;
+      await this.db.ping();
     } catch {
       throw new ServiceUnavailableException({ status: 'error', db: 'down' });
     }
