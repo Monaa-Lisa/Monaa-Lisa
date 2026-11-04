@@ -324,14 +324,6 @@ def get_dataset_path() -> Path:
     return _data_dir() / _get_filename("dataset")
 
 
-def get_pca_model_path() -> Path:
-    return _models_dir() / _get_filename("pca_model")
-
-
-def get_umap_model_path() -> Path:
-    return _models_dir() / _get_filename("umap_model")
-
-
 def cleanup_dataset():
     """
     Abstract: Removes the dataset JSONL after successful import to reclaim disk space.
