@@ -25,7 +25,7 @@
     import Spinner from "$lib/components/ui/Spinner.svelte";
     import ZoomControls from "$lib/components/ZoomControls.svelte";
     import { CATEGORY_COLORS, categoryColor, subjectName, subjectOf } from "$lib/categories";
-    import { createLabelPlacer, type PlacedLabel } from "$lib/labels";
+    import { createLabelPlacer, overlayBoxes, type PlacedLabel } from "$lib/labels";
     import { loadNeighbourhood, type Neighbourhood } from "$lib/neighbourhood";
     import { citationCount, primaryCategory, publishedYear, truncate } from "$lib/paper";
     import { onThemeChange, token } from "$lib/theme";
@@ -314,7 +314,7 @@
             if (item && item.group !== "selected") onselect(item.paper);
         });
 
-        const placer = createLabelPlacer(r);
+        const placer = createLabelPlacer(r, 60, () => overlayBoxes(el));
         let needsLabels = true;
         r.getCamera().on("updated", () => {
             needsLabels = true;

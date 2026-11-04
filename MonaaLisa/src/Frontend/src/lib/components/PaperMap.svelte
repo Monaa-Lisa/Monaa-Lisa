@@ -19,7 +19,7 @@
     import HoverCard from "$lib/components/HoverCard.svelte";
     import ZoomControls from "$lib/components/ZoomControls.svelte";
     import { CATEGORY_COLORS, categoryColor, subjectName, subjectOf } from "$lib/categories";
-    import { createLabelPlacer, type PlacedLabel } from "$lib/labels";
+    import { createLabelPlacer, overlayBoxes, type PlacedLabel } from "$lib/labels";
     import { citationCount, primaryCategory, truncate } from "$lib/paper";
     import { onThemeChange, token } from "$lib/theme";
     import type { Paper } from "$lib/types/paper";
@@ -179,7 +179,7 @@
         r.on("afterRender", updateRing);
 
         // titles are placed after a render and again whenever the camera moved
-        const placer = createLabelPlacer(r, 40);
+        const placer = createLabelPlacer(r, 30, () => overlayBoxes(el));
         let needsLabels = true;
         r.getCamera().on("updated", () => (needsLabels = true));
         r.on("afterRender", () => {
@@ -321,7 +321,7 @@
         {#each legend as item (item.id)}
             <span><i style:background={item.color}></i>{item.name} <b>{item.count.toLocaleString("en")}</b></span>
         {/each}
-        <span class="hint">size: citations · position: UMAP of the SPECTER2 embedding · titles: most cited, zoom for more</span>
+        <span class="hint">close points = similar content · size = citations · zoom for more titles</span>
     </div>
 
     <ZoomControls
