@@ -1,5 +1,16 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Min, IsISO8601 } from 'class-validator';
+import {
+  IsInt,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
+
+// Upper bound for one page of papers. The graph view asks for at most this many.
+export const MAX_TAKE = 20000;
+export const DEFAULT_TAKE = 100;
 
 export class QueryPaperDto {
   // Volltextsuche über title/authors/summary
@@ -36,5 +47,6 @@ export class QueryPaperDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  take: number = 20;
+  @Max(MAX_TAKE)
+  take: number = DEFAULT_TAKE;
 }

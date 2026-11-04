@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
-import { QueryPaperDto } from './dto/query-paper.dto';
+import { DEFAULT_TAKE, MAX_TAKE, QueryPaperDto } from './dto/query-paper.dto';
+import { MAX_BATCH_IDS } from './dto/batch-papers.dto';
 
 /**
  * PapersService Nico
@@ -29,6 +30,7 @@ export class PapersService {
     },
   ) {
     if (!entryIds || entryIds.length === 0) return [];
+    entryIds = entryIds.slice(0, MAX_BATCH_IDS);
 
     const where: Prisma.PaperWhereInput = {
       entry_id: { in: entryIds },
@@ -95,7 +97,9 @@ export class PapersService {
 
   async findMany(q: QueryPaperDto) {
     const skip = toNumber(q.skip, 0);
-    const take = toNumber(q.take, Math.pow(2, 31) - 1);
+    // The DTO already limits take, this is a second guard so no caller can
+    // ever load the whole table in one request.
+    const take = Math.min(toNumber(q.take, DEFAULT_TAKE), MAX_TAKE);
 
     // ── sort=citations → raw SQL path (order by citation count DESC) ──
     if (
@@ -195,13 +199,12 @@ export class PapersService {
   }
 
   /**
-   * Holt ein Paper per `entry_id`.
-   * Wirft, wenn es die ID nicht gibt → bewusst, damit der Caller entscheiden kann.
+   * Returns one paper by `entry_id` with its citation and reference ids.
+   * Responds with 404 if the paper is not in the database.
    */
   async findByEntryId(entry_id: string) {
-    const paper = await this.prisma.paper.findUniqueOrThrow({
-      where: { entry_id },
-    });
+    const paper = await this.prisma.paper.findUnique({ where: { entry_id } });
+    if (!paper) throw new NotFoundException(`Paper ${entry_id} not found`);
     const [citations, references] = await Promise.all([
       this.prisma.paperCitation.findMany({
         where: { belonging_paper_entry_id: entry_id },

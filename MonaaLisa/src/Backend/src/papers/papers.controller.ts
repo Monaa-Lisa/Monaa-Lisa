@@ -10,7 +10,7 @@
  */
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { PapersService } from './papers.service';
-import { QueryPaperDto } from './dto/query-paper.dto';
+import { BatchPapersDto, QueryPaperDto } from './dto';
 
 @Controller('papers')
 export class PapersController {
@@ -21,8 +21,8 @@ export class PapersController {
    * Batch-Fetch: holt mehrere Papers anhand einer Liste von `entry_id`s.
    */
   @Post('batch')
-  findBatch(@Body() body: { entryIds: string[] }) {
-    return this.papers.findByEntryIds(body.entryIds ?? []);
+  findBatch(@Body() body: BatchPapersDto) {
+    return this.papers.findByEntryIds(body.entryIds);
   }
 
   // Nick - November 2025

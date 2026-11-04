@@ -59,6 +59,8 @@
     // Threshold above which the user must confirm before the value is applied.
     const LARGE_LIMIT_THRESHOLD = 10000;
     const SIDEBAR_SAMPLE = 50; // papers shown in sidebar at cluster levels
+    // "All" papers still has an upper bound, the backend never returns more (MAX_TAKE)
+    const MAX_PAPERS_PER_REQUEST = 20000;
 
     // ─── large-load confirmation modal ─────────────
     // Shows when the user picks 10000 or "All". Confirm is locked behind a
@@ -676,7 +678,7 @@
         searchHighlightPapers = [];
         try {
             // Build URL: filter by category, apply optional cap, sort by citation count
-            const url = `${API_BASE_URL}/papers?categories=${encodeURIComponent(categoryId)}${paperLimit > 0 ? `&take=${paperLimit}` : ""}&skip=0&sort=citations`;
+            const url = `${API_BASE_URL}/papers?categories=${encodeURIComponent(categoryId)}&take=${paperLimit > 0 ? paperLimit : MAX_PAPERS_PER_REQUEST}&skip=0&sort=citations`;
             const response = await fetch(url);
             if (!response.ok) throw new Error(`Backend ${response.status}`);
 
