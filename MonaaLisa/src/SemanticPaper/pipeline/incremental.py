@@ -35,7 +35,7 @@ from SemanticPaper.api.arxiv import ArxivAPI
 from SemanticPaper.pipeline.embedding_pipeline import EmbeddingPipeline
 from Database.db import (
     get_newest_paper_date,
-    paper_exists_by_id,
+    get_existing_entry_ids,
     save_processed_paper,
     save_uncaught_paper,
     get_uncaught_papers_due,
@@ -151,12 +151,9 @@ def run_incremental_update(
         return
 
     # 2. Filtere Paper heraus, die bereits in der DB existieren
-    new_papers = []
-    for result in raw_results:
-        eid = _normalize_entry_id(result.entry_id)
-        # Prüfe, ob die normalisierte ID bereits in der Datenbank vorhanden ist
-        if not paper_exists_by_id(eid):
-            new_papers.append((eid, result))
+    fetched = [(_normalize_entry_id(result.entry_id), result) for result in raw_results]
+    existing_ids = get_existing_entry_ids([eid for eid, _ in fetched])
+    new_papers = [(eid, result) for eid, result in fetched if eid not in existing_ids]
 
     logger.info(f"{len(new_papers)} genuinely new papers after dedup (out of {len(raw_results)} fetched)")
     if not new_papers:

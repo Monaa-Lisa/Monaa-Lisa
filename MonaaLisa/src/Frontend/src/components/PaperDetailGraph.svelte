@@ -833,9 +833,7 @@
             // Sort by the order in related_arxiv_ids
             const orderMap = new Map(relatedIds.map((id, i) => [id, i]));
             relatedPapers = batchPapers
-                .filter(
-                    (p: any) => p.title && p.title !== "[STUB] Pending Fetch",
-                )
+                .filter((p: any) => p.title)
                 .sort(
                     (a: any, b: any) =>
                         (orderMap.get(a.entry_id) ?? 999) -

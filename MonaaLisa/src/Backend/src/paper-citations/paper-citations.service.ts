@@ -11,13 +11,10 @@ export class PaperCitationsService {
       where: { belonging_paper_entry_id: entryId },
     });
 
-    // Filter out citations where the cited paper has a stub title
+    // Only keep citations to papers that are in our database
     const citedPaperIds = citations.map((c) => c.cited_paper_entry_id);
     const validPapers = await this.prisma.paper.findMany({
-      where: {
-        entry_id: { in: citedPaperIds },
-        title: { not: '[STUB] Pending Fetch' },
-      },
+      where: { entry_id: { in: citedPaperIds } },
       select: { entry_id: true },
     });
 

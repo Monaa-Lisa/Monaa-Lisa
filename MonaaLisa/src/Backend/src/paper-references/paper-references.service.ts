@@ -11,15 +11,12 @@ export class PaperReferencesService {
       where: { belonging_paper_entry_id: entryId },
     });
 
-    // Filter out references where the referenced paper has a stub title
+    // Only keep references to papers that are in our database
     const referencedPaperIds = references.map(
       (r) => r.referenced_paper_entry_id,
     );
     const validPapers = await this.prisma.paper.findMany({
-      where: {
-        entry_id: { in: referencedPaperIds },
-        title: { not: '[STUB] Pending Fetch' },
-      },
+      where: { entry_id: { in: referencedPaperIds } },
       select: { entry_id: true },
     });
 

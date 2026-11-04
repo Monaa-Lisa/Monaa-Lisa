@@ -8,14 +8,10 @@ from dotenv import load_dotenv
 from config import cfg
 from sqlalchemy.exc import ProgrammingError
 from Database.db_models import db_base, DBPaper, DBPaperRelation, DBEmbedding, ProgramRun, HistoricalCompletion, DBUncaughtPaper
-from object.paper import Paper
 from object.relation import Relation
 from util.logger import Logger
 
 from object.embedding import Embedding
-# Imports für Typ-Prüfung bei Relationen
-from object.paper_reference import PaperReference
-from object.paper_citation import PaperCitation
 
 # os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -95,108 +91,6 @@ def get_embedding_labels(limit: int | None = None) -> dict[str, str | None]:
         session.close()
 
 """
-25-May-2025 - Basti
-Abstract: Saves one given arXiv paper into the Postgres database
-Args:
-- paper: The given arXiv paper
-Returns: bool -> True if: paper was successfully committed to the database | False if: commit failed/Exception occured
-21-August-2025 - Lenio
-Annotation: Removed redundant parameters hash and date, these should come from the paper object.
-"""
-
-def save_paper_to_db(paper: Paper):
-    session = SessionLocal()
-
-    # 1. Check if paper already exists (by entry_id)
-    if paper_exists(session, paper):
-        logger.info(f"Paper already exists in DB: {paper.title}")
-        session.close()
-        return True
-
-    try:
-        # 2. Check if paper exists as a Stub (by entry_id)
-        existing_paper = session.query(DBPaper).filter_by(entry_id=paper.entry_id).first()
-
-        if existing_paper:
-            logger.info(f"Updating existing stub/paper: {paper.title}")
-            existing_paper.title = paper.title
-            existing_paper.authors = ", ".join(paper.authors)
-            existing_paper.abstract = paper.abstract
-            existing_paper.published = paper.published
-            existing_paper.categories = paper.categories
-            existing_paper.tsne = json.dumps(paper.tsne) if paper.tsne else None
-            existing_paper.url = paper.url
-        else:
-            # Insert new paper
-            db_paper = paper.to_db_model()
-            session.add(db_paper)
-
-        # Flush to ensure the paper (or update) is applied before we add relations
-        session.flush()
-
-        # 3. Handle Missing Targets for Relations (Create Stubs)
-        # This ensures that referenced papers exist in the DB so Foreign Keys don't fail
-        references = paper.references if paper.references else []
-        citations = paper.citations if paper.citations else []
-
-        needed_ids = set()
-
-        # Collect IDs from PaperReference and PaperCitation objects
-        for ref in references:
-            if isinstance(ref, PaperReference):
-                needed_ids.add(ref.referenced_paper_id)
-
-        for cite in citations:
-            if isinstance(cite, PaperCitation):
-                needed_ids.add(cite.cited_paper_id)
-
-        if needed_ids:
-            # Find which ones are missing in DB
-            existing_stubs = session.query(DBPaper.entry_id).filter(DBPaper.entry_id.in_(needed_ids)).all()
-            found_ids = {r.entry_id for r in existing_stubs}
-
-            missing_ids = needed_ids - found_ids
-
-            if missing_ids:
-                logger.info(f"Creating {len(missing_ids)} stubs for missing relations...")
-                for mid in missing_ids:
-                    stub = DBPaper(
-                        entry_id=mid,
-                        title="[STUB] Pending Fetch",
-                    )
-                    session.add(stub)
-                session.flush()
-
-        # 4. Save Relations
-        for ref in references:
-            db_reference = ref.to_db_model()
-            session.add(db_reference)
-
-        for cite in citations:
-            db_citation = cite.to_db_model()
-            session.add(db_citation)
-
-        # 5. Handle Embedding
-        if paper.embedding is not None:
-            # Remove existing embedding if we are updating a stub/paper to avoid unique constraint violation
-            session.query(DBEmbedding).filter_by(belonging_paper_entry_id=paper.entry_id).delete()
-
-            db_embedding = paper.embedding.to_db_model()
-            logger.info(f"Adding embedding to DB for paper: {paper.title}")
-            session.add(db_embedding)
-
-        session.commit()
-        logger.info(f"Saved paper to DB: {paper.title}")
-        return True
-
-    except Exception as e:
-        logger.error(f"DB error: {e}")
-        session.rollback()
-        return False
-    finally:
-        session.close()
-
-"""
 20-August-2025 - Lenio & Reviewed by Nico
 Abstract: Saves a relation between two papers in the database.
 Args:
@@ -271,25 +165,6 @@ def get_entry_ids_missing_projection(limit: int | None = None) -> list[str]:
         return []
     finally:
         session.close()
-
-"""
-25-May-2025 - Basti - Tweaked 30-September-2025 - Lenio
-Abstract: Checks if a paper hash already exists in the database
-Args:
-- session: -> Current database session
-- paper: -> the paper object to check for
-Returns: bool -> True if: query of the paper is not Null/None | False if: query of the paper is None
-
-Tweak:
-Previously this only checked if the hash is saved into the database, now it checks via the unique entry_id of the paper.
-This is necessary because A) hash collisions are possible (though unlikely) and B) the entry_id is a unique field in the DB so it is more reliable.
-
-Additionally:
-Checking by hash could be a way of checking for updates to a paper, but that is not implemented yet.
-"""
-def paper_exists(session, paper: Paper):
-    return session.query(DBPaper).filter_by(entry_id=paper.entry_id).first() is not None
-
 
 """ 28.09. Nico
     Prüft, ob eine Relation zwischen zwei Paper-IDs existiert, 
@@ -709,17 +584,19 @@ def purge_expired_uncaught() -> int:
 
 
 """
-Abstract: Checks if a paper with the given entry_id exists in the paper table.
+Abstract: Returns which of the given entry_ids already exist in the paper table,
+    using one query instead of one query per paper.
 Args:
-- entry_id: str
-Returns: bool
+- entry_ids: list of arXiv entry_ids
+Returns: set[str]
 """
-def paper_exists_by_id(entry_id: str) -> bool:
+def get_existing_entry_ids(entry_ids: list[str]) -> set[str]:
+    if not entry_ids:
+        return set()
     session = SessionLocal()
     try:
-        return session.query(DBPaper.id).filter_by(entry_id=entry_id).first() is not None
-    except Exception:
-        return False
+        rows = session.query(DBPaper.entry_id).filter(DBPaper.entry_id.in_(entry_ids)).all()
+        return {row.entry_id for row in rows}
     finally:
         session.close()
 

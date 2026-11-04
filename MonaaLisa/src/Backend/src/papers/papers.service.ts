@@ -186,11 +186,6 @@ export class PapersService {
 
     const where: Prisma.PaperWhereInput = {};
 
-    // Stub-Titel grundsätzlich ausschließen
-    where.NOT = [
-      { title: { equals: '[STUB] Pending Fetch', mode: 'insensitive' } },
-    ];
-
     if (q.search && q.search.trim() !== '') {
       const term = q.search.trim();
       where.OR = [
@@ -247,7 +242,6 @@ export class PapersService {
            GROUP BY belonging_paper_entry_id
         ) cc ON cc.belonging_paper_entry_id = p.entry_id
        WHERE p.categories LIKE ${'%' + category + '%'}
-         AND LOWER(p.title) != '[stub] pending fetch'
        ORDER BY cit_count DESC
        OFFSET ${skip}
         LIMIT ${take}
@@ -256,7 +250,6 @@ export class PapersService {
     const total: [{ count: bigint }] = await this.prisma.$queryRaw`
       SELECT COUNT(*) as count FROM paper
        WHERE categories LIKE ${'%' + category + '%'}
-         AND LOWER(title) != '[stub] pending fetch'
     `;
 
     // Raw query returns BigInt for count columns – convert to number
