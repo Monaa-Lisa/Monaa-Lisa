@@ -143,6 +143,43 @@ class SemanticScholarAPI:
     # Batch API methods – Feb 2026 – Basti
     # ------------------------------------------------------------------
 
+    # Status codes worth retrying: rate limited or temporary server problems
+    RETRY_STATUS_CODES = {429, 500, 502, 503, 504}
+
+    def _post_with_retry(self, url: str, payload: dict, params: dict, headers: dict,
+                         max_attempts: int = 5, base_delay: float = 2.0) -> list | None:
+        """
+        Sends one batch request. Retries with exponential backoff (2s, 4s, 8s, ...)
+        on rate limiting (429), 5xx responses, timeouts and connection errors.
+        Returns the parsed JSON list, or None if the request did not succeed.
+        """
+        for attempt in range(1, max_attempts + 1):
+            try:
+                resp = requests.post(url, json=payload, params=params, headers=headers, timeout=120)
+                resp.raise_for_status()
+                return resp.json()
+            except requests.HTTPError as e:
+                status = e.response.status_code if e.response is not None else None
+                if status not in self.RETRY_STATUS_CODES:
+                    self.logger.error(f"SemanticScholar batch request failed with HTTP {status}: {e}")
+                    return None
+                reason = f"HTTP {status}"
+            except (requests.ConnectionError, requests.Timeout) as e:
+                reason = type(e).__name__
+            except Exception as e:
+                self.logger.error(f"SemanticScholar batch request failed: {e}")
+                return None
+
+            if attempt < max_attempts:
+                delay = base_delay * 2 ** (attempt - 1)
+                self.logger.warning(
+                    f"SemanticScholar batch request: {reason}, retry {attempt}/{max_attempts - 1} in {delay:.0f}s"
+                )
+                time.sleep(delay)
+
+        self.logger.error(f"SemanticScholar batch request failed after {max_attempts} attempts")
+        return None
+
     """
     Abstract: Batch-fetches SPECTER v2 embeddings (768-D), citations, and references
         from the SemanticScholar REST API for a list of arXiv IDs.
@@ -185,21 +222,10 @@ class SemanticScholarAPI:
             chunk = arxiv_ids[start:start + batch_size]
             payload = {"ids": [f"ARXIV:{aid}" for aid in chunk]}
 
-            try:
-                # semanticscholar hat keinen offiziellen batch-endpoint in der python library, daher direkt mit requests
-                resp = requests.post(
-                    url,
-                    json=payload,
-                    params={"fields": fields},
-                    headers=headers,
-                    timeout=120,
-                )
-                
-                resp.raise_for_status()
-                results = resp.json()
-            except Exception as e:
-
-                self.logger.error(f"SemanticScholar batch request failed: {e}")
+            results = self._post_with_retry(url, payload, {"fields": fields}, headers)
+            if results is None:
+                # Not reachable after all retries: the caller puts these papers
+                # into the uncaught queue so they are tried again later.
                 not_found.extend(chunk)
                 continue
 

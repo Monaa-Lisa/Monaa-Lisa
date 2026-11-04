@@ -1,4 +1,5 @@
 import pytest
+import requests
 from unittest.mock import Mock, patch
 
 from MonaaLisa.src.SemanticPaper.api.semantic_scholar import SemanticScholarAPI
@@ -256,6 +257,56 @@ class TestFetchReferences:
 
         assert len(references_on_arxiv) == 1
         assert len(references_not_present) == 1
+
+
+def _http_error_response(status_code):
+    response = Mock()
+    response.status_code = status_code
+    response.raise_for_status.side_effect = requests.HTTPError(response=response)
+    return response
+
+
+def _ok_response(items):
+    response = Mock()
+    response.raise_for_status = Mock()
+    response.json.return_value = items
+    return response
+
+
+class TestFetchBatchRetry:
+    PAPER = {"paperId": "s2_1", "embedding": {"vector": [0.1] * 768}, "citations": [], "references": []}
+
+    @patch('MonaaLisa.src.SemanticPaper.api.semantic_scholar.time.sleep')
+    @patch('MonaaLisa.src.SemanticPaper.api.semantic_scholar.requests.post')
+    def test_retries_after_rate_limit(self, mock_post, mock_sleep, semantic_scholar_api):
+        mock_post.side_effect = [_http_error_response(429), _ok_response([self.PAPER])]
+
+        found, not_found = semantic_scholar_api.fetch_batch(["2101.00001"])
+
+        assert [p["arxiv_id"] for p in found] == ["2101.00001"]
+        assert not_found == []
+        assert mock_post.call_count == 2
+
+    @patch('MonaaLisa.src.SemanticPaper.api.semantic_scholar.time.sleep')
+    @patch('MonaaLisa.src.SemanticPaper.api.semantic_scholar.requests.post')
+    def test_gives_up_after_max_attempts(self, mock_post, mock_sleep, semantic_scholar_api):
+        mock_post.side_effect = requests.ConnectionError("down")
+
+        found, not_found = semantic_scholar_api.fetch_batch(["2101.00001"])
+
+        assert found == []
+        assert not_found == ["2101.00001"]
+        assert mock_post.call_count == 5
+
+    @patch('MonaaLisa.src.SemanticPaper.api.semantic_scholar.time.sleep')
+    @patch('MonaaLisa.src.SemanticPaper.api.semantic_scholar.requests.post')
+    def test_does_not_retry_client_errors(self, mock_post, mock_sleep, semantic_scholar_api):
+        mock_post.return_value = _http_error_response(400)
+
+        found, not_found = semantic_scholar_api.fetch_batch(["2101.00001"])
+
+        assert not_found == ["2101.00001"]
+        assert mock_post.call_count == 1
 
 
 class TestFetchBatch:
