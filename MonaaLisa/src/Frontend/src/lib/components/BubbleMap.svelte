@@ -87,7 +87,7 @@
         gap: 2px;
         border: 1px solid color-mix(in srgb, var(--c) 55%, var(--bg));
         border-radius: 50%;
-        background: color-mix(in srgb, var(--c) 16%, var(--bg));
+        background: color-mix(in srgb, var(--c) 20%, var(--surface));
         color: var(--text);
         text-align: center;
         overflow: hidden;
