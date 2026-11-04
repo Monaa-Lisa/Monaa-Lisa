@@ -38,8 +38,8 @@
     <h3>Reading the views</h3>
     <ul>
         <li>
-            <strong>Subjects and categories:</strong> the area of a tile is the number of papers arXiv lists in that
-            category (arXiv-wide totals, not only the papers in this map).
+            <strong>Subjects and categories:</strong> the size of a circle follows the number of papers arXiv lists
+            in that category (arXiv-wide totals, not only the papers in this map).
         </li>
         <li>
             <strong>Paper map:</strong> one point per paper at its UMAP position. Distances are meaningful locally

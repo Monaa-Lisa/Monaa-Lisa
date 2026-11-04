@@ -15,8 +15,8 @@ export function packCircles<T>(items: T[], value: (item: T) => number, aspect = 
     const sorted = [...items].filter((i) => value(i) > 0).sort((a, b) => value(b) - value(a));
     if (!sorted.length) return [];
     const max = value(sorted[0]);
-    // the smallest circle keeps a sixth of the largest radius, so it stays clickable
-    const radius = (item: T) => 0.16 + 0.84 * Math.sqrt(value(item) / max);
+    // the smallest circle keeps a quarter of the largest radius, so its name still fits
+    const radius = (item: T) => 0.26 + 0.74 * Math.sqrt(value(item) / max);
     const GAP = 0.05;
     const STEPS = 48;
 

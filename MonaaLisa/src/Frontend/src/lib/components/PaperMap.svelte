@@ -38,6 +38,15 @@
 
     const byId = $derived(new Map(papers.map((p) => [p.entry_id, p])));
     const maxCitations = $derived(Math.max(1, ...papers.map(citationCount)));
+    /** The most cited papers always show their title, the rest appears when zooming in */
+    const labelled = $derived(
+        new Set(
+            [...papers]
+                .sort((a, b) => citationCount(b) - citationCount(a))
+                .slice(0, 8)
+                .map((p) => p.entry_id),
+        ),
+    );
 
     // subjects on this map, for the legend
     const legend = $derived.by(() => {
@@ -85,7 +94,8 @@
             size: nodeSize(p),
             color: categoryColor(p.categories),
             label: truncate(p.title, 70),
-            zIndex: 1,
+            forceLabel: labelled.has(p.entry_id),
+            zIndex: labelled.has(p.entry_id) ? 2 : 1,
         };
     }
 
@@ -124,8 +134,9 @@
             labelWeight: "500",
             labelColor: { color: labelColor },
             labelRenderedSizeThreshold: 5.5,
-            labelDensity: 0.3,
-            labelGridCellSize: 150,
+            // small maps have room for most titles, large ones only for a few per screen area
+            labelDensity: list.length <= 60 ? 1 : 0.3,
+            labelGridCellSize: list.length <= 60 ? 100 : 150,
             defaultEdgeType: "arrow",
             zIndex: true,
             stagePadding: 48,
@@ -295,7 +306,7 @@
         {#each legend as item (item.id)}
             <span><i style:background={item.color}></i>{item.name} <b>{item.count.toLocaleString("en")}</b></span>
         {/each}
-        <span class="hint">size: citations · position: UMAP of the SPECTER2 embedding</span>
+        <span class="hint">size: citations · position: UMAP of the SPECTER2 embedding · titles: most cited, zoom for more</span>
     </div>
 
     <ZoomControls

@@ -347,8 +347,8 @@
                 ? "Citation timeline of the selected paper"
                 : "Related papers of the selected paper";
         }
-        if (view.level === "top") return `${subjects.length} subjects · circle area: papers on arXiv`;
-        if (view.level === "sub") return `${subcategories(view.parentId).length} categories in ${view.parentName} · circle area: papers on arXiv`;
+        if (view.level === "top") return `${subjects.length} subjects · circle size: papers on arXiv`;
+        if (view.level === "sub") return `${subcategories(view.parentId).length} categories in ${view.parentName} · circle size: papers on arXiv`;
         if (loading || error) return "";
         const shown = papers.length.toLocaleString("en");
         const total = papersTotal.toLocaleString("en");

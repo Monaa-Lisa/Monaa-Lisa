@@ -43,21 +43,16 @@
         }));
     });
 
-    /** Which parts of the label fit: nothing, the name, name and count, or everything */
-    function sizeClass(r: number, name: string): string {
-        if (r < 26 || (r < 38 && name.length > 18)) return "tiny";
-        if (r < 46) return "small";
-        if (r < 62) return "medium";
-        if (r > 110) return "large";
-        return "";
+    /** Name text size that fits the circle, between 10 and 18 px */
+    function nameSize(r: number): number {
+        return Math.max(10, Math.min(18, r * 0.24));
     }
 </script>
 
 <div class="bubbles" bind:clientWidth={width} bind:clientHeight={height}>
     {#each layout as bubble (bubble.item.id)}
-        {@const size = sizeClass(bubble.r, bubble.item.name)}
         <button
-            class="bubble {size}"
+            class="bubble"
             style:left="{bubble.cx - bubble.r}px"
             style:top="{bubble.cy - bubble.r}px"
             style:width="{bubble.r * 2}px"
@@ -67,12 +62,10 @@
             title="{bubble.item.name} · {bubble.item.count.toLocaleString('en')} papers on arXiv"
             onclick={() => onselect(bubble.item)}
         >
-            {#if size !== "tiny"}
-                <span class="name">{bubble.item.name}</span>
-                {#if size !== "small"}
-                    <span class="count">{formatCount(bubble.item.count)} papers</span>
-                    {#if showIds && size !== "medium"}<span class="id">{bubble.item.id}</span>{/if}
-                {/if}
+            <span class="name" style:font-size="{nameSize(bubble.r)}px">{bubble.item.name}</span>
+            {#if bubble.r >= 46}
+                <span class="count">{formatCount(bubble.item.count)} papers</span>
+                {#if showIds && bubble.r >= 62}<span class="id">{bubble.item.id}</span>{/if}
             {/if}
         </button>
     {/each}
@@ -115,9 +108,8 @@
         line-clamp: 3;
         -webkit-box-orient: vertical;
         overflow: hidden;
-        font-size: var(--text-sm);
         font-weight: 500;
-        line-height: 1.25;
+        line-height: 1.2;
         text-wrap: balance;
     }
     .count {
@@ -128,19 +120,5 @@
         color: var(--text-3);
         font-family: var(--font-mono);
         font-size: var(--text-xs);
-    }
-    .bubble.large .name {
-        font-size: var(--text-lg);
-    }
-    .bubble.large .count {
-        font-size: var(--text-sm);
-    }
-    .bubble.small .name,
-    .bubble.medium .name {
-        font-size: var(--text-xs);
-        line-height: 1.2;
-    }
-    .bubble.medium .count {
-        font-size: 12px;
     }
 </style>
