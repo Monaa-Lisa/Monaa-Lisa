@@ -170,6 +170,21 @@ class TestLoadModels:
         finally:
             os.unlink(pca_path)
 
+    @patch('MonaaLisa.src.SemanticPaper.pipeline.embedding_pipeline.joblib')
+    @patch('MonaaLisa.src.SemanticPaper.pipeline.embedding_pipeline._get_available_memory_gb', return_value=0.5)
+    @patch('MonaaLisa.src.SemanticPaper.pipeline.embedding_pipeline.cfg')
+    def test_loads_models_when_memory_is_low(self, mock_cfg, mock_get_mem, mock_joblib, tmp_path):
+        """The low memory warning used to crash because it read the UMAP size before it was set."""
+        pca_path = tmp_path / "pca.pkl"
+        umap_path = tmp_path / "umap.pkl"
+        pca_path.write_bytes(b"x")
+        umap_path.write_bytes(b"x")
+
+        pipeline = EmbeddingPipeline(pca_model_path=pca_path, umap_model_path=umap_path)
+
+        assert mock_joblib.load.call_count == 2
+        assert pipeline.is_ready()
+
 
 class TestBatchReduceTo128d:
     """Tests conditional logic in batch_reduce_to_128d()."""
