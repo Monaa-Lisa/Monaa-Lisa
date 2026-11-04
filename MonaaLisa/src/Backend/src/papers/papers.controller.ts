@@ -3,51 +3,18 @@
  *
  * PapersController
  * -------------------------------
- * REST-Endpunkte rund um "Paper".
+ * Read-only REST endpoints for papers. Papers are written by the Python
+ * pipeline directly into the database, so there are no write endpoints here.
  * Der Controller ist schlank gehalten und delegiert alles an den Service.
  * Validierung/Transformation passiert über die DTOs (class-validator / class-transformer).
  */
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { PapersService } from './papers.service';
-import { CreatePaperDto } from './dto/create-paper.dto';
-import { UpdatePaperDto } from './dto/update-paper.dto';
 import { QueryPaperDto } from './dto/query-paper.dto';
 
 @Controller('papers')
 export class PapersController {
   constructor(private readonly papers: PapersService) {}
-
-  /**
-   * POST /papers
-   * Legt ein neues Paper an.
-   *
-   * Erwartet: CreatePaperDto im Body.
-   * Hinweis: Standard-HTTP-Code für POST ist 201 (Created), sofern nicht überschrieben.
-   */
-  @Post()
-  create(@Body() dto: CreatePaperDto) {
-    return this.papers.create(dto);
-  }
-
-  /**
-   * POST /papers/upsert
-   * Idempotente Ingestion: legt an oder aktualisiert anhand `entry_id`.
-   *
-   * Use-Case: Feeds/Importer, die dasselbe Item mehrfach sehen können.
-   */
-  @Post('upsert')
-  upsert(@Body() dto: CreatePaperDto) {
-    return this.papers.upsertByEntryId(dto);
-  }
 
   /**
    * POST /papers/batch
@@ -87,32 +54,8 @@ export class PapersController {
     return this.papers.findByEntryId(entryId);
   }
 
-  /**
-   * PATCH /papers/:entryId
-   * Aktualisiert Felder eines Papers.
-   *
-   * Verhalten:
-   * - Nur übergebene Felder werden geändert.
-   * - `published` wird nur gesetzt, wenn im DTO vorhanden.
-   */
-  @Patch(':entryId')
-  update(@Param('entryId') entryId: string, @Body() dto: UpdatePaperDto) {
-    return this.papers.updateByEntryId(entryId, dto);
-  }
-
   @Post('neighbours/filtered')
   async getNeighbours(@Body() body: { entryIds: string[]; filter: any }) {
     return this.papers.findFilteredNeighbours(body.entryIds, body.filter);
-  }
-
-  // Nick - November 2025
-  // Die Möglichkeiten ein paper zu löschen damit es neugeladen werden kann
-  /**
-   * DELETE /papers/:entryId
-   * Löscht ein Paper.
-   */
-  @Delete(':entryId')
-  remove(@Param('entryId') entryId: string) {
-    return this.papers.deleteByEntryId(entryId);
   }
 }
