@@ -16,7 +16,6 @@
 		"@sveltejs/kit": "^2.16.0",
 		"@sveltejs/vite-plugin-svelte": "^5.0.0",
 		"@tailwindcss/vite": "^4.1.11",
-		"@types/d3": "^7.4.3",
 		"graphology-types": "^0.24.8",
 		"svelte": "^5.0.0",
 		"svelte-check": "^4.0.0",
@@ -24,16 +23,7 @@
 		"vite": "^6.2.5"
 	},
 	"dependencies": {
-		"@sigma/edge-curve": "^3.1.0",
-		"@sigma/layer-webgl": "^3.0.0",
-		"@types/concaveman": "^1.1.6",
-		"concaveman": "^2.0.0",
-		"d3": "^7.9.0",
 		"graphology": "^0.26.0",
-		"graphology-communities-louvain": "^2.0.2",
-		"graphology-layout": "^0.6.1",
-		"graphology-layout-forceatlas2": "^0.10.1",
-		"graphology-layout-noverlap": "^0.4.2",
 		"sigma": "^3.0.2"
 	}
 }

@@ -10,7 +10,6 @@
     import GraphLib from "graphology";
     import Sigma from "sigma";
     import type { Paper } from "$lib/types/paper";
-    import { json } from "d3";
 
     export let papers: Paper[] = [];
     export let selectedPaperId: string | null = null;
