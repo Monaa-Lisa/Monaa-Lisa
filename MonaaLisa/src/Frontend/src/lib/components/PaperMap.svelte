@@ -56,6 +56,24 @@
             }));
     });
 
+    /**
+     * Bounding box of the bulk of the papers: the initial view ignores a few
+     * far away points, which would otherwise squeeze the map into a corner.
+     */
+    function robustBBox(list: Paper[]): { x: [number, number]; y: [number, number] } | null {
+        if (list.length < 10) return null;
+        const range = (values: number[]): [number, number] => {
+            const sorted = [...values].sort((a, b) => a - b);
+            const q = (p: number) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
+            const iqr = q(0.75) - q(0.25) || 1;
+            const lo = Math.max(sorted[0], q(0.25) - 2 * iqr);
+            const hi = Math.min(sorted[sorted.length - 1], q(0.75) + 2 * iqr);
+            const pad = (hi - lo) * 0.05 || 1;
+            return [lo - pad, hi + pad];
+        };
+        return { x: range(list.map((p) => p.x)), y: range(list.map((p) => p.y)) };
+    }
+
     function nodeSize(p: Paper): number {
         return 2.2 + 5 * (Math.log1p(citationCount(p)) / Math.log1p(maxCitations));
     }
@@ -105,14 +123,14 @@
             labelSize: 11,
             labelWeight: "500",
             labelColor: { color: labelColor },
-            labelRenderedSizeThreshold: 5.6,
-            labelDensity: 0.6,
-            labelGridCellSize: 90,
+            labelRenderedSizeThreshold: 5.5,
+            labelDensity: 0.3,
+            labelGridCellSize: 150,
             defaultEdgeType: "arrow",
             zIndex: true,
-            stagePadding: 40,
+            stagePadding: 48,
             minCameraRatio: 0.02,
-            maxCameraRatio: 2,
+            maxCameraRatio: 6,
             nodeReducer: (node, attrs) => {
                 const out = { ...attrs };
                 if (node === selectedId) {
@@ -134,6 +152,8 @@
                 return out;
             },
         });
+
+        r.setCustomBBox(robustBBox(list));
 
         r.on("enterNode", ({ node, event }) => {
             const paper = known.get(node);

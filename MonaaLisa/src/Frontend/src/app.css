@@ -38,12 +38,12 @@
 
   --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  --text-xs: 0.75rem; /* 12px */
-  --text-sm: 0.8125rem; /* 13px */
-  --text-base: 0.875rem; /* 14px */
-  --text-md: 0.9375rem; /* 15px */
-  --text-lg: 1.0625rem; /* 17px */
-  --text-xl: 1.25rem; /* 20px */
+  --text-xs: 0.8125rem; /* 13px */
+  --text-sm: 0.875rem; /* 14px */
+  --text-base: 0.9375rem; /* 15px */
+  --text-md: 1rem; /* 16px */
+  --text-lg: 1.125rem; /* 18px */
+  --text-xl: 1.375rem; /* 22px */
 
   --radius-sm: 3px;
   --radius: 4px;
@@ -51,9 +51,9 @@
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --duration: 120ms;
 
-  --header-height: 44px;
-  --sidebar-width: 320px;
-  --panel-width: 400px;
+  --header-height: 48px;
+  --sidebar-width: 340px;
+  --panel-width: 420px;
 }
 
 :root[data-theme="dark"] {
@@ -181,8 +181,8 @@ a:hover {
 
 /* Text inputs and selects share one look: add class="field" */
 .field {
-  height: 30px;
-  padding: 0 8px;
+  height: 32px;
+  padding: 0 9px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   background: var(--surface);
@@ -231,14 +231,14 @@ input[type="checkbox"] {
 .tabs {
   display: flex;
   gap: 2px;
-  padding: 0 8px;
+  padding: 0 10px;
   border-bottom: 1px solid var(--border);
 }
 .tabs button {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 8px 7px;
+  padding: 10px 10px 9px;
   border: 0;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
@@ -271,7 +271,7 @@ input[type="checkbox"] {
   background: var(--surface);
 }
 .segmented button {
-  padding: 3px 10px;
+  padding: 4px 12px;
   border: 0;
   border-radius: var(--radius-sm);
   background: none;

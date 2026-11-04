@@ -299,7 +299,7 @@
     }
 
     header {
-        padding: 8px 12px 12px 16px;
+        padding: 10px 14px 14px 20px;
     }
     .toolbar {
         display: flex;
@@ -338,7 +338,7 @@
     }
 
     h2 {
-        margin: 6px 0 6px;
+        margin: 8px 0 8px;
         font-size: var(--text-lg);
         font-weight: 600;
         line-height: 1.3;
@@ -414,10 +414,10 @@
         flex: 1;
         min-height: 0;
         overflow-y: auto;
-        padding: 12px 8px 12px;
+        padding: 14px 10px 16px;
     }
     .abstract {
-        margin: 0 8px 16px;
+        margin: 0 10px 18px;
         color: var(--text);
         font-size: var(--text-base);
         line-height: 1.6;
@@ -425,9 +425,9 @@
     }
     .facts {
         display: grid;
-        gap: 8px;
-        margin: 0 8px;
-        padding-top: 12px;
+        gap: 10px;
+        margin: 0 10px;
+        padding-top: 14px;
         border-top: 1px solid var(--border);
     }
     .facts div {
@@ -453,7 +453,7 @@
     .list-tools {
         display: flex;
         gap: 6px;
-        margin: 0 4px 8px;
+        margin: 0 6px 10px;
     }
     .list-tools input {
         flex: 1;

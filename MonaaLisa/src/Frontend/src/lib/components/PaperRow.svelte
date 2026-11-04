@@ -64,10 +64,10 @@
     }
     .main {
         display: grid;
-        gap: 2px;
+        gap: 3px;
         flex: 1;
         min-width: 0;
-        padding: 7px 10px 7px 10px;
+        padding: 9px 12px;
         border: 0;
         background: none;
         text-align: left;
@@ -113,7 +113,7 @@
         white-space: nowrap;
     }
     .count {
-        padding: 8px 10px 0 0;
+        padding: 10px 12px 0 0;
         color: var(--text-2);
         font-family: var(--font-mono);
         font-size: var(--text-xs);

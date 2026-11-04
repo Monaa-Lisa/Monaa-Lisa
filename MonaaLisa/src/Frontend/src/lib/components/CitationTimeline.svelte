@@ -116,7 +116,7 @@
             }));
     });
 
-    function buildGraph(n: Neighbourhood, layout: NetworkMode, maxCitations: number): Graph {
+    function buildGraph(n: Neighbourhood, layout: NetworkMode, maxCitations: number, aspect: number): Graph {
         const graph = new Graph({ type: "directed" });
         const centre = n.paper;
         const centreYear = yearOf(centre) ?? new Date().getFullYear();
@@ -156,8 +156,10 @@
 
         if (layout === "citations") {
             const all = [...groups.cites, ...groups.citedBy];
-            // vertical room grows with the number of nodes, years stay on the x axis
-            const spread = Math.max(2, Math.sqrt(all.length) * 0.9);
+            // the year range fills the width, the vertical room follows the stage's shape
+            const years = [centreYear, ...all.map((p) => yearOf(p) ?? centreYear)];
+            const range = Math.max(2, Math.max(...years) - Math.min(...years));
+            const spread = (range * aspect) / 2;
             const topCites = labelled(groups.cites);
             const topCitedBy = labelled(groups.citedBy);
             for (const p of groups.cites) {
@@ -205,6 +207,7 @@
     }
 
     let renderer: Sigma | null = null;
+    let resetView = () => {};
 
     $effect(() => {
         const n = data;
@@ -220,7 +223,8 @@
         for (const p of n.related) if (!info.has(p.entry_id)) info.set(p.entry_id, { paper: p, group: "related" });
 
         const maxCitations = Math.max(1, ...[...info.values()].map((i) => citationCount(i.paper)));
-        const graph = buildGraph(n, mode, maxCitations);
+        const stage = { width: el.clientWidth || 1, height: el.clientHeight || 1 };
+        const graph = buildGraph(n, mode, maxCitations, stage.height / stage.width);
         const dim = token("--map-dim", "rgba(0,0,0,0.1)");
         const author = highlightedAuthor.toLowerCase();
 
@@ -231,8 +235,8 @@
             labelWeight: "500",
             labelColor: { color: token("--map-label", "#1c1c1c") },
             labelRenderedSizeThreshold: 7,
-            labelDensity: 0.8,
-            labelGridCellSize: 80,
+            labelDensity: 0.3,
+            labelGridCellSize: 150,
             defaultEdgeType: "arrow",
             zIndex: true,
             stagePadding: 64,
@@ -247,6 +251,12 @@
                     : { ...attrs, color: dim, label: "", zIndex: 0 };
             },
         });
+
+        // sigma fits the graph into the shorter side of the stage, for the
+        // timeline the year axis should span the full width instead
+        const fit = { x: 0.5, y: 0.5, angle: 0, ratio: mode === "citations" ? Math.min(1, stage.height / stage.width) : 1 };
+        r.getCamera().setState(fit);
+        resetView = () => r.getCamera().animate(fit, { duration: 300 });
 
         const updateRing = () => {
             const d = r.getNodeDisplayData(n.paper.entry_id);
@@ -346,7 +356,7 @@
     <ZoomControls
         onzoomin={() => camera()?.animatedZoom({ duration: 200 })}
         onzoomout={() => camera()?.animatedUnzoom({ duration: 200 })}
-        onreset={() => camera()?.animatedReset({ duration: 300 })}
+        onreset={() => resetView()}
     />
 </div>
 

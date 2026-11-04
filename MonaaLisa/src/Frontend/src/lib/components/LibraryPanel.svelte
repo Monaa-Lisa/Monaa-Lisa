@@ -192,7 +192,7 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 8px 12px 4px 16px;
+        padding: 10px 14px 6px 20px;
     }
     h2 {
         margin: 0;
@@ -212,7 +212,7 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 4px 8px 4px 16px;
+        padding: 6px 10px 6px 20px;
     }
     h3 {
         margin: 0;
