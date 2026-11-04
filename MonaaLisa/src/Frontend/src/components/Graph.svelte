@@ -10,6 +10,7 @@
     import GraphLib from "graphology";
     import Sigma from "sigma";
     import type { Paper } from "$lib/types/paper";
+    import { publishedYear, shortAuthors, truncate } from "$lib/paper";
 
     export let papers: Paper[] = [];
     export let selectedPaperId: string | null = null;
@@ -258,12 +259,6 @@
 
             // Prefer UMAP position; fall back to outward spiral around the graph.
             const hasUmap = p.tsne1 !== 0 || p.tsne2 !== 0;
-            console.log(
-                "applying search highlight for",
-                p.entry_id,
-                "has UMAP?",
-                hasUmap,
-            );
             const spiralAngle =
                 (papers.length + i) * Math.PI * (3 - Math.sqrt(5));
             const x = hasUmap
@@ -288,7 +283,6 @@
             searchAddedNodes.add(p.entry_id);
             addedCount++;
         }
-        console.log("search addedCount", addedCount);
 
         renderer.refresh();
     }
@@ -448,7 +442,6 @@
                             authorAddedNodes.add(raw.entry_id);
                         }
                     });
-                    console.log("author added", authorAddedNodes.size);
                 }
             } catch {
                 /* ignore network errors silently */
@@ -477,7 +470,7 @@
         graph.edges().forEach((e) => graph!.dropEdge(e));
 
         // 2. Den Fokus-Knoten hervorheben
-        graph.setNodeAttribute(nodeId, "color", "#00ff88");
+        graph.setNodeAttribute(nodeId, "color", "#c9a25e"); // --accent
 
         let paper = paperCache.get(nodeId);
 
@@ -534,11 +527,6 @@
         papers.forEach((paper, i) => {
             // Use UMAP coordinates (tsne1/tsne2) when available, fallback to spiral
             const hasUmap = paper.tsne1 !== 0 || paper.tsne2 !== 0;
-            if (!hasUmap) {
-                console.warn(
-                    `Paper ${paper.entry_id} is missing UMAP coordinates, using fallback layout. Consider re-running t-SNE/UMAP preprocessing for better visualization.`,
-                );
-            }
             const x = hasUmap
                 ? paper.tsne1 * COORD_SCALE
                 : 6 *
@@ -640,35 +628,31 @@
     <div class="sigma-container" bind:this={container}></div>
 
     {#if hoveredPaper}
-        <div class="tooltip">
-            <h4>{hoveredPaper.title}</h4>
-            <p class="meta">{hoveredPaper.authors}</p>
-            <p class="meta">
-                {hoveredPaper.published
-                    ? new Date(hoveredPaper.published).toLocaleDateString()
+        <div class="tooltip card">
+            <strong>{hoveredPaper.title}</strong>
+            <span class="meta">
+                {shortAuthors(hoveredPaper.authors)}{publishedYear(hoveredPaper.published)
+                    ? ` · ${publishedYear(hoveredPaper.published)}`
                     : ""}
-            </p>
-            <p class="abstract">
-                {hoveredPaper.abstract.slice(0, 200)}{hoveredPaper.abstract
-                    .length > 200
-                    ? "…"
-                    : ""}
-            </p>
-            <p class="stats">
-                Citations: {hoveredPaper.citations.length} | References: {hoveredPaper
-                    .references.length} | Non-arXiv: {(hoveredPaper.non_arxiv_citation_count ??
-                    0) + (hoveredPaper.non_arxiv_reference_count ?? 0)}
-            </p>
+            </span>
+            {#if hoveredPaper.abstract}
+                <p>{truncate(hoveredPaper.abstract, 180)}</p>
+            {/if}
+            <span class="meta">
+                Cited by {hoveredPaper.citations.length} arXiv papers{hoveredPaper.non_arxiv_citation_count
+                    ? ` and ${hoveredPaper.non_arxiv_citation_count} others`
+                    : ""} · click to open
+            </span>
         </div>
     {/if}
 </div>
 
 <style>
     .graph-wrapper {
+        position: relative;
         width: 100%;
         height: 100%;
-        position: relative;
-        background: var(--bg-primary, #0f1020);
+        background: var(--bg);
     }
     .sigma-container {
         width: 100%;
@@ -676,41 +660,29 @@
     }
     .tooltip {
         position: absolute;
-        top: 12px;
-        right: 12px;
-        max-width: 340px;
-        background: var(--glass-bg, rgba(20, 22, 50, 0.55));
-        border: 1px solid var(--border-subtle, rgba(147, 51, 234, 0.18));
-        border-radius: var(--radius-md, 12px);
-        padding: 14px 16px;
-        color: var(--text-primary, #f0f0f8);
-        font-size: 13px;
-        z-index: 10;
+        left: 50%;
+        bottom: 40px;
+        transform: translateX(-50%);
+        display: grid;
+        gap: 4px;
+        width: min(440px, calc(100% - 32px));
+        padding: 12px 14px;
         pointer-events: none;
-        backdrop-filter: blur(var(--glass-blur, 16px));
-        box-shadow: var(--shadow-glow-sm);
     }
-    .tooltip h4 {
-        margin: 0 0 6px;
-        font-size: 14px;
-        color: var(--text-primary, #f0f0f8);
-        line-height: 1.3;
-        font-weight: 600;
+    .tooltip strong {
+        color: var(--text);
+        font-size: var(--text-sm);
+        font-weight: 500;
+        line-height: 1.35;
+    }
+    .tooltip p {
+        margin: 2px 0;
+        color: var(--text-2);
+        font-size: var(--text-xs);
+        line-height: 1.5;
     }
     .tooltip .meta {
-        margin: 2px 0;
-        color: var(--text-muted, #6b6b8d);
-        font-size: 12px;
-    }
-    .tooltip .abstract {
-        margin: 8px 0 4px;
-        line-height: 1.4;
-        color: var(--text-secondary, #a8a8c8);
-    }
-    .tooltip .stats {
-        margin: 6px 0 0;
-        color: var(--accent-cyan, #22d3ee);
-        font-size: 11px;
-        opacity: 0.8;
+        color: var(--text-3);
+        font-size: var(--text-xs);
     }
 </style>

@@ -192,3 +192,18 @@ select.field {
 input[type="checkbox"] {
   accent-color: var(--accent);
 }
+
+/* Floating cards over the map */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+/* Small uppercase-free section label inside cards */
+.label {
+  color: var(--text-3);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}

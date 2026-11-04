@@ -10,6 +10,7 @@
     import { onMount, createEventDispatcher } from "svelte";
     import type { ClusterNode } from "$lib/types/paper";
     import { EdgeAnimator } from "./edgeAnimation";
+    import { RotateCcw } from "@lucide/svelte";
     // UMAP coordinate data for semantic layout
     import rawUmapLocs from "../utils/cluster-locations.json";
     const UMAP_LOCS: Record<string, { x: number; y: number }> = {
@@ -37,7 +38,6 @@
                 | null)) ||
         "default";
     // tooltip visibility for the info (ⓘ) button
-    let showLayoutInfo = false;
 
     const dispatch = createEventDispatcher();
 
@@ -392,7 +392,7 @@
 
         // clear with DPR-aware transform
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.fillStyle = "#0F1020";
+        ctx.fillStyle = "#0c0c0e"; // --bg
         ctx.fillRect(0, 0, canvasW, canvasH);
         if (!laid.length) return;
 
@@ -495,13 +495,13 @@
             const showFull = view.scale >= LABEL_FULL_SCALE;
             const label = showFull ? c.name : abbrevName(c.name);
 
-            ctx.font = `bold ${18}px 'Segoe UI', system-ui, sans-serif`;
-            ctx.fillStyle = "#e0e0e0";
+            ctx.font = `600 16px 'IBM Plex Sans', system-ui, sans-serif`;
+            ctx.fillStyle = "#ededf0";
             ctx.fillText(label, s.x, s.y - 14);
 
             if (showFull) {
-                ctx.font = `13px 'Segoe UI', system-ui, sans-serif`;
-                ctx.fillStyle = "#888888";
+                ctx.font = `12px 'IBM Plex Mono', ui-monospace, monospace`;
+                ctx.fillStyle = "#8a8a94";
                 ctx.fillText(fmtCount(c.count) + " papers", s.x, s.y + 14);
             }
         }
@@ -514,13 +514,13 @@
                 const s = w2s(c.x, c.y);
                 const label = c.name;
 
-                ctx.font = `bold ${21}px 'Segoe UI', system-ui, sans-serif`;
+                ctx.font = `600 18px 'IBM Plex Sans', system-ui, sans-serif`;
                 ctx.fillStyle = "#ffffff";
                 ctx.fillText(label, s.x, s.y - 14);
 
                 // the hovered cluster always shows its paper count
-                ctx.font = `15px 'Segoe UI', system-ui, sans-serif`;
-                ctx.fillStyle = "#cccccc";
+                ctx.font = `13px 'IBM Plex Mono', ui-monospace, monospace`;
+                ctx.fillStyle = "#a6a6b0";
                 ctx.fillText(fmtCount(c.count) + " papers", s.x, s.y + 14);
             }
         }
@@ -811,11 +811,6 @@
     }
 </script>
 
-<svelte:window
-    on:click={() => {
-        if (showLayoutInfo) showLayoutInfo = false;
-    }}
-/>
 
 <div class="cluster-container">
     <canvas
@@ -825,211 +820,88 @@
         on:mouseleave={handleMouseLeave}
         on:wheel|preventDefault={handleWheel}
     ></canvas>
-    <button class="reset-btn" on:click={resetView} title="Reset view"
-        >&#x27F2;</button
-    >
-
-    <!-- Layout-mode toggle - bottom left, styled like the citation-graph tab buttons -->
-    <div class="layout-controls">
-        <div class="layout-toggle">
+    <div class="map-controls card">
+        <div class="segmented" role="group" aria-label="Arrangement">
             <button
-                class="layout-btn"
                 class:active={layoutMode === "default"}
+                aria-pressed={layoutMode === "default"}
                 on:click={() => setLayoutMode("default")}
-                title="Default arrangement">Default</button
+                title="Arranged for readability, positions do not carry meaning">Clear</button
             >
             <button
-                class="layout-btn"
                 class:active={layoutMode === "semantic"}
+                aria-pressed={layoutMode === "semantic"}
                 on:click={() => setLayoutMode("semantic")}
-                title="Semantic arrangement based on UMAP coordinates"
-                >Semantic</button
+                title="Arranged by topic similarity: related fields sit close together">By similarity</button
             >
         </div>
-        <!-- info button -->
-        <button
-            class="layout-info-btn"
-            class:active={showLayoutInfo}
-            on:click|stopPropagation={() => (showLayoutInfo = !showLayoutInfo)}
-            title="About these views"
-            aria-label="Layout mode info">i</button
-        >
+        <span class="sep" aria-hidden="true"></span>
+        <button class="icon-btn" on:click={resetView} title="Reset view" aria-label="Reset view">
+            <RotateCcw size={16} />
+        </button>
     </div>
-    {#if showLayoutInfo}
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <div class="layout-info-tooltip" on:click|stopPropagation>
-            <button
-                class="layout-info-close"
-                on:click={() => (showLayoutInfo = false)}
-                aria-label="Close">✕</button
-            >
-            <p>
-                <strong>Semantic</strong><br />Displays the clusters as close as
-                possible to their semantic similarity without ruining
-                visibility.
-            </p>
-            <p>
-                <strong>Default</strong><br />Positions the clusters in an
-                aesthetically pleasing way, ignoring similarity.
-            </p>
-        </div>
-    {/if}
 </div>
 
 <style>
     .cluster-container {
+        position: relative;
         width: 100%;
         height: 100%;
-        position: relative;
         overflow: hidden;
+        background: var(--bg);
     }
     canvas {
+        display: block;
         width: 100%;
         height: 100%;
-        display: block;
-        background: var(--bg-primary, #0f1020);
+        cursor: grab;
     }
-    .reset-btn {
-        position: absolute;
-        bottom: 16px;
-        right: 16px;
-        width: 38px;
-        height: 38px;
-        border-radius: 50%;
-        border: 1px solid var(--border-subtle, rgba(147, 51, 234, 0.18));
-        background: var(--glass-bg, rgba(20, 22, 50, 0.55));
-        backdrop-filter: blur(var(--glass-blur, 16px));
-        color: var(--text-secondary, #a8a8c8);
-        font-size: 20px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10;
-        transition: all
-            var(--transition-smooth, 0.3s cubic-bezier(0.4, 0, 0.2, 1));
-        box-shadow: 0 0 10px rgba(147, 51, 234, 0.1);
-    }
-    .reset-btn:hover {
-        background: rgba(147, 51, 234, 0.25);
-        color: #fff;
-        border-color: rgba(147, 51, 234, 0.4);
-        box-shadow: 0 0 20px rgba(147, 51, 234, 0.3);
+    canvas:active {
+        cursor: grabbing;
     }
 
-    /* ── Layout-mode toggle (bottom-left, mirrors PaperDetailGraph tab-btn style) ── */
-    .layout-controls {
+    .map-controls {
         position: absolute;
-        bottom: 16px;
-        left: 16px;
+        right: 12px;
+        bottom: 12px;
         display: flex;
         align-items: center;
-        gap: 6px;
-        z-index: 10;
+        gap: 4px;
+        padding: 3px;
     }
-    .layout-toggle {
+    .segmented {
         display: flex;
         gap: 2px;
-        background: rgba(0, 0, 0, 0.3);
-        border-radius: 8px;
-        padding: 3px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
     }
-
-    .layout-btn {
+    .segmented button,
+    .icon-btn {
+        height: 28px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: var(--radius);
         background: none;
-        border: none;
-        color: var(--text-muted, #6b6b8d);
-        border-radius: 6px;
-        padding: 5px 14px;
-        cursor: pointer;
-        font-size: 12px;
+        color: var(--text-3);
+        font-size: var(--text-xs);
         font-weight: 500;
-        transition: all 0.15s ease;
-    }
-    .layout-btn.active {
-        /* Match .tab-btn.active from PaperDetailGraph */
-        background: linear-gradient(
-            135deg,
-            rgba(147, 51, 234, 0.35),
-            rgba(232, 57, 160, 0.25)
-        );
-        color: var(--text-primary, #f0f0f8);
-        box-shadow: 0 0 12px rgba(147, 51, 234, 0.2);
-    }
-    .layout-btn:hover:not(.active) {
-        background: rgba(255, 255, 255, 0.05);
-        color: var(--text-secondary, #a8a8c8);
-    }
-
-    /* ── Info button ── */
-    .layout-info-btn {
-        width: 26px;
-        height: 26px;
-        border-radius: 50%;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        background: rgba(0, 0, 0, 0.3);
-        color: var(--text-muted, #6b6b8d);
-        font-size: 14px;
         cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+    }
+    .segmented button:hover,
+    .icon-btn:hover {
+        color: var(--text);
+    }
+    .segmented button.active {
+        background: var(--surface-3);
+        color: var(--text);
+    }
+    .icon-btn {
+        display: grid;
+        place-items: center;
+        width: 28px;
         padding: 0;
-        transition: all 0.15s ease;
-        line-height: 1;
     }
-    .layout-info-btn.active,
-    .layout-info-btn:hover {
-        background: rgba(147, 51, 234, 0.25);
-        color: #e0e0f8;
-        border-color: rgba(147, 51, 234, 0.4);
-    }
-
-    /* ── Info tooltip ── */
-    .layout-info-tooltip {
-        position: absolute;
-        bottom: 56px;
-        left: 16px;
-        width: 260px;
-        background: rgba(14, 16, 36, 0.96);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(147, 51, 234, 0.28);
-        border-radius: 10px;
-        padding: 14px 14px 12px;
-        z-index: 20;
-        box-shadow:
-            0 4px 24px rgba(0, 0, 0, 0.45),
-            0 0 16px rgba(147, 51, 234, 0.12);
-        font-size: 12px;
-        line-height: 1.55;
-        color: var(--text-secondary, #a8a8c8);
-    }
-    .layout-info-tooltip p {
-        margin: 0 0 8px;
-    }
-    .layout-info-tooltip p:last-child {
-        margin-bottom: 0;
-    }
-    .layout-info-tooltip strong {
-        color: var(--text-primary, #f0f0f8);
-        font-weight: 600;
-    }
-    .layout-info-close {
-        float: right;
-        margin: -4px -4px 6px 8px;
-        background: none;
-        border: none;
-        color: var(--text-muted, #6b6b8d);
-        font-size: 12px;
-        cursor: pointer;
-        padding: 2px 4px;
-        border-radius: 4px;
-        line-height: 1;
-    }
-    .layout-info-close:hover {
-        color: #e0e0f8;
-        background: rgba(255, 255, 255, 0.06);
+    .sep {
+        width: 1px;
+        height: 16px;
+        background: var(--border);
     }
 </style>
