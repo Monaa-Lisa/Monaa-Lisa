@@ -23,7 +23,6 @@ from dotenv import load_dotenv
 from config import cfg
 from util.logger import Logger
 from Database.db import is_database_empty, engine
-from Database.db_models import db_base
 from SemanticPaper.api.semantic_scholar import SemanticScholarAPI
 from SemanticPaper.api.arxiv import ArxivAPI
 from SemanticPaper.data.downloader import (
