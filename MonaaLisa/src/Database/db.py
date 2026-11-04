@@ -680,25 +680,25 @@ def save_processed_paper(entry_id: str, title: str, authors: str | None,
                 content=embedding_128d,
             ))
 
-        # Citation links
-        for cid in (citation_ids or []):
-            try:
-                stmt = pg_insert(DBPaperCitation.__table__).values(
-                    belonging_paper_entry_id=entry_id, cited_paper_entry_id=cid
-                ).on_conflict_do_nothing()
-                session.execute(stmt)
-            except Exception:
-                pass
+        # Citation and reference links, one insert per table.
+        # set() drops duplicate ids, which ON CONFLICT cannot handle inside one statement.
+        citation_rows = [
+            {"belonging_paper_entry_id": entry_id, "cited_paper_entry_id": cid}
+            for cid in set(citation_ids or [])
+        ]
+        if citation_rows:
+            session.execute(
+                pg_insert(DBPaperCitation.__table__).values(citation_rows).on_conflict_do_nothing()
+            )
 
-        # Reference links
-        for rid in (reference_ids or []):
-            try:
-                stmt = pg_insert(DBPaperReference.__table__).values(
-                    belonging_paper_entry_id=entry_id, referenced_paper_entry_id=rid
-                ).on_conflict_do_nothing()
-                session.execute(stmt)
-            except Exception:
-                pass
+        reference_rows = [
+            {"belonging_paper_entry_id": entry_id, "referenced_paper_entry_id": rid}
+            for rid in set(reference_ids or [])
+        ]
+        if reference_rows:
+            session.execute(
+                pg_insert(DBPaperReference.__table__).values(reference_rows).on_conflict_do_nothing()
+            )
 
         session.commit()
         return True
