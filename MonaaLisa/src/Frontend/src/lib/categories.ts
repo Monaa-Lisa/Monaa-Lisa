@@ -80,3 +80,9 @@ export function paperContext(categories: string | null): {
         parentName: topName !== "Other" ? topName : "",
     };
 }
+
+/** Colour of the top-level category a paper belongs to, for small dots in lists. */
+export function categoryColor(categories: string | null): string {
+    const { parentName } = paperContext(categories);
+    return CATEGORY_COLORS[topClusterIdByName(parentName)] ?? DEFAULT_CATEGORY_COLOR;
+}
