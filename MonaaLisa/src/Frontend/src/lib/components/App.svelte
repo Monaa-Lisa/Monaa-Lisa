@@ -6,8 +6,8 @@
   the right.
 
   Map levels (the `view` state):
-    top     the eight arXiv subjects (treemap)
-    sub     the categories of one subject (treemap)
+    top     the eight arXiv subjects (packed circles)
+    sub     the categories of one subject (packed circles)
     papers  the paper map of one category (UMAP positions)
   On any level a paper can be selected. The middle then shows the paper on
   its map, its citation timeline or its related papers (`stageView`).
@@ -19,7 +19,7 @@
     import { afterNavigate, replaceState } from "$app/navigation";
     import { BookMarked, Info, Moon, Sun } from "@lucide/svelte";
     import Sidebar from "$lib/components/Sidebar.svelte";
-    import Treemap from "$lib/components/Treemap.svelte";
+    import BubbleMap from "$lib/components/BubbleMap.svelte";
     import PaperMap from "$lib/components/PaperMap.svelte";
     import CitationTimeline, { type NetworkMode } from "$lib/components/CitationTimeline.svelte";
     import PaperDetails, { type DetailsTab } from "$lib/components/PaperDetails.svelte";
@@ -347,8 +347,8 @@
                 ? "Citation timeline of the selected paper"
                 : "Related papers of the selected paper";
         }
-        if (view.level === "top") return `${subjects.length} subjects · tile area: papers on arXiv`;
-        if (view.level === "sub") return `${subcategories(view.parentId).length} categories in ${view.parentName} · tile area: papers on arXiv`;
+        if (view.level === "top") return `${subjects.length} subjects · circle area: papers on arXiv`;
+        if (view.level === "sub") return `${subcategories(view.parentId).length} categories in ${view.parentName} · circle area: papers on arXiv`;
         if (loading || error) return "";
         const shown = papers.length.toLocaleString("en");
         const total = papersTotal.toLocaleString("en");
@@ -463,9 +463,9 @@
                         <CitationTimeline paper={selected} mode={stageView} {nodeLimit} {highlightedAuthor} onselect={openPaper} />
                     {/key}
                 {:else if view.level === "top"}
-                    <Treemap items={subjects} color={browse.color} onselect={showSubject} />
+                    <BubbleMap items={subjects} color={browse.color} onselect={showSubject} />
                 {:else if view.level === "sub"}
-                    <Treemap items={subcategories(view.parentId)} color={browse.color} showIds onselect={showCategory} />
+                    <BubbleMap items={subcategories(view.parentId)} color={browse.color} showIds onselect={showCategory} />
                 {:else if loading}
                     <div class="state">
                         <Spinner size={24} />
@@ -535,7 +535,7 @@
         align-items: center;
         gap: 12px;
         height: var(--header-height);
-        padding: 0 12px 0 16px;
+        padding: 0 14px 0 20px;
         border-bottom: 1px solid var(--border);
         background: var(--surface);
         flex-shrink: 0;
@@ -594,8 +594,8 @@
         display: flex;
         align-items: center;
         gap: 12px;
-        height: 40px;
-        padding: 0 12px;
+        height: 44px;
+        padding: 0 16px;
         border-bottom: 1px solid var(--border);
         background: var(--surface);
         flex-shrink: 0;
