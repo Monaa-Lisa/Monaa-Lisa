@@ -1495,19 +1495,6 @@
     .reference-header:hover {
         background: rgba(78, 205, 196, 0.05);
     }
-    .section-icon {
-        width: 16px;
-        height: 16px;
-        border-radius: 4px;
-        background: rgba(147, 51, 234, 0.2);
-        color: var(--accent-purple, #9333ea);
-        font-size: 10px;
-        font-weight: 700;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
     .section-title {
         flex: 1;
     }
@@ -1689,70 +1676,6 @@
     }
 
     /* ── history ── */
-    .history-list {
-        padding: 4px 0;
-    }
-    .history-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 14px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    }
-    .history-info {
-        flex: 1;
-        min-width: 0;
-    }
-    .history-title {
-        margin: 0 0 2px;
-        font-size: 11px;
-        color: var(--text-secondary, #a8a8c8);
-        font-weight: 500;
-        line-height: 1.3;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .history-meta {
-        margin: 0;
-        font-size: 10px;
-        color: var(--text-muted, #6b6b8d);
-        font-style: italic;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .history-actions {
-        display: flex;
-        gap: 4px;
-        flex-shrink: 0;
-    }
-    .history-nav-btn,
-    .history-del-btn {
-        background: none;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        color: var(--text-muted, #6b6b8d);
-        border-radius: 6px;
-        width: 22px;
-        height: 22px;
-        cursor: pointer;
-        font-size: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.12s ease;
-    }
-    .history-nav-btn:hover {
-        background: rgba(34, 211, 238, 0.15);
-        color: var(--accent-cyan, #22d3ee);
-        border-color: rgba(34, 211, 238, 0.35);
-    }
-    .history-del-btn:hover {
-        background: rgba(245, 101, 101, 0.15);
-        color: #f56565;
-        border-color: rgba(245, 101, 101, 0.35);
-    }
-
     /* ── misc ── */
     .loading-row {
         display: flex;
