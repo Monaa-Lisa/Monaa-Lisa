@@ -59,14 +59,6 @@
 {/if}
 
 <style>
-  :global(body) {
-    margin: 0;
-    padding: 0;
-    background: #000;
-    color: #fff;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-    overflow-x: hidden;
-  }
 
   main {
     width: 100vw;

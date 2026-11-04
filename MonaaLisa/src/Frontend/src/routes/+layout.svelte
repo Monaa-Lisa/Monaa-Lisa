@@ -1,5 +1,12 @@
 <script lang="ts">
-    // Global design tokens (colours, radii, shadows) and scrollbar styles
+    // Fonts are bundled with the app, so visitors' browsers do not contact
+    // a font CDN (no third party requests, GDPR friendly).
+    import "@fontsource/ibm-plex-sans/latin-400.css";
+    import "@fontsource/ibm-plex-sans/latin-500.css";
+    import "@fontsource/ibm-plex-sans/latin-600.css";
+    import "@fontsource/ibm-plex-mono/latin-400.css";
+    import "@fontsource/ibm-plex-mono/latin-500.css";
+    // Design tokens and base styles
     import "../app.css";
 
     let { children } = $props();
