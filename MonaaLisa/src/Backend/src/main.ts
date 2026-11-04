@@ -3,6 +3,8 @@
  */
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 type EnvAccessor = {
@@ -16,10 +18,16 @@ function readEnv() {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const env = readEnv();
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.use(helmet());
+  // Behind a reverse proxy (Caddy/nginx) the rate limiter needs the client IP
+  // from X-Forwarded-For. Set TRUST_PROXY to the number of proxies in front.
+  if (env.TRUST_PROXY) {
+    app.set('trust proxy', Number(env.TRUST_PROXY));
+  }
   // Runs the class-validator rules on every DTO and fills in their defaults
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
-  const env = readEnv();
   const port = Number(env.PORT ?? 3000);
   const allowedOrigins = (env.FRONTEND_ORIGIN ?? 'http://localhost:5173')
     .split(',')
