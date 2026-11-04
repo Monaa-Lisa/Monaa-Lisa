@@ -347,7 +347,8 @@
         if (categoryId) {
             try {
                 const params = new URLSearchParams();
-                params.set("search", author);
+                // match the author column only, not titles or abstracts
+                params.set("author", author);
                 params.set("categories", categoryId);
                 params.set("take", "50"); // fetch up to 50 matching papers
                 params.set("skip", "0");

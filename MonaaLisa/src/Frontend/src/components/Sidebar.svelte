@@ -212,29 +212,28 @@
                 );
                 if (safeCat) params.set("categories", safeCat);
 
-                // 2. Text-Suche kombinieren
-                const searchParts: string[] = [];
-                if (trimmed) searchParts.push(trimmed);
-                if (adv.titleQuery.trim())
-                    searchParts.push(adv.titleQuery.trim());
-                if (adv.authorQuery.trim())
-                    searchParts.push(adv.authorQuery.trim());
-                if (adv.abstractQuery.trim())
-                    searchParts.push(adv.abstractQuery.trim());
-
-                if (searchParts.length > 0) {
-                    // Wir begrenzen die Länge, um keine zu riesigen Header zu senden
-                    params.set("search", searchParts.join(" ").slice(0, 300));
+                // 2. Text search: the free text matches any field, the
+                //    advanced fields each match their own column (AND)
+                const fieldParams: [string, string][] = [
+                    ["search", trimmed],
+                    ["title", adv.titleQuery.trim()],
+                    ["author", adv.authorQuery.trim()],
+                    ["abstract", adv.abstractQuery.trim()],
+                ];
+                for (const [key, value] of fieldParams) {
+                    if (value) params.set(key, value.slice(0, 300));
                 }
 
                 // 3. Datumsfilter
                 if (adv.dateFrom) params.set("dateFrom", adv.dateFrom);
                 if (adv.dateTo) params.set("dateTo", adv.dateTo);
 
-                // 4. Sortierung
-                // Backend erwartet 'published' oder 'citations'
-                const backendSort =
-                    adv.sort === "citations" ? "citations" : "published";
+                // 4. Sort order, values the backend accepts
+                const backendSort = {
+                    published_desc: "published",
+                    published_asc: "published_asc",
+                    citations: "citations",
+                }[adv.sort];
                 params.set("sort", backendSort);
 
                 // 5. Pagination (Die Sicherheitsbremse!)

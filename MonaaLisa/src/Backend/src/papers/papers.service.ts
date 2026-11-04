@@ -1,7 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
-import { DEFAULT_TAKE, MAX_TAKE, QueryPaperDto } from './dto/query-paper.dto';
+import {
+  DEFAULT_TAKE,
+  MAX_TAKE,
+  PaperSort,
+  QueryPaperDto,
+} from './dto/query-paper.dto';
 import { MAX_BATCH_IDS } from './dto/batch-papers.dto';
 
 /**
@@ -106,6 +111,9 @@ export class PapersService {
       q.sort === 'citations' &&
       q.categories &&
       !q.search &&
+      !q.title &&
+      !q.author &&
+      !q.abstract &&
       !q.dateFrom &&
       !q.dateTo
     ) {
@@ -123,6 +131,25 @@ export class PapersService {
       ];
     }
 
+    // Each advanced field must match on its own column
+    const fieldFilters: Prisma.PaperWhereInput[] = [];
+    if (q.title?.trim()) {
+      fieldFilters.push({
+        title: { contains: q.title.trim(), mode: 'insensitive' },
+      });
+    }
+    if (q.author?.trim()) {
+      fieldFilters.push({
+        authors: { contains: q.author.trim(), mode: 'insensitive' },
+      });
+    }
+    if (q.abstract?.trim()) {
+      fieldFilters.push({
+        abstract: { contains: q.abstract.trim(), mode: 'insensitive' },
+      });
+    }
+    if (fieldFilters.length) where.AND = fieldFilters;
+
     if (q.categories) where.categories = { contains: q.categories };
 
     if (q.dateFrom || q.dateTo) {
@@ -135,7 +162,7 @@ export class PapersService {
     const [items, total] = await Promise.all([
       this.prisma.paper.findMany({
         where,
-        orderBy: [{ published: 'desc' }],
+        orderBy: orderByFor(q.sort),
         skip,
         take,
       }),
@@ -287,4 +314,17 @@ function toNumber(value: unknown, fallback: number): number {
     return parsed;
   }
   return fallback;
+}
+
+function orderByFor(
+  sort: PaperSort | undefined,
+): Prisma.PaperOrderByWithRelationInput[] {
+  switch (sort) {
+    case 'citations':
+      return [{ arxiv_citation_count: 'desc' }, { id: 'asc' }];
+    case 'published_asc':
+      return [{ published: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }];
+    default:
+      return [{ published: { sort: 'desc', nulls: 'last' } }, { id: 'asc' }];
+  }
 }

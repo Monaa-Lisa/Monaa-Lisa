@@ -1,10 +1,12 @@
 import { Type } from 'class-transformer';
 import {
+  IsIn,
   IsInt,
   IsISO8601,
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -12,11 +14,35 @@ import {
 export const MAX_TAKE = 20000;
 export const DEFAULT_TAKE = 100;
 
+export const SORT_OPTIONS = [
+  'published',
+  'published_asc',
+  'citations',
+] as const;
+export type PaperSort = (typeof SORT_OPTIONS)[number];
+
 export class QueryPaperDto {
-  // Volltextsuche über title/authors/summary
+  // Free text, matched against title, authors and abstract (any of them)
   @IsOptional()
   @IsString()
+  @MaxLength(300)
   search?: string;
+
+  // Field searches from the advanced filter, combined with AND
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  author?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  abstract?: string;
 
   @IsOptional()
   @IsString()
@@ -31,10 +57,11 @@ export class QueryPaperDto {
   @IsISO8601()
   dateTo?: string;
 
-  // Sort order: 'published' (default) or 'citations' (most cited first)
+  // 'published' = newest first (default), 'published_asc' = oldest first,
+  // 'citations' = most cited by arXiv papers first
   @IsOptional()
-  @IsString()
-  sort?: string;
+  @IsIn(SORT_OPTIONS)
+  sort?: PaperSort;
 
   // Pagination
   @IsOptional()
