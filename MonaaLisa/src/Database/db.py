@@ -2,7 +2,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from typing import cast, List
-from sqlalchemy import create_engine, or_, and_, exists, select, update
+from sqlalchemy import create_engine, func, or_, and_, exists, select, update
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 from config import cfg
@@ -699,6 +699,18 @@ def save_processed_paper(entry_id: str, title: str, authors: str | None,
             session.execute(
                 pg_insert(DBPaperReference.__table__).values(reference_rows).on_conflict_do_nothing()
             )
+
+        # Keep the stored citation count in sync with paper_citation (used for sort=citations)
+        session.execute(
+            update(DBPaper)
+            .where(DBPaper.entry_id == entry_id)
+            .values(arxiv_citation_count=(
+                select(func.count())
+                .select_from(DBPaperCitation.__table__)
+                .where(DBPaperCitation.belonging_paper_entry_id == entry_id)
+                .scalar_subquery()
+            ))
+        )
 
         session.commit()
         return True

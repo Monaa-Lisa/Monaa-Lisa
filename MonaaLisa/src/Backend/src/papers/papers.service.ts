@@ -152,50 +152,30 @@ export class PapersService {
   }
 
   /**
-   * Optimised path: fetches papers for a category ordered by citation count.
-   * Uses raw SQL because Prisma cannot ORDER BY a count from a joined table.
+   * Papers of one category, most cited (by arXiv papers) first.
+   * Uses the stored arxiv_citation_count and its index, with id as tiebreaker
+   * so that pages do not overlap when many papers have the same count.
    */
   private async findManyByCitationCount(
     category: string,
     skip: number,
     take: number,
   ) {
-    const papers: any[] = await this.prisma.$queryRaw`
-      SELECT p.*,
-             COALESCE(cc.cnt, 0) AS cit_count
-        FROM paper p
-        LEFT JOIN (
-          SELECT belonging_paper_entry_id, COUNT(*) AS cnt
-            FROM paper_citation
-           GROUP BY belonging_paper_entry_id
-        ) cc ON cc.belonging_paper_entry_id = p.entry_id
-       WHERE p.categories LIKE ${'%' + category + '%'}
-       ORDER BY cit_count DESC
-       OFFSET ${skip}
-        LIMIT ${take}
-    `;
+    const where: Prisma.PaperWhereInput = {
+      categories: { contains: category },
+    };
+    const [papers, total] = await Promise.all([
+      this.prisma.paper.findMany({
+        where,
+        orderBy: [{ arxiv_citation_count: 'desc' }, { id: 'asc' }],
+        skip,
+        take,
+      }),
+      this.prisma.paper.count({ where }),
+    ]);
 
-    const total: [{ count: bigint }] = await this.prisma.$queryRaw`
-      SELECT COUNT(*) as count FROM paper
-       WHERE categories LIKE ${'%' + category + '%'}
-    `;
-
-    // Raw query returns BigInt for count columns – convert to number
-    const items = papers.map(({ cit_count, ...rest }) => ({
-      ...rest,
-      id: Number(rest.id),
-      non_arxiv_citation_count:
-        rest.non_arxiv_citation_count != null
-          ? Number(rest.non_arxiv_citation_count)
-          : null,
-      non_arxiv_reference_count:
-        rest.non_arxiv_reference_count != null
-          ? Number(rest.non_arxiv_reference_count)
-          : null,
-    }));
-
-    const enrichedItems = await this.enrichWithCitations(items as any);
-    return { items: enrichedItems, total: Number(total[0].count), skip, take };
+    const items = await this.enrichWithCitations(papers);
+    return { items, total, skip, take };
   }
 
   /**

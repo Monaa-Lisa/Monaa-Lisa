@@ -31,6 +31,9 @@ model Paper {
   s2_id                     String?   @unique
   non_arxiv_citation_count  Int?
   non_arxiv_reference_count Int?
+  // number of rows in paper_citation for this paper (arXiv papers citing it),
+  // kept up to date by the Python pipeline and the dataset import
+  arxiv_citation_count      Int       @default(0)
   related_arxiv_ids         Json?
   // wird für die python anwendung benutzt um die koordinaten für umap bereitzustellen
   tsne                      Json?
@@ -47,8 +50,8 @@ model Paper {
   @@index([authors(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([abstract(ops: raw("gin_trgm_ops"))], type: Gin)
 
-  // unsere häufigste query: alle paper einer kategorie und sortiert nach zitationen
-  @@index([categories, non_arxiv_citation_count(sort: Desc)])
+  // Most common query: papers of one category, most cited first (sort=citations)
+  @@index([arxiv_citation_count(sort: Desc), id])
 
   @@map("paper")
 }

@@ -40,6 +40,7 @@ class DBPaper(db_base):
     s2_id = Column(String, nullable=True, unique=True, index=True)
     non_arxiv_citation_count = Column(Integer, nullable=True)
     non_arxiv_reference_count = Column(Integer, nullable=True)
+    arxiv_citation_count = Column(Integer, nullable=False, default=0, server_default="0")
     related_arxiv_ids = Column(JSON, nullable=True)
     # App-only fields (not in dataset, used by ML pipeline)
     tsne = Column(JSON, nullable=True)
