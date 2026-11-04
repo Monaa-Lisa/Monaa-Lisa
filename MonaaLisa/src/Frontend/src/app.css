@@ -58,40 +58,6 @@
 
   --topbar-height: 48px;
   --panel-width: 380px;
-
-  /*
-   * Old token names, mapped onto the new palette until every component is
-   * rebuilt on the tokens above. Remove once nothing uses them.
-   */
-  --bg-primary: var(--bg);
-  --bg-secondary: var(--surface);
-  --bg-surface: var(--surface);
-  --bg-surface-solid: var(--surface-2);
-  --bg-card: var(--surface-2);
-  --accent-purple: var(--accent);
-  --accent-magenta: var(--accent);
-  --accent-cyan: var(--accent);
-  --accent-blue: var(--accent);
-  --accent-yellow: var(--accent);
-  --gradient-accent: var(--accent);
-  --gradient-header: var(--border);
-  --gradient-card: var(--surface-2);
-  --gradient-glow: var(--surface-2);
-  --text-primary: var(--text);
-  --text-secondary: var(--text-2);
-  --text-muted: var(--text-3);
-  --border-subtle: var(--border);
-  --border-glow: var(--border-strong);
-  --glass-bg: var(--surface);
-  --glass-border: var(--border);
-  --glass-blur: 0px;
-  --shadow-glow-sm: none;
-  --shadow-glow-md: none;
-  --shadow-glow-lg: var(--shadow-pop);
-  --transition-fast: var(--duration) var(--ease);
-  --transition-smooth: 200ms var(--ease);
-  --radius-md: var(--radius-lg);
-  --radius-xl: var(--radius-lg);
 }
 
 *,
