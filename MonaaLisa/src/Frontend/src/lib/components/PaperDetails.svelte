@@ -9,7 +9,7 @@
 </script>
 
 <script lang="ts">
-    import { ArrowLeft, Check, Copy, Crosshair, Star, X } from "@lucide/svelte";
+    import { ArrowLeft, ArrowUpRight, Check, Copy, Crosshair, FileText, Star, X } from "@lucide/svelte";
     import Button from "$lib/components/ui/Button.svelte";
     import PaperRow from "$lib/components/PaperRow.svelte";
     import Spinner from "$lib/components/ui/Spinner.svelte";
@@ -30,6 +30,8 @@
         onselect: (paper: Paper) => void;
         onfavorite: () => void;
         onauthor: (name: string) => void;
+        /** False when the paper is already marked on its category map */
+        canLocate: boolean;
         /** Opens the map of the paper's category with the paper marked */
         onlocate: () => void;
         onclose: () => void;
@@ -45,6 +47,7 @@
         onselect,
         onfavorite,
         onauthor,
+        canLocate,
         onlocate,
         onclose,
     }: Props = $props();
@@ -134,9 +137,11 @@
                 <span></span>
             {/if}
             <div class="tools">
-                <Button variant="ghost" size="sm" onclick={onlocate} title="Show this paper on the map of its category">
-                    <Crosshair /> Show on map
-                </Button>
+                {#if canLocate}
+                    <Button variant="ghost" size="sm" onclick={onlocate} title="Show this paper on the map of its category">
+                        <Crosshair /> Show on map
+                    </Button>
+                {/if}
                 <Button
                     variant="ghost"
                     size="sm"
@@ -151,13 +156,15 @@
             </div>
         </div>
 
-        <p class="context">
-            <i style:background={categoryColor(full.categories)}></i>
-            <span class="mono">{context.categoryId}</span>
-            {#if context.categoryName && context.categoryName !== context.categoryId}
-                <span>{context.categoryName}</span>
-            {/if}
-            {#if context.subjectName}<span class="dim">· {context.subjectName}</span>{/if}
+        <p class="context" style:--c={categoryColor(full.categories)}>
+            <span class="chip">
+                <i></i>
+                <span class="mono">{context.categoryId}</span>
+                {#if context.categoryName && context.categoryName !== context.categoryId}
+                    <span class="cat-name">{context.categoryName}</span>
+                {/if}
+            </span>
+            {#if context.subjectName}<span class="dim">{context.subjectName}</span>{/if}
         </p>
 
         <h2>{full.title}</h2>
@@ -180,13 +187,15 @@
         </p>
 
         <p class="links">
-            <a href={links.arxiv} target="_blank" rel="noopener noreferrer">arXiv</a>
-            <a href={links.pdf} target="_blank" rel="noopener noreferrer">PDF</a>
-            {#if links.doi}<a href={links.doi} target="_blank" rel="noopener noreferrer">DOI</a>{/if}
+            <a class="pill strong" href={links.pdf} target="_blank" rel="noopener noreferrer"><FileText /> PDF</a>
+            <a class="pill" href={links.arxiv} target="_blank" rel="noopener noreferrer">arXiv <ArrowUpRight /></a>
+            {#if links.doi}<a class="pill" href={links.doi} target="_blank" rel="noopener noreferrer">DOI <ArrowUpRight /></a>{/if}
             {#if links.semanticScholar}
-                <a href={links.semanticScholar} target="_blank" rel="noopener noreferrer">Semantic Scholar</a>
+                <a class="pill" href={links.semanticScholar} target="_blank" rel="noopener noreferrer"
+                    >Semantic Scholar <ArrowUpRight /></a
+                >
             {/if}
-            <button class="linkish" onclick={copyBibtex}>
+            <button class="pill" onclick={copyBibtex}>
                 {#if copied}<Check /> Copied{:else}<Copy /> BibTeX{/if}
             </button>
         </p>
@@ -320,28 +329,45 @@
     .context {
         display: flex;
         align-items: center;
-        gap: 6px;
-        margin: 8px 0 0;
-        color: var(--text-2);
+        gap: 8px;
+        min-width: 0;
+        margin: 6px 0 0;
+        color: var(--text-3);
         font-size: var(--text-xs);
         white-space: nowrap;
-        overflow: hidden;
     }
-    .context i {
-        width: 8px;
-        height: 8px;
+    .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--c) 13%, var(--surface));
+        color: var(--text);
+    }
+    .chip i {
+        width: 7px;
+        height: 7px;
         border-radius: 50%;
+        background: var(--c);
         flex-shrink: 0;
     }
+    .chip .cat-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
     .context .dim {
-        color: var(--text-3);
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     h2 {
-        margin: 8px 0 8px;
-        font-size: var(--text-lg);
+        margin: 10px 0 8px;
+        font-size: 1.25rem;
         font-weight: 600;
         line-height: 1.3;
+        letter-spacing: -0.005em;
         color: var(--text);
         text-wrap: pretty;
     }
@@ -371,7 +397,7 @@
         display: flex;
         flex-wrap: wrap;
         gap: 2px 12px;
-        margin: 8px 0 0;
+        margin: 6px 0 0;
         color: var(--text-3);
         font-size: var(--text-xs);
     }
@@ -386,26 +412,41 @@
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 4px 14px;
-        margin: 8px 0 0;
-        font-size: var(--text-sm);
+        gap: 6px;
+        margin: 12px 0 0;
     }
-    .linkish {
+    .pill {
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        padding: 0;
-        border: 0;
-        background: none;
-        color: var(--accent);
-        font-size: var(--text-sm);
+        height: 26px;
+        padding: 0 9px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        color: var(--text-2);
+        font-size: var(--text-xs);
+        font-weight: 500;
+        text-decoration: none;
         cursor: pointer;
     }
-    .linkish:hover {
-        text-decoration: underline;
-        text-underline-offset: 2px;
+    .pill:hover {
+        border-color: var(--border-strong);
+        background: var(--surface-2);
+        color: var(--text);
+        text-decoration: none;
     }
-    .linkish :global(svg) {
+    .pill.strong {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: var(--accent-fg);
+    }
+    .pill.strong:hover {
+        border-color: var(--accent-hover);
+        background: var(--accent-hover);
+        color: var(--accent-fg);
+    }
+    .pill :global(svg) {
         width: 13px;
         height: 13px;
     }

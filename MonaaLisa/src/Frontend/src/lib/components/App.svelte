@@ -31,6 +31,7 @@
     import Button from "$lib/components/ui/Button.svelte";
     import Spinner from "$lib/components/ui/Spinner.svelte";
     import type { CategoryNode, Paper } from "$lib/types/paper";
+    import logoMark from "../../assets/logo-mark.png";
     import { MAX_PAPERS_PER_REQUEST, getPaper, getPapers } from "$lib/api";
     import { primaryCategory, toPaper, toPapers } from "$lib/paper";
     import { library } from "$lib/library.svelte";
@@ -197,7 +198,8 @@
     }
 
     function showCategory(category: CategoryNode) {
-        if (view.level !== "sub") return;
+        if (view.level === "top") return;
+        if (view.level === "papers" && view.categoryId === category.id) return;
         const { parentId, parentName } = view;
         withFade(() =>
             showMap({ level: "papers", categoryId: category.id, categoryName: category.name, parentId, parentName }),
@@ -331,32 +333,37 @@
               : { id: "", label: "all of arXiv" },
     );
 
-    const browse = $derived(
-        view.level === "top"
-            ? { items: subjects, title: "Subjects", color: (c: CategoryNode) => CATEGORY_COLORS[c.id] ?? DEFAULT_CATEGORY_COLOR }
-            : view.level === "sub"
-              ? {
-                    items: subcategories(view.parentId),
-                    title: `Categories in ${view.parentName}`,
-                    color: () => CATEGORY_COLORS[(view as { parentId: string }).parentId] ?? DEFAULT_CATEGORY_COLOR,
-                }
-              : { items: [], title: "", color: () => DEFAULT_CATEGORY_COLOR },
-    );
+    const subjectColor = (c: CategoryNode) => CATEGORY_COLORS[c.id] ?? DEFAULT_CATEGORY_COLOR;
+    const browse = $derived.by(() => {
+        const v = view;
+        if (v.level === "top") return { items: subjects, title: "Subjects", color: subjectColor, up: null };
+        const color = () => CATEGORY_COLORS[v.parentId] ?? DEFAULT_CATEGORY_COLOR;
+        const items = subcategories(v.parentId);
+        const title = `Categories in ${v.parentName}`;
+        if (v.level === "sub") {
+            return { items, title, color, up: { label: "All subjects", onclick: () => withFade(() => showMap({ level: "top" })) } };
+        }
+        return {
+            items,
+            title,
+            color,
+            up: {
+                label: v.parentName,
+                onclick: () => withFade(() => showMap({ level: "sub", parentId: v.parentId, parentName: v.parentName })),
+            },
+        };
+    });
 
     const caption = $derived.by(() => {
         if (selected && stageView !== "map") {
-            return stageView === "citations"
-                ? "Citation timeline of the selected paper"
-                : "Related papers of the selected paper";
+            return stageView === "citations" ? "References and citations by year" : "Related papers on the map";
         }
-        if (view.level === "top") return `${subjects.length} subjects · circle size: papers on arXiv`;
-        if (view.level === "sub") return `${subcategories(view.parentId).length} categories in ${view.parentName} · circle size: papers on arXiv`;
+        if (view.level === "top") return `${subjects.length} subjects · circle area = papers on arXiv · pick one to see its categories`;
+        if (view.level === "sub") return `${subcategories(view.parentId).length} categories · circle area = papers on arXiv · pick one to see its papers`;
         if (loading || error) return "";
         const shown = papers.length.toLocaleString("en");
         const total = papersTotal.toLocaleString("en");
-        return papers.length < papersTotal
-            ? `${shown} most cited of ${total} papers in ${view.categoryName}`
-            : `${shown} papers in ${view.categoryName}`;
+        return papers.length < papersTotal ? `${shown} of ${total} papers` : `${shown} papers`;
     });
 
     function saveFavorite(groupId: string | null, newGroupName: string | null) {
@@ -376,9 +383,12 @@
 <div class="app">
     <header class="topbar">
         <button class="brand" onclick={() => withFade(() => showMap({ level: "top" }))} title="Back to all subjects">
-            Monaa-Lisa
+            <img src={logoMark} alt="" width="30" height="30" />
+            <span class="brand-text">
+                <span class="name">Monaa-Lisa</span>
+                <span class="tagline">A map of arXiv research</span>
+            </span>
         </button>
-        <span class="tagline">A map of arXiv</span>
         <span class="divider" aria-hidden="true"></span>
         <Breadcrumbs {crumbs} />
         <div class="actions">
@@ -407,9 +417,12 @@
             categories={browse.items}
             categoriesTitle={browse.title}
             categoryColor={browse.color}
+            showIds={view.level !== "top"}
+            activeCategoryId={view.level === "papers" ? view.categoryId : null}
+            up={browse.up}
             onbrowse={(item) => (view.level === "top" ? showSubject(item) : showCategory(item))}
             {papers}
-            papersTitle={view.level === "papers" ? `Papers on the map, most cited first` : ""}
+            papersTitle="On the map, most cited first"
             selectedId={selected?.entry_id ?? null}
             onselect={openPaper}
             onresults={(found) => (searchResults = found)}
@@ -417,6 +430,17 @@
 
         <main class="stage">
             <div class="stage-head">
+                {#if !selected}
+                    <h1 class="stage-title">
+                        {#if view.level === "top"}
+                            Subjects on arXiv
+                        {:else}
+                            <i style:background={CATEGORY_COLORS[view.parentId] ?? DEFAULT_CATEGORY_COLOR}></i>
+                            {view.level === "sub" ? view.parentName : view.categoryName}
+                            {#if view.level === "papers"}<span class="mono">{view.categoryId}</span>{/if}
+                        {/if}
+                    </h1>
+                {/if}
                 {#if selected}
                     <div class="segmented" role="tablist" aria-label="View">
                         {#if view.level === "papers"}
@@ -440,7 +464,7 @@
                 <span class="spacer"></span>
                 {#if selected && stageView !== "map"}
                     <label class="limit">
-                        <span>Most cited per group</span>
+                        <span>Per group</span>
                         <select class="field" value={nodeLimit} onchange={(e) => requestLimit("node", Number(e.currentTarget.value))}>
                             {#each NODE_LIMIT_OPTIONS as value}
                                 <option {value}>{value === 0 ? "All" : value.toLocaleString("en")}</option>
@@ -449,7 +473,7 @@
                     </label>
                 {:else if view.level === "papers"}
                     <label class="limit">
-                        <span>Papers on the map</span>
+                        <span>Most cited</span>
                         <select class="field" value={paperLimit} onchange={(e) => requestLimit("paper", Number(e.currentTarget.value))}>
                             {#each LIMIT_OPTIONS as value}
                                 <option {value}>{value === 0 ? "All" : value.toLocaleString("en")}</option>
@@ -497,6 +521,11 @@
                 onselect={openPaper}
                 onfavorite={() => selected && toggleFavorite(selected)}
                 onauthor={(name) => (highlightedAuthor = name)}
+                canLocate={!(
+                    stageView === "map" &&
+                    view.level === "papers" &&
+                    view.categoryId === primaryCategory(selected.categories)
+                )}
                 onlocate={locateSelected}
                 onclose={closePaper}
             />
@@ -535,45 +564,72 @@
     .topbar {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 16px;
         height: var(--header-height);
-        padding: 0 14px 0 20px;
-        border-bottom: 1px solid var(--border);
-        background: var(--surface);
+        padding: 0 12px 0 14px;
+        background: var(--header-bg);
+        color: var(--header-fg);
         flex-shrink: 0;
+        /* breadcrumbs and buttons read these */
+        --text: var(--header-fg);
+        --text-2: var(--header-fg-2);
+        --text-3: var(--header-fg-2);
+        --border-strong: var(--header-border);
+        --surface-2: var(--header-hover);
+        --accent: var(--header-fg);
     }
     .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
         padding: 0;
         border: 0;
         background: none;
-        color: var(--text);
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+    .brand img {
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        box-shadow: 0 0 0 1px var(--header-border);
+    }
+    .brand-text {
+        display: grid;
+        line-height: 1.15;
+    }
+    .brand .name {
         font-size: var(--text-md);
         font-weight: 600;
-        letter-spacing: -0.01em;
-        cursor: pointer;
+        letter-spacing: -0.005em;
     }
-    .tagline {
-        color: var(--text-3);
-        font-size: var(--text-sm);
+    .brand .tagline {
+        color: var(--header-fg-2);
+        font-size: 0.75rem;
     }
     .divider {
         width: 1px;
-        height: 18px;
-        background: var(--border);
+        height: 24px;
+        background: var(--header-border);
+        flex-shrink: 0;
     }
     .actions {
         display: flex;
         align-items: center;
         gap: 2px;
         margin-left: auto;
+        flex-shrink: 0;
     }
     .badge {
-        padding: 0 5px;
+        padding: 0 6px;
         border-radius: 8px;
-        background: var(--surface-3);
-        color: var(--text-2);
+        background: var(--header-fg);
+        color: var(--header-bg);
         font-family: var(--font-mono);
         font-size: 11px;
+        font-weight: 500;
     }
 
     .columns {
@@ -596,14 +652,35 @@
         display: flex;
         align-items: center;
         gap: 12px;
-        height: 44px;
-        padding: 0 16px;
+        height: 48px;
+        padding: 0 16px 0 18px;
         border-bottom: 1px solid var(--border);
         background: var(--surface);
         flex-shrink: 0;
     }
+    .stage-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        color: var(--text);
+        font-size: var(--text-md);
+        font-weight: 600;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .stage-title i {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+    }
+    .stage-title .mono {
+        color: var(--text-3);
+        font-weight: 400;
+    }
     .caption {
-        color: var(--text-2);
+        min-width: 0;
+        color: var(--text-3);
         font-size: var(--text-sm);
         white-space: nowrap;
         overflow: hidden;

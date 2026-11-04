@@ -3,17 +3,19 @@
   - While searching: the results (limited to the current subject or category
     unless "all of arXiv" is ticked). Results are passed up so the paper map
     can highlight them.
-  - At the subject levels: the categories of that level, as a text alternative
-    to the treemap.
-  - At the paper level: the papers on the map, most cited first.
+  - At the subject levels: the subjects or categories of that level, with a
+    bar for their size, as a text alternative to the circles.
+  - At the paper level: the papers on the map, most cited first, and in a
+    second tab the other categories of the subject to switch to.
 -->
 <script lang="ts">
     import { untrack } from "svelte";
-    import { ChevronRight, LoaderCircle, Search, SlidersHorizontal, X } from "@lucide/svelte";
+    import { ChevronLeft, ChevronRight, LoaderCircle, Search, SlidersHorizontal, X } from "@lucide/svelte";
     import Button from "$lib/components/ui/Button.svelte";
     import PaperRow from "$lib/components/PaperRow.svelte";
     import { getPapers, type PaperQuery } from "$lib/api";
     import { toPapers, citationCount } from "$lib/paper";
+    import { formatCount } from "$lib/categories";
     import type { CategoryNode, Paper } from "$lib/types/paper";
 
     interface Props {
@@ -24,7 +26,13 @@
         categories: CategoryNode[];
         categoriesTitle: string;
         categoryColor: (item: CategoryNode) => string;
+        /** Show the category ids (cs.LG) next to the names */
+        showIds: boolean;
+        /** Category whose papers are on the map, marked in the list */
+        activeCategoryId: string | null;
         onbrowse: (item: CategoryNode) => void;
+        /** One level up (e.g. back to all subjects), null at the top */
+        up: { label: string; onclick: () => void } | null;
         /** Papers on the map at the paper level */
         papers: Paper[];
         papersTitle: string;
@@ -39,7 +47,10 @@
         categories,
         categoriesTitle,
         categoryColor,
+        showIds,
+        activeCategoryId,
         onbrowse,
+        up,
         papers,
         papersTitle,
         selectedId,
@@ -58,6 +69,17 @@
     let total = $state(0);
     let searching = $state(false);
     let error = $state<string | null>(null);
+
+    /** At the paper level: the papers or the other categories */
+    let paperTab = $state<"papers" | "categories">("papers");
+    $effect(() => {
+        void activeCategoryId;
+        paperTab = "papers";
+    });
+
+    const largest = $derived(Math.max(1, ...categories.map((c) => c.count)));
+    // the backend sorts by the arXiv count only, the list shows all citations
+    const ranked = $derived([...papers].sort((a, b) => citationCount(b) - citationCount(a)));
 
     const activeFilters = $derived(Object.values(filters).filter((v) => v.trim()).length);
     const isSearching = $derived(query.trim() !== "" || activeFilters > 0);
@@ -150,9 +172,9 @@
             </Button>
         </div>
         <p class="hint">
-            Title, authors and abstract.
+            Titles, authors, abstracts
             {#if scope}
-                <label class="everywhere"><input type="checkbox" bind:checked={everywhere} /> Search all of arXiv</label>
+                <label class="everywhere"><input type="checkbox" bind:checked={everywhere} /> All of arXiv</label>
             {/if}
             <kbd>/</kbd>
         </p>
@@ -219,42 +241,75 @@
                 {/if}
             {/each}
         </ul>
-    {:else if categories.length}
-        <div class="list-head">
-            <span class="label">{categoriesTitle}</span>
-        </div>
-        <ul class="list">
-            {#each categories as item (item.id)}
-                <li>
-                    <button class="category" onclick={() => onbrowse(item)}>
-                        <i style:background={categoryColor(item)}></i>
-                        <span class="name">{item.name}</span>
-                        <span class="count" title="Papers on arXiv">{item.count.toLocaleString("en")}</span>
-                        <ChevronRight class="chev" aria-hidden="true" />
-                    </button>
-                </li>
-            {/each}
-        </ul>
     {:else}
-        <div class="list-head">
-            <span class="label">{papersTitle}</span>
-        </div>
-        <ul class="list">
-            {#each papers as paper (paper.entry_id)}
-                <PaperRow
-                    title={paper.title}
-                    authors={paper.authors}
-                    published={paper.published}
-                    categories={paper.categories}
-                    count={citationCount(paper)}
-                    countLabel="Citations"
-                    active={paper.entry_id === selectedId}
-                    onclick={() => onselect(paper)}
-                />
-            {:else}
-                <li class="empty">No papers loaded.</li>
-            {/each}
-        </ul>
+        {#if up}
+            <button class="up" onclick={up.onclick}>
+                <ChevronLeft aria-hidden="true" />
+                {up.label}
+            </button>
+        {/if}
+        {#if activeCategoryId}
+            <div class="switch" role="tablist" aria-label="List">
+                <button role="tab" aria-selected={paperTab === "papers"} class:active={paperTab === "papers"} onclick={() => (paperTab = "papers")}>
+                    Papers <span class="n">{papers.length.toLocaleString("en")}</span>
+                </button>
+                <button role="tab" aria-selected={paperTab === "categories"} class:active={paperTab === "categories"} onclick={() => (paperTab = "categories")}>
+                    Categories <span class="n">{categories.length}</span>
+                </button>
+            </div>
+        {/if}
+
+        {#if activeCategoryId && paperTab === "papers"}
+            <div class="list-head">
+                <span class="eyebrow">{papersTitle}</span>
+                <span class="eyebrow" title="Citations on arXiv and elsewhere">Cited</span>
+            </div>
+            <ul class="list">
+                {#each ranked as paper (paper.entry_id)}
+                    <PaperRow
+                        title={paper.title}
+                        authors={paper.authors}
+                        published={paper.published}
+                        categories={paper.categories}
+                        count={citationCount(paper)}
+                        countLabel="Citations"
+                        active={paper.entry_id === selectedId}
+                        onclick={() => onselect(paper)}
+                    />
+                {:else}
+                    <li class="empty">No papers loaded.</li>
+                {/each}
+            </ul>
+        {:else}
+            <div class="list-head">
+                <span class="eyebrow">{categoriesTitle}</span>
+                <span class="eyebrow" title="Papers listed on arXiv">Papers</span>
+            </div>
+            <ul class="list">
+                {#each categories as item (item.id)}
+                    {@const active = item.id === activeCategoryId}
+                    <li>
+                        <button
+                            class="category"
+                            class:active
+                            aria-current={active ? "true" : undefined}
+                            style:--c={categoryColor(item)}
+                            onclick={() => onbrowse(item)}
+                        >
+                            <span class="name">
+                                {item.name}
+                                {#if showIds}<span class="id">{item.id}</span>{/if}
+                            </span>
+                            <span class="count" title="{item.count.toLocaleString('en')} papers on arXiv"
+                                >{formatCount(item.count)}</span
+                            >
+                            <ChevronRight class="chev" aria-hidden="true" />
+                            <span class="bar" aria-hidden="true"><i style:width="{(item.count / largest) * 100}%"></i></span>
+                        </button>
+                    </li>
+                {/each}
+            </ul>
+        {/if}
     {/if}
 </aside>
 
@@ -327,6 +382,7 @@
         font-size: var(--text-xs);
     }
     .everywhere {
+        white-space: nowrap;
         display: inline-flex;
         align-items: center;
         gap: 4px;
@@ -367,8 +423,8 @@
         align-items: center;
         justify-content: space-between;
         gap: 8px;
-        min-height: 40px;
-        padding: 6px 10px 6px 14px;
+        min-height: 34px;
+        padding: 6px 12px 6px 14px;
         border-bottom: 1px solid var(--border);
     }
     .sort {
@@ -389,13 +445,77 @@
         font-size: var(--text-sm);
     }
 
-    .category {
+    .up {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 4px;
         width: 100%;
-        padding: 9px 10px 9px 14px;
+        padding: 10px 14px 8px 8px;
         border: 0;
+        background: none;
+        color: var(--accent);
+        font-size: var(--text-sm);
+        font-weight: 500;
+        text-align: left;
+        cursor: pointer;
+    }
+    .up:hover {
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+    .up :global(svg) {
+        width: 16px;
+        height: 16px;
+    }
+
+    .switch {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2px;
+        margin: 2px 14px 10px;
+        padding: 2px;
+        border-radius: var(--radius);
+        background: var(--surface-2);
+    }
+    .switch button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: 28px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: none;
+        color: var(--text-2);
+        font-size: var(--text-sm);
+        font-weight: 500;
+        cursor: pointer;
+    }
+    .switch button:hover {
+        color: var(--text);
+    }
+    .switch button.active {
+        background: var(--surface);
+        color: var(--text);
+        box-shadow: var(--shadow-card);
+    }
+    .switch .n {
+        color: var(--text-3);
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+        font-weight: 400;
+    }
+
+    .category {
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto 14px;
+        align-items: center;
+        gap: 4px 10px;
+        width: 100%;
+        padding: 8px 10px 9px 14px;
+        border: 0;
+        border-left: 2px solid transparent;
         background: none;
         text-align: left;
         cursor: pointer;
@@ -403,22 +523,28 @@
     .category:hover {
         background: var(--surface-2);
     }
-    .category i {
-        width: 8px;
-        height: 8px;
-        border-radius: 2px;
-        flex-shrink: 0;
+    .category.active {
+        border-left-color: var(--c);
+        background: color-mix(in srgb, var(--c) 10%, var(--surface));
     }
     .category .name {
-        flex: 1;
-        min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        color: var(--text);
         font-size: var(--text-sm);
     }
-    .category .count {
+    .category.active .name {
+        font-weight: 600;
+    }
+    .category .id {
+        margin-left: 6px;
         color: var(--text-3);
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+    }
+    .category .count {
+        color: var(--text-2);
         font-family: var(--font-mono);
         font-size: var(--text-xs);
     }
@@ -426,5 +552,22 @@
         width: 14px;
         height: 14px;
         color: var(--text-3);
+    }
+    .bar {
+        grid-column: 1 / -1;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--surface-2);
+        overflow: hidden;
+    }
+    .category:hover .bar {
+        background: var(--surface-3);
+    }
+    .bar i {
+        display: block;
+        height: 100%;
+        min-width: 3px;
+        border-radius: 2px;
+        background: var(--c);
     }
 </style>
