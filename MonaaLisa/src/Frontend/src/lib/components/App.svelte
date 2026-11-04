@@ -1,0 +1,649 @@
+<!--
+  App.svelte: the whole application frame.
+
+  Header with the brand and the path, a sidebar with search and browsing on
+  the left, the map in the middle and, when a paper is open, its details on
+  the right.
+
+  Map levels (the `view` state):
+    top     the eight arXiv subjects (treemap)
+    sub     the categories of one subject (treemap)
+    papers  the paper map of one category (UMAP positions)
+  On any level a paper can be selected. The middle then shows the paper on
+  its map, its citation timeline or its related papers (`stageView`).
+  The location (subject, category, paper) is mirrored in the URL so a view
+  can be shared.
+-->
+<script lang="ts">
+    import { onMount } from "svelte";
+    import { afterNavigate, replaceState } from "$app/navigation";
+    import { BookMarked, Info, Moon, Sun } from "@lucide/svelte";
+    import Sidebar from "$lib/components/Sidebar.svelte";
+    import Treemap from "$lib/components/Treemap.svelte";
+    import PaperMap from "$lib/components/PaperMap.svelte";
+    import CitationTimeline, { type NetworkMode } from "$lib/components/CitationTimeline.svelte";
+    import PaperDetails, { type DetailsTab } from "$lib/components/PaperDetails.svelte";
+    import LibraryPanel from "$lib/components/LibraryPanel.svelte";
+    import Breadcrumbs, { type Crumb } from "$lib/components/Breadcrumbs.svelte";
+    import AboutDialog from "$lib/components/AboutDialog.svelte";
+    import LargeLimitDialog from "$lib/components/LargeLimitDialog.svelte";
+    import FavoriteDialog from "$lib/components/FavoriteDialog.svelte";
+    import Button from "$lib/components/ui/Button.svelte";
+    import Spinner from "$lib/components/ui/Spinner.svelte";
+    import type { CategoryNode, Paper } from "$lib/types/paper";
+    import { MAX_PAPERS_PER_REQUEST, getPaper, getPapers } from "$lib/api";
+    import { primaryCategory, toPaper, toPapers } from "$lib/paper";
+    import { library } from "$lib/library.svelte";
+    import { currentTheme, setTheme, type Theme } from "$lib/theme";
+    import {
+        CATEGORY_COLORS,
+        CATEGORY_PREFIX,
+        DEFAULT_CATEGORY_COLOR,
+        subcategories,
+        subcategoryName,
+        subjectName,
+        subjectOf,
+        subjects,
+    } from "$lib/categories";
+
+    type MapView =
+        | { level: "top" }
+        | { level: "sub"; parentId: string; parentName: string }
+        | { level: "papers"; categoryId: string; categoryName: string; parentId: string; parentName: string };
+
+    type StageView = "map" | NetworkMode;
+
+    // ─── limits ───────────────────────────────────────────────────────
+    // 0 means "all" (the backend still returns at most MAX_PAPERS_PER_REQUEST)
+    const LIMIT_OPTIONS = [100, 500, 1000, 2500, 5000, 10000, 0];
+    // From this size on the user has to confirm, large maps can freeze the tab
+    const LARGE_LIMIT = 10000;
+
+    let paperLimit = $state(1000);
+    let nodeLimit = $state(500);
+    let pendingLimit = $state<{ target: "paper" | "node"; value: number } | null>(null);
+
+    function requestLimit(target: "paper" | "node", value: number) {
+        if (value === 0 || value >= LARGE_LIMIT) pendingLimit = { target, value };
+        else applyLimit(target, value);
+    }
+
+    function applyLimit(target: "paper" | "node", value: number) {
+        if (target === "node") {
+            nodeLimit = value;
+            return;
+        }
+        paperLimit = value;
+        if (view.level === "papers") loadPapers(view.categoryId);
+    }
+
+    // ─── state ────────────────────────────────────────────────────────
+    let view = $state<MapView>({ level: "top" });
+    let selected = $state<Paper | null>(null);
+    /** Papers opened before the current one, for the back button */
+    let trail = $state<Paper[]>([]);
+    let stageView = $state<StageView>("map");
+    let detailsTab = $state<DetailsTab>("abstract");
+
+    let papers = $state<Paper[]>([]);
+    let papersTotal = $state(0);
+    let loading = $state(false);
+    let error = $state<string | null>(null);
+
+    let libraryOpen = $state(false);
+    let aboutOpen = $state(false);
+    let favoriteCandidate = $state<Paper | null>(null);
+    let theme = $state<Theme>("light");
+    let sidebar = $state<Sidebar>();
+
+    let highlightedAuthor = $state("");
+    let authorPapers = $state<Paper[]>([]);
+    let searchResults = $state<Paper[]>([]);
+    /** The router is ready, the URL may be updated */
+    let routerReady = $state(false);
+
+    onMount(() => {
+        library.load();
+        theme = currentTheme();
+        openFromUrl();
+    });
+    afterNavigate(() => (routerReady = true));
+
+    // the related tab and the related view show the same papers, keep them together
+    $effect(() => {
+        if (detailsTab === "related") stageView = "related";
+        else if (detailsTab === "cites" || detailsTab === "citedBy") stageView = "citations";
+    });
+
+    // the map only exists at the paper level
+    $effect(() => {
+        if (stageView === "map" && selected && view.level !== "papers") stageView = "citations";
+    });
+
+    // papers of the highlighted author in the current category, for the map
+    $effect(() => {
+        const author = highlightedAuthor;
+        const v = view;
+        authorPapers = [];
+        if (!author || v.level !== "papers") return;
+        let cancelled = false;
+        getPapers({ author, categories: v.categoryId, take: 50 })
+            .then((page) => {
+                if (cancelled) return;
+                const q = author.toLowerCase();
+                authorPapers = toPapers(page.items).filter((p) => p.authors.toLowerCase().includes(q));
+            })
+            .catch(() => {});
+        return () => {
+            cancelled = true;
+        };
+    });
+
+    const highlight = $derived(
+        searchResults.length ? searchResults : highlightedAuthor ? [...authorPapers, ...(selected ? [selected] : [])] : null,
+    );
+
+    // ─── url ──────────────────────────────────────────────────────────
+    function openFromUrl() {
+        const params = new URLSearchParams(location.search);
+        const category = params.get("category");
+        const subject = params.get("subject");
+        if (category && subjectOf(category)) {
+            const parentId = subjectOf(category);
+            view = {
+                level: "papers",
+                categoryId: category,
+                categoryName: subcategoryName(category),
+                parentId,
+                parentName: subjectName(parentId),
+            };
+            loadPapers(category);
+        } else if (subject && subjects.some((s) => s.id === subject)) {
+            view = { level: "sub", parentId: subject, parentName: subjectName(subject) };
+        }
+        const paper = params.get("paper");
+        if (paper) openPaperById(paper);
+    }
+
+    $effect(() => {
+        if (!routerReady) return;
+        const params = new URLSearchParams();
+        if (view.level === "sub") params.set("subject", view.parentId);
+        if (view.level === "papers") params.set("category", view.categoryId);
+        if (selected) params.set("paper", selected.entry_id);
+        const search = params.toString();
+        const url = `${location.pathname}${search ? `?${search}` : ""}`;
+        if (url !== `${location.pathname}${location.search}`) replaceState(url, {});
+    });
+
+    // ─── navigation ───────────────────────────────────────────────────
+    function showMap(next: MapView, keepSelection = false) {
+        if (!keepSelection) {
+            selected = null;
+            trail = [];
+        }
+        highlightedAuthor = "";
+        searchResults = [];
+        error = null;
+        view = next;
+        if (next.level === "papers") loadPapers(next.categoryId);
+        else papers = [];
+    }
+
+    function showSubject(subject: CategoryNode) {
+        withFade(() => showMap({ level: "sub", parentId: subject.id, parentName: subject.name }));
+    }
+
+    function showCategory(category: CategoryNode) {
+        if (view.level !== "sub") return;
+        const { parentId, parentName } = view;
+        withFade(() =>
+            showMap({ level: "papers", categoryId: category.id, categoryName: category.name, parentId, parentName }),
+        );
+    }
+
+    function openPaper(paper: Paper) {
+        if (selected && selected.entry_id !== paper.entry_id) trail = [...trail, selected].slice(-20);
+        if (selected?.entry_id === paper.entry_id) return;
+        selected = paper;
+        libraryOpen = false;
+        highlightedAuthor = "";
+        if (view.level !== "papers" && stageView === "map") stageView = "citations";
+        library.addToHistory(paper);
+    }
+
+    function goBack() {
+        const previous = trail.at(-1);
+        if (!previous) return;
+        trail = trail.slice(0, -1);
+        selected = previous;
+        highlightedAuthor = "";
+    }
+
+    function closePaper() {
+        selected = null;
+        trail = [];
+        highlightedAuthor = "";
+        stageView = "map";
+        detailsTab = "abstract";
+    }
+
+    async function openPaperById(entryId: string) {
+        try {
+            const paper = toPaper(await getPaper(entryId));
+            if (paper) openPaper(paper);
+        } catch {
+            error = "This paper could not be loaded.";
+        }
+    }
+
+    /** Shows the selected paper on the map of its primary category */
+    function locateSelected() {
+        if (!selected) return;
+        const categoryId = primaryCategory(selected.categories);
+        const parentId = subjectOf(categoryId);
+        if (!categoryId || !parentId) return;
+        stageView = "map";
+        detailsTab = "abstract";
+        if (view.level === "papers" && view.categoryId === categoryId) return;
+        showMap(
+            {
+                level: "papers",
+                categoryId,
+                categoryName: subcategoryName(categoryId),
+                parentId,
+                parentName: subjectName(parentId),
+            },
+            true,
+        );
+    }
+
+    // short fade between map levels so the switch does not flash
+    let fading = $state(false);
+    function withFade(change: () => void) {
+        fading = true;
+        setTimeout(() => {
+            change();
+            requestAnimationFrame(() => (fading = false));
+        }, 120);
+    }
+
+    function onkeydown(event: KeyboardEvent) {
+        if (event.defaultPrevented) return;
+        const target = event.target as HTMLElement | null;
+        const typing = !!target?.closest("input, select, textarea, dialog");
+        if (event.key === "/" && !typing) {
+            event.preventDefault();
+            sidebar?.focus();
+        } else if (event.key === "Escape" && !typing) {
+            if (libraryOpen) libraryOpen = false;
+            else if (selected) closePaper();
+        }
+    }
+
+    function toggleTheme() {
+        theme = theme === "dark" ? "light" : "dark";
+        setTheme(theme);
+    }
+
+    // ─── data ─────────────────────────────────────────────────────────
+    async function loadPapers(categoryId: string) {
+        loading = true;
+        error = null;
+        papers = [];
+        try {
+            const page = await getPapers({
+                categories: categoryId,
+                sort: "citations",
+                take: paperLimit > 0 ? paperLimit : MAX_PAPERS_PER_REQUEST,
+            });
+            papers = toPapers(page.items);
+            papersTotal = page.total;
+            if (!papers.length) error = "No papers in this category yet.";
+        } catch {
+            error = "The papers could not be loaded. Is the backend running?";
+        } finally {
+            loading = false;
+        }
+    }
+
+    // ─── derived ui ───────────────────────────────────────────────────
+    const crumbs = $derived.by((): Crumb[] => {
+        const list: Crumb[] = [{ label: "All subjects", onclick: () => withFade(() => showMap({ level: "top" })) }];
+        const v = view;
+        if (v.level !== "top") {
+            list.push({
+                label: v.parentName,
+                onclick: () => withFade(() => showMap({ level: "sub", parentId: v.parentId, parentName: v.parentName })),
+            });
+        }
+        if (v.level === "papers") list.push({ label: v.categoryName });
+        return list;
+    });
+
+    const scope = $derived(
+        view.level === "papers"
+            ? { id: view.categoryId, label: view.categoryName }
+            : view.level === "sub"
+              ? { id: CATEGORY_PREFIX[view.parentId] ?? "", label: view.parentName }
+              : { id: "", label: "all of arXiv" },
+    );
+
+    const browse = $derived(
+        view.level === "top"
+            ? { items: subjects, title: "Subjects", color: (c: CategoryNode) => CATEGORY_COLORS[c.id] ?? DEFAULT_CATEGORY_COLOR }
+            : view.level === "sub"
+              ? {
+                    items: subcategories(view.parentId),
+                    title: `Categories in ${view.parentName}`,
+                    color: () => CATEGORY_COLORS[(view as { parentId: string }).parentId] ?? DEFAULT_CATEGORY_COLOR,
+                }
+              : { items: [], title: "", color: () => DEFAULT_CATEGORY_COLOR },
+    );
+
+    const caption = $derived.by(() => {
+        if (selected && stageView !== "map") {
+            return stageView === "citations"
+                ? "Citation timeline of the selected paper"
+                : "Related papers of the selected paper";
+        }
+        if (view.level === "top") return `${subjects.length} subjects · tile area: papers on arXiv`;
+        if (view.level === "sub") return `${subcategories(view.parentId).length} categories in ${view.parentName} · tile area: papers on arXiv`;
+        if (loading || error) return "";
+        const shown = papers.length.toLocaleString("en");
+        const total = papersTotal.toLocaleString("en");
+        return papers.length < papersTotal
+            ? `${shown} most cited of ${total} papers in ${view.categoryName}`
+            : `${shown} papers in ${view.categoryName}`;
+    });
+
+    function saveFavorite(groupId: string | null, newGroupName: string | null) {
+        if (!favoriteCandidate) return;
+        library.addFavorite(favoriteCandidate, groupId ? [groupId] : [], newGroupName);
+        favoriteCandidate = null;
+    }
+
+    function toggleFavorite(paper: Paper) {
+        if (library.isFavorite(paper.entry_id)) library.removeFavorite(paper.entry_id);
+        else favoriteCandidate = paper;
+    }
+</script>
+
+<svelte:window {onkeydown} />
+
+<div class="app">
+    <header class="topbar">
+        <button class="brand" onclick={() => withFade(() => showMap({ level: "top" }))} title="Back to all subjects">
+            Monaa-Lisa
+        </button>
+        <span class="tagline">A map of arXiv</span>
+        <span class="divider" aria-hidden="true"></span>
+        <Breadcrumbs {crumbs} />
+        <div class="actions">
+            <Button variant="ghost" size="sm" pressed={libraryOpen} onclick={() => (libraryOpen = !libraryOpen)}>
+                <BookMarked /> Library
+                {#if library.favorites.length}<span class="badge">{library.favorites.length}</span>{/if}
+            </Button>
+            <Button variant="ghost" size="sm" onclick={() => (aboutOpen = true)}><Info /> About &amp; method</Button>
+            <Button
+                variant="ghost"
+                size="sm"
+                icon
+                label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+                onclick={toggleTheme}
+            >
+                {#if theme === "dark"}<Sun />{:else}<Moon />{/if}
+            </Button>
+        </div>
+    </header>
+
+    <div class="columns" class:with-panel={selected !== null || libraryOpen}>
+        <Sidebar
+            bind:this={sidebar}
+            scope={scope.id}
+            scopeLabel={scope.label}
+            categories={browse.items}
+            categoriesTitle={browse.title}
+            categoryColor={browse.color}
+            onbrowse={(item) => (view.level === "top" ? showSubject(item) : showCategory(item))}
+            {papers}
+            papersTitle={view.level === "papers" ? `Papers on the map, most cited first` : ""}
+            selectedId={selected?.entry_id ?? null}
+            onselect={openPaper}
+            onresults={(found) => (searchResults = found)}
+        />
+
+        <main class="stage">
+            <div class="stage-head">
+                {#if selected}
+                    <div class="segmented" role="tablist" aria-label="View">
+                        {#if view.level === "papers"}
+                            <button role="tab" aria-selected={stageView === "map"} class:active={stageView === "map"} onclick={() => (stageView = "map")}>Map</button>
+                        {/if}
+                        <button
+                            role="tab"
+                            aria-selected={stageView === "citations"}
+                            class:active={stageView === "citations"}
+                            onclick={() => (stageView = "citations")}>Citations</button
+                        >
+                        <button
+                            role="tab"
+                            aria-selected={stageView === "related"}
+                            class:active={stageView === "related"}
+                            onclick={() => (stageView = "related")}>Related</button
+                        >
+                    </div>
+                {/if}
+                <span class="caption">{caption}</span>
+                <span class="spacer"></span>
+                {#if selected && stageView !== "map"}
+                    <label class="limit">
+                        <span>Nodes per group</span>
+                        <select class="field" value={nodeLimit} onchange={(e) => requestLimit("node", Number(e.currentTarget.value))}>
+                            {#each LIMIT_OPTIONS as value}
+                                <option {value}>{value === 0 ? "All" : value.toLocaleString("en")}</option>
+                            {/each}
+                        </select>
+                    </label>
+                {:else if view.level === "papers"}
+                    <label class="limit">
+                        <span>Papers on the map</span>
+                        <select class="field" value={paperLimit} onchange={(e) => requestLimit("paper", Number(e.currentTarget.value))}>
+                            {#each LIMIT_OPTIONS as value}
+                                <option {value}>{value === 0 ? "All" : value.toLocaleString("en")}</option>
+                            {/each}
+                        </select>
+                    </label>
+                {/if}
+            </div>
+
+            <div class="stage-body" class:fading>
+                {#if selected && stageView !== "map"}
+                    {#key selected.entry_id}
+                        <CitationTimeline paper={selected} mode={stageView} {nodeLimit} {highlightedAuthor} onselect={openPaper} />
+                    {/key}
+                {:else if view.level === "top"}
+                    <Treemap items={subjects} color={browse.color} onselect={showSubject} />
+                {:else if view.level === "sub"}
+                    <Treemap items={subcategories(view.parentId)} color={browse.color} showIds onselect={showCategory} />
+                {:else if loading}
+                    <div class="state">
+                        <Spinner size={24} />
+                        <p>Loading papers in {view.categoryName}</p>
+                    </div>
+                {:else if error}
+                    <div class="state">
+                        <p>{error}</p>
+                        <Button onclick={() => view.level === "papers" && loadPapers(view.categoryId)}>Try again</Button>
+                    </div>
+                {:else}
+                    <PaperMap {papers} {highlight} {selected} onselect={openPaper} />
+                {/if}
+            </div>
+        </main>
+
+        {#if libraryOpen}
+            <LibraryPanel onopen={openPaperById} onclose={() => (libraryOpen = false)} />
+        {:else if selected}
+            <PaperDetails
+                paper={selected}
+                bind:tab={detailsTab}
+                isFavorite={library.isFavorite(selected.entry_id)}
+                {highlightedAuthor}
+                backTo={trail.at(-1)?.title ?? null}
+                onback={goBack}
+                onselect={openPaper}
+                onfavorite={() => selected && toggleFavorite(selected)}
+                onauthor={(name) => (highlightedAuthor = name)}
+                onlocate={locateSelected}
+                onclose={closePaper}
+            />
+        {/if}
+    </div>
+</div>
+
+<AboutDialog open={aboutOpen} onclose={() => (aboutOpen = false)} />
+
+<LargeLimitDialog
+    limit={pendingLimit?.value ?? null}
+    oncancel={() => (pendingLimit = null)}
+    onconfirm={() => {
+        if (pendingLimit) applyLimit(pendingLimit.target, pendingLimit.value);
+        pendingLimit = null;
+    }}
+/>
+
+<FavoriteDialog
+    paper={favoriteCandidate}
+    groups={library.groups}
+    onsave={saveFavorite}
+    oncancel={() => (favoriteCandidate = null)}
+/>
+
+<style>
+    .app {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg);
+        overflow: hidden;
+    }
+
+    .topbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: var(--header-height);
+        padding: 0 12px 0 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        flex-shrink: 0;
+    }
+    .brand {
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--text);
+        font-size: var(--text-md);
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        cursor: pointer;
+    }
+    .tagline {
+        color: var(--text-3);
+        font-size: var(--text-sm);
+    }
+    .divider {
+        width: 1px;
+        height: 18px;
+        background: var(--border);
+    }
+    .actions {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        margin-left: auto;
+    }
+    .badge {
+        padding: 0 5px;
+        border-radius: 8px;
+        background: var(--surface-3);
+        color: var(--text-2);
+        font-family: var(--font-mono);
+        font-size: 11px;
+    }
+
+    .columns {
+        display: grid;
+        grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+        flex: 1;
+        min-height: 0;
+    }
+    .columns.with-panel {
+        grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--panel-width);
+    }
+
+    .stage {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
+    }
+    .stage-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 40px;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        flex-shrink: 0;
+    }
+    .caption {
+        color: var(--text-2);
+        font-size: var(--text-sm);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .spacer {
+        flex: 1;
+    }
+    .limit {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--text-3);
+        font-size: var(--text-xs);
+        white-space: nowrap;
+    }
+    .limit .field {
+        height: 26px;
+        font-size: var(--text-xs);
+    }
+
+    .stage-body {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        transition: opacity 120ms var(--ease);
+    }
+    .stage-body.fading {
+        opacity: 0;
+    }
+
+    .state {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        color: var(--text-2);
+    }
+    .state p {
+        margin: 0;
+    }
+</style>

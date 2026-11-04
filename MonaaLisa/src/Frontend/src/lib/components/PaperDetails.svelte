@@ -1,32 +1,37 @@
 <!--
-  Inspector: the floating panel on the right with everything about one paper.
-  Tabs: Overview (abstract), Cites (its references), Cited by, Related.
-  The lists come from the shared neighbourhood loader, the network view in
-  the middle uses the same data.
+  Details of one paper in the right column: metadata, links, the abstract,
+  and the lists of references, citations and related papers. The lists come
+  from the shared neighbourhood loader, the citation view in the middle uses
+  the same data.
 -->
 <script module lang="ts">
-    export type InspectorTab = "overview" | "cites" | "citedBy" | "related";
+    export type DetailsTab = "abstract" | "cites" | "citedBy" | "related";
 </script>
 
 <script lang="ts">
-    import { ExternalLink, Star, X } from "@lucide/svelte";
+    import { ArrowLeft, Check, Copy, Crosshair, Star, X } from "@lucide/svelte";
     import Button from "$lib/components/ui/Button.svelte";
     import PaperRow from "$lib/components/PaperRow.svelte";
     import Spinner from "$lib/components/ui/Spinner.svelte";
-    import { categoryColor, paperContext } from "$lib/categories";
+    import { categoryColor, paperContext, subcategoryName } from "$lib/categories";
     import { loadNeighbourhood, type Neighbourhood } from "$lib/neighbourhood";
-    import { publishedYear } from "$lib/paper";
+    import { authorList, categoryList, citationCount, formatDate, paperLinks, toBibtex } from "$lib/paper";
     import type { Paper } from "$lib/types/paper";
 
     interface Props {
         paper: Paper;
-        tab: InspectorTab;
+        tab: DetailsTab;
         isFavorite: boolean;
-        /** Author whose papers are highlighted in the network, "" = none */
+        /** Author whose papers are highlighted on the map, "" = none */
         highlightedAuthor: string;
+        /** Title of the previously opened paper, shown on the back button */
+        backTo: string | null;
+        onback: () => void;
         onselect: (paper: Paper) => void;
         onfavorite: () => void;
         onauthor: (name: string) => void;
+        /** Opens the map of the paper's category with the paper marked */
+        onlocate: () => void;
         onclose: () => void;
     }
 
@@ -35,16 +40,20 @@
         tab = $bindable(),
         isFavorite,
         highlightedAuthor,
+        backTo,
+        onback,
         onselect,
         onfavorite,
         onauthor,
+        onlocate,
         onclose,
     }: Props = $props();
 
     let data = $state<Neighbourhood | null>(null);
     let error = $state<string | null>(null);
     let listFilter = $state("");
-    let listSort = $state<"newest" | "oldest" | "title">("newest");
+    let listSort = $state<"citations" | "newest" | "oldest">("citations");
+    let copied = $state(false);
 
     $effect(() => {
         const id = paper.entry_id;
@@ -56,20 +65,16 @@
                 if (paper.entry_id === id) data = result;
             })
             .catch(() => {
-                if (paper.entry_id === id) error = "Citations could not be loaded.";
+                if (paper.entry_id === id) error = "The references and citations could not be loaded.";
             });
     });
 
     // the fully loaded paper has the abstract even when we came from a short list entry
     const full = $derived(data?.paper ?? paper);
     const context = $derived(paperContext(full.categories));
-    const authors = $derived(
-        full.authors
-            .split(",")
-            .map((a) => a.trim())
-            .filter(Boolean),
-    );
-    const arxivUrl = $derived(`https://arxiv.org/abs/${encodeURIComponent(full.entry_id)}`);
+    const authors = $derived(authorList(full.authors));
+    const links = $derived(paperLinks(full));
+    const categories = $derived(categoryList(full.categories));
 
     const lists = $derived({
         cites: data?.cites ?? [],
@@ -78,7 +83,7 @@
     });
 
     const visible = $derived.by(() => {
-        if (tab === "overview") return [];
+        if (tab === "abstract") return [];
         const q = listFilter.trim().toLowerCase();
         const items = lists[tab].filter(
             (p) => !q || p.title.toLowerCase().includes(q) || p.authors.toLowerCase().includes(q),
@@ -86,8 +91,8 @@
         if (tab === "related") return items; // keep the relevance order
         const time = (p: Paper) => (p.published ? Date.parse(p.published) : 0);
         return [...items].sort((a, b) =>
-            listSort === "title"
-                ? a.title.localeCompare(b.title)
+            listSort === "citations"
+                ? citationCount(b) - citationCount(a)
                 : listSort === "newest"
                   ? time(b) - time(a)
                   : time(a) - time(b),
@@ -95,47 +100,65 @@
     });
 
     const tabs = $derived([
-        { id: "overview" as const, label: "Overview" },
-        { id: "cites" as const, label: "Cites", count: lists.cites.length },
-        { id: "citedBy" as const, label: "Cited by", count: lists.citedBy.length },
+        { id: "abstract" as const, label: "Abstract" },
+        { id: "cites" as const, label: "References", count: lists.cites.length },
+        { id: "citedBy" as const, label: "Citations", count: lists.citedBy.length },
         { id: "related" as const, label: "Related", count: lists.related.length },
     ]);
 
-    const emptyText: Record<Exclude<InspectorTab, "overview">, string> = {
+    const emptyText: Record<Exclude<DetailsTab, "abstract">, string> = {
         cites: "None of the papers it references are in the dataset.",
-        citedBy: "No paper in the dataset cites this one yet.",
-        related: "No related papers known for this paper.",
+        citedBy: "No paper in the dataset cites this one.",
+        related: "No related papers are known for this paper.",
     };
+
+    async function copyBibtex() {
+        try {
+            await navigator.clipboard.writeText(toBibtex(full));
+            copied = true;
+            setTimeout(() => (copied = false), 1500);
+        } catch {
+            window.prompt("Copy the BibTeX entry:", toBibtex(full));
+        }
+    }
 </script>
 
-<aside class="inspector card" aria-label="Paper details">
+<aside class="details" aria-label="Paper details">
     <header>
-        <div class="top">
-            <span class="context">
-                <i style:background={categoryColor(full.categories)}></i>
-                <span class="mono">{context.categoryId}</span>
-                {#if context.categoryName && context.categoryName !== context.categoryId}
-                    <span>{context.categoryName}</span>
-                {/if}
-                {#if publishedYear(full.published)}<span>· {publishedYear(full.published)}</span>{/if}
-            </span>
+        <div class="toolbar">
+            {#if backTo}
+                <Button variant="ghost" size="sm" onclick={onback} title="Back to: {backTo}">
+                    <ArrowLeft /> Back
+                </Button>
+            {:else}
+                <span></span>
+            {/if}
             <div class="tools">
+                <Button variant="ghost" size="sm" onclick={onlocate} title="Show this paper on the map of its category">
+                    <Crosshair /> Show on map
+                </Button>
                 <Button
                     variant="ghost"
                     size="sm"
                     icon
-                    label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+                    label={isFavorite ? "Remove from library" : "Save to library"}
                     pressed={isFavorite}
                     onclick={onfavorite}
                 >
                     <Star fill={isFavorite ? "currentColor" : "none"} />
                 </Button>
-                <a class="icon-link" href={arxivUrl} target="_blank" rel="noopener noreferrer" title="Open on arXiv">
-                    <ExternalLink />
-                </a>
                 <Button variant="ghost" size="sm" icon label="Close" onclick={onclose}><X /></Button>
             </div>
         </div>
+
+        <p class="context">
+            <i style:background={categoryColor(full.categories)}></i>
+            <span class="mono">{context.categoryId}</span>
+            {#if context.categoryName && context.categoryName !== context.categoryId}
+                <span>{context.categoryName}</span>
+            {/if}
+            {#if context.subjectName}<span class="dim">· {context.subjectName}</span>{/if}
+        </p>
 
         <h2>{full.title}</h2>
 
@@ -148,6 +171,24 @@
                     onclick={() => onauthor(highlightedAuthor === author ? "" : author)}>{author}</button
                 >{i < authors.length - 1 ? ", " : ""}
             {/each}
+        </p>
+
+        <p class="meta">
+            {#if full.published}<span>{formatDate(full.published)}</span>{/if}
+            <span>arXiv:<span class="mono">{full.entry_id}</span></span>
+            {#if full.journal_ref}<span class="journal" title={full.journal_ref}>{full.journal_ref}</span>{/if}
+        </p>
+
+        <p class="links">
+            <a href={links.arxiv} target="_blank" rel="noopener noreferrer">arXiv</a>
+            <a href={links.pdf} target="_blank" rel="noopener noreferrer">PDF</a>
+            {#if links.doi}<a href={links.doi} target="_blank" rel="noopener noreferrer">DOI</a>{/if}
+            {#if links.semanticScholar}
+                <a href={links.semanticScholar} target="_blank" rel="noopener noreferrer">Semantic Scholar</a>
+            {/if}
+            <button class="linkish" onclick={copyBibtex}>
+                {#if copied}<Check /> Copied{:else}<Copy /> BibTeX{/if}
+            </button>
         </p>
     </header>
 
@@ -163,35 +204,53 @@
     <div class="content">
         {#if error}
             <p class="note">{error}</p>
-        {:else if tab === "overview"}
+        {:else if tab === "abstract"}
             {#if full.abstract}
                 <p class="abstract">{full.abstract}</p>
             {:else if !data}
                 <div class="loading"><Spinner /></div>
+            {:else}
+                <p class="note">No abstract available.</p>
             {/if}
             <dl class="facts">
                 <div>
-                    <dt>Cites</dt>
+                    <dt>References</dt>
                     <dd>
-                        {data ? lists.cites.length : "…"}
-                        {#if data?.externalCites}<small>+{data.externalCites} outside arXiv</small>{/if}
+                        {#if data}
+                            {lists.cites.length} on arXiv
+                            {#if data.externalCites}<small>+ {data.externalCites.toLocaleString("en")} elsewhere</small>{/if}
+                        {:else}…{/if}
                     </dd>
                 </div>
                 <div>
-                    <dt>Cited by</dt>
+                    <dt>Citations</dt>
                     <dd>
-                        {data ? lists.citedBy.length : "…"}
-                        {#if data?.externalCitedBy}<small>+{data.externalCitedBy} outside arXiv</small>{/if}
+                        {#if data}
+                            {lists.citedBy.length} on arXiv
+                            {#if data.externalCitedBy}<small>+ {data.externalCitedBy.toLocaleString("en")} elsewhere</small>{/if}
+                        {:else}…{/if}
                     </dd>
                 </div>
-                <div>
-                    <dt>arXiv id</dt>
-                    <dd class="mono">{full.entry_id}</dd>
-                </div>
-                {#if full.categories}
+                {#if categories.length}
                     <div>
                         <dt>Categories</dt>
-                        <dd class="mono">{full.categories.split(/\s+/).join(", ")}</dd>
+                        <dd>
+                            {#each categories as c, i}
+                                <span title={subcategoryName(c)}><span class="mono">{c}</span>{i < categories.length - 1 ? ", " : ""}</span>
+                            {/each}
+                        </dd>
+                    </div>
+                {/if}
+                {#if full.updated && full.updated !== full.published}
+                    <div>
+                        <dt>Updated</dt>
+                        <dd>{formatDate(full.updated)}</dd>
+                    </div>
+                {/if}
+                {#if full.doi}
+                    <div>
+                        <dt>DOI</dt>
+                        <dd><a href={links.doi} target="_blank" rel="noopener noreferrer" class="mono">{full.doi}</a></dd>
                     </div>
                 {/if}
             </dl>
@@ -203,9 +262,9 @@
                     <input class="field" placeholder="Filter by title or author" bind:value={listFilter} />
                     {#if tab !== "related"}
                         <select class="field" bind:value={listSort} aria-label="Sort">
+                            <option value="citations">Most cited</option>
                             <option value="newest">Newest</option>
                             <option value="oldest">Oldest</option>
-                            <option value="title">Title</option>
                         </select>
                     {/if}
                 </div>
@@ -217,6 +276,8 @@
                         authors={item.authors}
                         published={item.published}
                         categories={item.categories}
+                        count={citationCount(item)}
+                        countLabel="Citations"
                         onclick={() => onselect(item)}
                     />
                 {:else}
@@ -228,29 +289,40 @@
 </aside>
 
 <style>
-    .inspector {
+    .details {
         display: flex;
         flex-direction: column;
-        width: var(--panel-width);
-        max-height: 100%;
-        overflow: hidden;
+        height: 100%;
+        min-height: 0;
+        background: var(--surface);
+        border-left: 1px solid var(--border);
     }
 
     header {
-        padding: 12px 12px 12px 16px;
+        padding: 8px 12px 12px 16px;
     }
-    .top {
+    .toolbar {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 8px;
+        margin-left: -6px;
     }
+    .tools {
+        display: flex;
+        gap: 2px;
+        flex-shrink: 0;
+    }
+    .tools :global([aria-pressed="true"]) {
+        color: var(--accent);
+    }
+
     .context {
         display: flex;
         align-items: center;
         gap: 6px;
-        min-width: 0;
-        color: var(--text-3);
+        margin: 8px 0 0;
+        color: var(--text-2);
         font-size: var(--text-xs);
         white-space: nowrap;
         overflow: hidden;
@@ -261,36 +333,12 @@
         border-radius: 50%;
         flex-shrink: 0;
     }
-    .mono {
-        font-family: var(--font-mono);
-    }
-    .tools {
-        display: flex;
-        gap: 2px;
-        flex-shrink: 0;
-    }
-    .tools :global([aria-pressed="true"]) {
-        color: var(--accent);
-    }
-    .icon-link {
-        display: grid;
-        place-items: center;
-        width: 28px;
-        height: 28px;
-        border-radius: var(--radius);
-        color: var(--text-2);
-    }
-    .icon-link:hover {
-        background: var(--surface-2);
-        color: var(--text);
-    }
-    .icon-link :global(svg) {
-        width: 16px;
-        height: 16px;
+    .context .dim {
+        color: var(--text-3);
     }
 
     h2 {
-        margin: 10px 0 6px;
+        margin: 6px 0 6px;
         font-size: var(--text-lg);
         font-weight: 600;
         line-height: 1.3;
@@ -311,46 +359,55 @@
         cursor: pointer;
     }
     .author:hover {
-        color: var(--text);
+        color: var(--accent);
         text-decoration: underline;
         text-underline-offset: 2px;
     }
     .author.active {
         color: var(--accent);
-    }
-
-    .tabs {
-        display: flex;
-        gap: 2px;
-        padding: 0 8px;
-        border-bottom: 1px solid var(--border);
-    }
-    .tabs button {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 10px 8px;
-        border: 0;
-        border-bottom: 2px solid transparent;
-        margin-bottom: -1px;
-        background: none;
-        color: var(--text-3);
-        font-size: var(--text-sm);
         font-weight: 500;
+    }
+    .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 12px;
+        margin: 8px 0 0;
+        color: var(--text-3);
+        font-size: var(--text-xs);
+    }
+    .journal {
+        flex-basis: 100%;
+        color: var(--text-2);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .links {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 14px;
+        margin: 8px 0 0;
+        font-size: var(--text-sm);
+    }
+    .linkish {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--accent);
+        font-size: var(--text-sm);
         cursor: pointer;
     }
-    .tabs button:hover {
-        color: var(--text);
+    .linkish:hover {
+        text-decoration: underline;
+        text-underline-offset: 2px;
     }
-    .tabs button.active {
-        color: var(--text);
-        border-bottom-color: var(--accent);
-    }
-    .count {
-        color: var(--text-3);
-        font-family: var(--font-mono);
-        font-size: var(--text-xs);
-        font-weight: 400;
+    .linkish :global(svg) {
+        width: 13px;
+        height: 13px;
     }
 
     .content {
@@ -360,22 +417,22 @@
         padding: 12px 8px 12px;
     }
     .abstract {
-        margin: 0 8px 20px;
-        color: var(--text-2);
+        margin: 0 8px 16px;
+        color: var(--text);
         font-size: var(--text-base);
-        line-height: 1.65;
+        line-height: 1.6;
         text-wrap: pretty;
     }
     .facts {
         display: grid;
-        gap: 10px;
+        gap: 8px;
         margin: 0 8px;
-        padding-top: 16px;
+        padding-top: 12px;
         border-top: 1px solid var(--border);
     }
     .facts div {
         display: grid;
-        grid-template-columns: 96px 1fr;
+        grid-template-columns: 90px 1fr;
         gap: 8px;
     }
     dt {
@@ -386,9 +443,10 @@
         margin: 0;
         color: var(--text);
         font-size: var(--text-sm);
+        overflow-wrap: anywhere;
     }
     dd small {
-        margin-left: 6px;
+        margin-left: 4px;
         color: var(--text-3);
         font-size: var(--text-xs);
     }

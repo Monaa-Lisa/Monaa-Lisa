@@ -4,6 +4,13 @@
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script>
+			// apply the saved theme before the first paint, see lib/theme.ts
+			try {
+				var theme = localStorage.getItem("monaalisa_theme");
+				if (theme === "dark" || theme === "light") document.documentElement.dataset.theme = theme;
+			} catch (e) {}
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

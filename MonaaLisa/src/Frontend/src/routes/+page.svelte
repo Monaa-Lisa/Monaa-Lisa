@@ -1,5 +1,5 @@
 <script lang="ts">
-    import GraphLayout from "../components/GraphLayout.svelte";
+    import App from "$lib/components/App.svelte";
 </script>
 
 <svelte:head>
@@ -10,4 +10,4 @@
     />
 </svelte:head>
 
-<GraphLayout />
+<App />

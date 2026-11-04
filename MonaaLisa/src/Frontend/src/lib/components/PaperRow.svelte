@@ -1,6 +1,6 @@
 <!--
-  One paper in a list: title, authors, year and primary category.
-  Used by the search results, the inspector lists and the library.
+  One paper in a list: title, primary category, year and authors.
+  Used by the search results, the details panel lists and the library.
 -->
 <script lang="ts">
     import type { Snippet } from "svelte";
@@ -29,13 +29,13 @@
 </script>
 
 <li class="row" class:active>
-    <button class="main" {onclick}>
+    <button class="main" {onclick} aria-current={active ? "true" : undefined}>
         <span class="title">{title}</span>
         <span class="meta">
             {#if category}
                 <span class="cat"><i style:background={categoryColor(categories)}></i>{category}</span>
             {/if}
-            {#if year}<span>{year}</span>{/if}
+            {#if year}<span class="year">{year}</span>{/if}
             {#if authors}<span class="authors">{shortAuthors(authors, 2)}</span>{/if}
         </span>
     </button>
@@ -53,18 +53,21 @@
         display: flex;
         align-items: flex-start;
         gap: 8px;
-        border-radius: var(--radius);
+        border-left: 2px solid transparent;
     }
-    .row:hover,
-    .row.active {
+    .row:hover {
         background: var(--surface-2);
+    }
+    .row.active {
+        background: var(--accent-soft);
+        border-left-color: var(--accent);
     }
     .main {
         display: grid;
-        gap: 3px;
+        gap: 2px;
         flex: 1;
         min-width: 0;
-        padding: 8px 10px;
+        padding: 7px 10px 7px 10px;
         border: 0;
         background: none;
         text-align: left;
@@ -97,9 +100,12 @@
         flex-shrink: 0;
     }
     .cat i {
-        width: 6px;
-        height: 6px;
+        width: 7px;
+        height: 7px;
         border-radius: 50%;
+    }
+    .year {
+        flex-shrink: 0;
     }
     .authors {
         overflow: hidden;
@@ -107,20 +113,21 @@
         white-space: nowrap;
     }
     .count {
-        padding: 9px 10px 0 0;
+        padding: 8px 10px 0 0;
         color: var(--text-2);
         font-family: var(--font-mono);
         font-size: var(--text-xs);
     }
     .actions {
         position: absolute;
-        top: 6px;
+        top: 5px;
         right: 6px;
         display: none;
         gap: 2px;
         padding: 2px;
+        border: 1px solid var(--border);
         border-radius: var(--radius);
-        background: var(--surface-3);
+        background: var(--surface);
     }
     .row:hover .actions,
     .row:focus-within .actions {

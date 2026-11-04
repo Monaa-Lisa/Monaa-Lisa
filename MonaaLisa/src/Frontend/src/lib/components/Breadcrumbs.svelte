@@ -7,8 +7,6 @@
 </script>
 
 <script lang="ts">
-    import { ChevronRight } from "@lucide/svelte";
-
     let { crumbs }: { crumbs: Crumb[] } = $props();
 </script>
 
@@ -16,11 +14,11 @@
     <ol>
         {#each crumbs as crumb, i}
             <li>
-                {#if i > 0}<ChevronRight class="sep" aria-hidden="true" />{/if}
+                {#if i > 0}<span class="sep" aria-hidden="true">/</span>{/if}
                 {#if crumb.onclick && i < crumbs.length - 1}
                     <button onclick={crumb.onclick}>{crumb.label}</button>
                 {:else}
-                    <span aria-current="page" title={crumb.label}>{crumb.label}</span>
+                    <span class="current" aria-current="page" title={crumb.label}>{crumb.label}</span>
                 {/if}
             </li>
         {/each}
@@ -30,9 +28,8 @@
 <style>
     ol {
         display: flex;
-        flex-wrap: wrap;
         align-items: center;
-        gap: 2px 0;
+        min-width: 0;
         margin: 0;
         padding: 0;
         list-style: none;
@@ -41,36 +38,33 @@
         display: flex;
         align-items: center;
         min-width: 0;
-        max-width: 100%;
     }
-    li :global(.sep) {
-        width: 12px;
-        height: 12px;
-        margin: 0 2px;
-        color: var(--text-3);
-        flex-shrink: 0;
+    .sep {
+        margin: 0 6px;
+        color: var(--border-strong);
     }
     button,
-    span {
-        padding: 2px 4px;
+    .current {
+        padding: 2px 0;
         border: 0;
-        border-radius: var(--radius-sm);
         background: none;
-        font-size: var(--text-xs);
+        font-size: var(--text-sm);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
     button {
-        color: var(--text-3);
+        color: var(--text-2);
         cursor: pointer;
     }
     button:hover {
-        background: var(--surface-2);
-        color: var(--text);
+        color: var(--accent);
+        text-decoration: underline;
+        text-underline-offset: 2px;
     }
-    span {
-        color: var(--text-2);
-        max-width: 300px;
+    .current {
+        color: var(--text);
+        font-weight: 500;
+        max-width: 420px;
     }
 </style>

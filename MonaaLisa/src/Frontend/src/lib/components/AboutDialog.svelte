@@ -10,18 +10,63 @@
     let lang = $state<"en" | "de">("en");
 </script>
 
-<Dialog {open} {onclose} title="About Monaa-Lisa" width={520}>
-    <div class="lang" role="group" aria-label="Language">
+<Dialog {open} {onclose} title="About Monaa-Lisa" width={560}>
+    <p>
+        Monaa-Lisa is a map of the arXiv literature. Papers are placed by the similarity of their content, so a
+        region of the map is a topic, and every paper can be followed along its references, its citations and its
+        related papers.
+    </p>
+
+    <h3>How the map is made</h3>
+    <ol>
+        <li>
+            <strong>Metadata</strong> (title, abstract, authors, categories, dates) comes from arXiv. References, citations
+            and related papers come from Semantic Scholar. Links between two arXiv papers are kept as edges; references
+            and citations outside arXiv are only counted.
+        </li>
+        <li>
+            <strong>Embedding.</strong> Title and abstract of every paper are embedded with SPECTER2 (768 dimensions), a
+            model trained on citation links between scientific papers.
+        </li>
+        <li>
+            <strong>Projection.</strong> The embedding is reduced with PCA to 128 dimensions and then with UMAP to the two
+            map coordinates. PCA and UMAP were fitted once and are kept fixed, so a new paper is placed on the same map
+            as the existing ones and positions do not change between visits.
+        </li>
+    </ol>
+
+    <h3>Reading the views</h3>
+    <ul>
+        <li>
+            <strong>Subjects and categories:</strong> the area of a tile is the number of papers arXiv lists in that
+            category (arXiv-wide totals, not only the papers in this map).
+        </li>
+        <li>
+            <strong>Paper map:</strong> one point per paper at its UMAP position. Distances are meaningful locally
+            (close points are similar), the axes have no meaning. Point size follows the citation count, colour the
+            subject of the paper's primary category. A category map shows the most cited papers first; the number of
+            papers can be raised in the header.
+        </li>
+        <li>
+            <strong>Citations:</strong> the selected paper's references (older, left) and the papers citing it (newer,
+            right) on a time axis. Arrows point from the citing paper to the cited paper. Only papers in the dataset are
+            drawn, the counts outside arXiv are listed in the details.
+        </li>
+        <li>
+            <strong>Related:</strong> related papers from Semantic Scholar, drawn at their own map positions.
+        </li>
+    </ul>
+
+    <div class="lang" role="group" aria-label="Language of the credits">
         <button class:active={lang === "en"} onclick={() => (lang = "en")}>EN</button>
         <button class:active={lang === "de"} onclick={() => (lang = "de")}>DE</button>
     </div>
 
     {#if lang === "de"}
         <p>
-            Monaa-Lisa ist eine Web-Anwendung zur hierarchischen Visualisierung von Open Access Literatur, die
-            wissenschaftliche Recherchen intuitiver und strukturierter gestaltet. Entwickelt wurde das Projekt von Nico
-            Bestek, Nick Wittkowski, Lenio Cabral-Rosario und Bastian Rosinski im Rahmen des Softwarepraktikums 2025 an der
-            Hochschule Bochum unter der Betreuung von Prof. Dr. Christian Scheffer und Jonas Friemel.
+            Entwickelt wurde das Projekt von Nico Bestek, Nick Wittkowski, Lenio Cabral-Rosario und Bastian Rosinski im
+            Rahmen des Softwarepraktikums 2025 an der Hochschule Bochum unter der Betreuung von Prof. Dr. Christian
+            Scheffer und Jonas Friemel.
         </p>
         <p>
             Ein ganz besonderer Dank gilt dabei Jonas Friemel, der uns das gesamte Jahr über als direkter Ansprechpartner
@@ -30,26 +75,19 @@
         </p>
     {:else}
         <p>
-            Monaa-Lisa is a web application for the hierarchical visualization of Open Access literature, designed to make
-            scientific research more intuitive and structured. The project was developed by Nico Bestek, Nick Wittkowski,
-            Lenio Cabral-Rosario, and Bastian Rosinski as part of the 2025 Software Project at Bochum University of Applied
-            Sciences under the supervision of Prof. Dr. Christian Scheffer and Jonas Friemel.
+            The project was developed by Nico Bestek, Nick Wittkowski, Lenio Cabral-Rosario and Bastian Rosinski as part
+            of the 2025 Software Project at Bochum University of Applied Sciences, supervised by Prof. Dr. Christian
+            Scheffer and Jonas Friemel.
         </p>
         <p>
-            Special thanks go to Jonas Friemel, who provided us with intensive support throughout the year as our direct
-            contact person. He was always there to offer advice and assistance and helped us to keep a cool head even
-            during stressful phases.
+            Special thanks go to Jonas Friemel, who supported us closely throughout the year as our direct contact. He was
+            always there with advice and help and kept us calm in stressful phases.
         </p>
     {/if}
 
     {#snippet footer()}
         <span class="license">Licensed under AGPL v3</span>
         <a class="source" href="https://github.com/Monaa-Lisa/Monaa-Lisa" target="_blank" rel="noopener noreferrer">
-            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                <path
-                    d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
-                />
-            </svg>
             Source code
         </a>
     {/snippet}
@@ -60,9 +98,30 @@
         margin: 0 0 12px;
         line-height: 1.6;
     }
+    h3 {
+        margin: 16px 0 6px;
+        color: var(--text);
+        font-size: var(--text-sm);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    ol,
+    ul {
+        margin: 0 0 12px;
+        padding-left: 20px;
+        line-height: 1.6;
+    }
+    li {
+        margin-bottom: 6px;
+    }
+    strong {
+        color: var(--text);
+        font-weight: 600;
+    }
     .lang {
         display: inline-flex;
-        margin-bottom: 12px;
+        margin: 8px 0 12px;
         padding: 2px;
         border: 1px solid var(--border);
         border-radius: var(--radius);
@@ -88,18 +147,6 @@
         font-size: var(--text-xs);
     }
     .source {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        color: var(--text);
         font-size: var(--text-sm);
-        text-decoration: none;
-    }
-    .source:hover {
-        color: var(--accent);
-    }
-    .source :global(svg) {
-        width: 16px;
-        height: 16px;
     }
 </style>

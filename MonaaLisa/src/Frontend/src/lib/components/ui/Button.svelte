@@ -1,6 +1,6 @@
 <!--
   Button with three looks:
-  - primary: the one main action in a place (accent colour)
+  - primary: the one main action in a place
   - secondary: normal actions (bordered)
   - ghost: quiet actions in toolbars and lists
   Pass `icon` for a square icon-only button and always give it a `label`.
@@ -49,8 +49,8 @@
         align-items: center;
         justify-content: center;
         gap: 6px;
-        height: 32px;
-        padding: 0 12px;
+        height: 30px;
+        padding: 0 10px;
         border: 1px solid transparent;
         border-radius: var(--radius);
         font-size: var(--text-sm);
@@ -64,43 +64,45 @@
             color var(--duration) var(--ease);
     }
     .btn.sm {
-        height: 28px;
-        padding: 0 10px;
+        height: 26px;
+        padding: 0 8px;
         font-size: var(--text-xs);
     }
     .btn.icon {
-        width: 32px;
+        width: 30px;
         padding: 0;
     }
     .btn.icon.sm {
-        width: 28px;
+        width: 26px;
     }
     .btn:disabled {
         opacity: 0.45;
         cursor: not-allowed;
     }
     .btn :global(svg) {
-        width: 16px;
-        height: 16px;
+        width: 15px;
+        height: 15px;
         flex-shrink: 0;
     }
 
     .primary {
         background: var(--accent);
+        border-color: var(--accent);
         color: var(--accent-fg);
     }
     .primary:hover:not(:disabled) {
         background: var(--accent-hover);
+        border-color: var(--accent-hover);
     }
 
     .secondary {
-        background: var(--surface-2);
-        border-color: var(--border);
+        background: var(--surface);
+        border-color: var(--border-strong);
         color: var(--text);
     }
     .secondary:hover:not(:disabled) {
-        background: var(--surface-3);
-        border-color: var(--border-strong);
+        background: var(--surface-2);
+        border-color: var(--text-3);
     }
 
     .ghost {
