@@ -105,7 +105,10 @@ model Embedding {
   content                  Unsupported("vector(128)")
 
   @@map("embedding")
-  // CREATE INDEX ON "embedding" USING hnsw (content vector_cosine_ops);
+  // Prisma cannot describe the HNSW index on "content". It is created by hand in
+  // migrations/20261104120200_restore_dropped_indexes. If `prisma migrate dev`
+  // generates a DROP INDEX "embedding_content_idx", remove that line from the
+  // generated migration before applying it.
 }
 
 model ProgramRun {
@@ -144,5 +147,6 @@ model UncaughtPaper {
   last_checked DateTime?
   created_at   DateTime  @default(now())
 
+  @@index([retry_count, last_checked], map: "uncaught_paper_retry_queue_idx")
   @@map("uncaught_paper")
 }
