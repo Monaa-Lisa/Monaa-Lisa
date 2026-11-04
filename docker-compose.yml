@@ -4,10 +4,11 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER-monaa}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD-sicherespasswort}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB-monaa_lisa_db}
     ports:
-      - "5432:5432"
+      # only reachable from this machine, not from the network
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -27,7 +28,7 @@ services:
       backend:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER-monaa}:${POSTGRES_PASSWORD-sicherespasswort}@db:5432/${POSTGRES_DB-monaa_lisa_db}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER-monaa}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB-monaa_lisa_db}
       PYTHONPATH: /app/MonaaLisa/src
       SEMANTIC_SCHOLAR_API_KEY: ${SEMANTIC_SCHOLAR_API_KEY:-}
       DATA_DIR: /app/data
@@ -46,7 +47,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB}
       PORT: 3000
     volumes:
       - ./MonaaLisa/src/Backend:/app
@@ -90,7 +91,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB}
     volumes:
       - ./MonaaLisa_dataset_full.jsonl:/app/MonaaLisa_dataset_full.jsonl:ro
       - ./import_dataset.py:/app/import_dataset.py:ro

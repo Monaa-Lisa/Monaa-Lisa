@@ -76,7 +76,7 @@ def get_connection():
         host=os.environ.get("POSTGRES_HOST", "localhost"),
         port=int(os.environ.get("POSTGRES_PORT", "5432")),
         user=os.environ.get("POSTGRES_USER", "monaa"),
-        password=os.environ.get("POSTGRES_PASSWORD", "monaa"),
+        password=os.environ["POSTGRES_PASSWORD"],
         dbname=os.environ.get("POSTGRES_DB", "monaa"),
     )
 

@@ -62,7 +62,7 @@ echo Creating default .env file...
 (
     echo # Database Configuration
     echo POSTGRES_USER=monaa
-    echo POSTGRES_PASSWORD=sicherespasswort
+    echo POSTGRES_PASSWORD=
     echo POSTGRES_DB=monaa_lisa_db
     echo.
     echo # Semantic Scholar API Key
@@ -72,11 +72,18 @@ echo Creating default .env file...
     echo DATA_DIR=/app/data
 ) > .env
 echo [OK] Created default .env file
-goto env_review
+goto set_password
 
 :copy_env_example
 copy ".env.example" ".env" >nul
 echo [OK] Created .env from .env.example
+goto set_password
+
+:set_password
+REM Every installation gets its own random database password
+for /f %%p in ('powershell -NoProfile -Command "[guid]::NewGuid().ToString('N')"') do set "DB_PASSWORD=%%p"
+powershell -NoProfile -Command "(Get-Content .env) -replace '^POSTGRES_PASSWORD=.*', 'POSTGRES_PASSWORD=%DB_PASSWORD%' | Set-Content .env"
+echo [OK] Generated a random database password in .env
 goto env_review
 
 :env_review
