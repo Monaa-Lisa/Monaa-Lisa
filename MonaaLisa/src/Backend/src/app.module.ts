@@ -5,7 +5,6 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { PapersModule } from './papers/papers.module';
 import { PaperCitationsModule } from './paper-citations/paper-citations.module';
@@ -29,6 +28,6 @@ import { PaperReferencesModule } from './paper-references/paper-references.modul
     PaperReferencesModule,
   ],
   controllers: [AppController],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }, AppService],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

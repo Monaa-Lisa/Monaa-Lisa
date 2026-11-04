@@ -1,27 +1,31 @@
-/**
- * Nico August 2025
- * Das hier ist ein Unit Test des Controllers. Es werden nur die Komponenten der Klasse
- * isoliert getestet, aber es werden keine Web-Requests simuliert
- */
+import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { PrismaService } from './prisma/prisma.service';
 
 describe('AppController', () => {
-  let appController: AppController;
+  const prisma = { $queryRaw: jest.fn() };
+  let controller: AppController;
 
   beforeEach(async () => {
-    const app: TestingModule = await Test.createTestingModule({
+    prisma.$queryRaw.mockReset();
+    const module: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService],
+      providers: [{ provide: PrismaService, useValue: prisma }],
     }).compile();
 
-    appController = app.get<AppController>(AppController);
+    controller = module.get(AppController);
   });
 
-  describe('root', () => {
-    it('should return "Hello from MonaaLisa!"', () => {
-      expect(appController.getHello()).toBe('Hello from MonaaLisa!');
-    });
+  it('reports ok when the database answers', async () => {
+    prisma.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
+    await expect(controller.health()).resolves.toEqual({ status: 'ok' });
+  });
+
+  it('answers 503 when the database is down', async () => {
+    prisma.$queryRaw.mockRejectedValue(new Error('connection refused'));
+    await expect(controller.health()).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
   });
 });
