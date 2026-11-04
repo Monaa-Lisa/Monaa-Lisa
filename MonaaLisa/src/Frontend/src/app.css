@@ -262,6 +262,26 @@ input[type="checkbox"] {
   font-weight: 400;
 }
 
+/* Paper titles drawn over the maps, placed by lib/labels.ts */
+.node-label {
+  position: absolute;
+  transform: translateY(-50%);
+  padding: 0 2px;
+  color: var(--map-label);
+  font: 500 11px/1.4 var(--font-sans);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow:
+    0 0 2px var(--map-label-halo),
+    0 0 2px var(--map-label-halo),
+    0 0 4px var(--map-label-halo);
+  pointer-events: none;
+}
+.node-label.primary {
+  font-weight: 600;
+}
+
 /* Small pill group (Map / Citations / Related) */
 .segmented {
   display: inline-flex;

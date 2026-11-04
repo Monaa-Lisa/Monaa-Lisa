@@ -56,11 +56,13 @@
     // ─── limits ───────────────────────────────────────────────────────
     // 0 means "all" (the backend still returns at most MAX_PAPERS_PER_REQUEST)
     const LIMIT_OPTIONS = [100, 500, 1000, 2500, 5000, 10000, 0];
+    // papers per group (references, citations, related) in the citation views
+    const NODE_LIMIT_OPTIONS = [20, 40, 100, 250, 500, 0];
     // From this size on the user has to confirm, large maps can freeze the tab
     const LARGE_LIMIT = 10000;
 
     let paperLimit = $state(1000);
-    let nodeLimit = $state(500);
+    let nodeLimit = $state(40);
     let pendingLimit = $state<{ target: "paper" | "node"; value: number } | null>(null);
 
     function requestLimit(target: "paper" | "node", value: number) {
@@ -438,9 +440,9 @@
                 <span class="spacer"></span>
                 {#if selected && stageView !== "map"}
                     <label class="limit">
-                        <span>Nodes per group</span>
+                        <span>Most cited per group</span>
                         <select class="field" value={nodeLimit} onchange={(e) => requestLimit("node", Number(e.currentTarget.value))}>
-                            {#each LIMIT_OPTIONS as value}
+                            {#each NODE_LIMIT_OPTIONS as value}
                                 <option {value}>{value === 0 ? "All" : value.toLocaleString("en")}</option>
                             {/each}
                         </select>

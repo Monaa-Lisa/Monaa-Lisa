@@ -1,14 +1,18 @@
 <!--
   The citation neighbourhood of one paper, drawn with Sigma.js. Two layouts:
 
-  citations  x = year of publication. The papers it cites are to the left
-             (older), the papers citing it to the right (newer). Arrows point
-             from the citing paper to the cited paper.
+  citations  a chart: x = year of publication, y = citations (log scale).
+             The papers it cites are mostly to the left of the selected
+             paper (older), the papers citing it to the right (newer), and
+             the most cited work sits at the top. Only the most cited papers
+             of each group are shown by default (nodeLimit). Every point is
+             linked to the selected paper, so the links are not drawn; hover
+             a point to see its link.
   related    the related papers (Semantic Scholar) at their map positions
              around the selected paper, i.e. its neighbourhood on the map.
 
   Nodes are coloured by subject like everywhere else, so citations from other
-  fields stand out.
+  fields stand out. Titles are HTML elements placed by lib/labels.ts.
 -->
 <script module lang="ts">
     export type NetworkMode = "citations" | "related";
@@ -21,8 +25,8 @@
     import Spinner from "$lib/components/ui/Spinner.svelte";
     import ZoomControls from "$lib/components/ZoomControls.svelte";
     import { CATEGORY_COLORS, categoryColor, subjectName, subjectOf } from "$lib/categories";
+    import { createLabelPlacer, type PlacedLabel } from "$lib/labels";
     import { loadNeighbourhood, type Neighbourhood } from "$lib/neighbourhood";
-    import { createLabelPlacer, sameSet } from "$lib/labels";
     import { citationCount, primaryCategory, publishedYear, truncate } from "$lib/paper";
     import { onThemeChange, token } from "$lib/theme";
     import type { Paper } from "$lib/types/paper";
@@ -30,7 +34,7 @@
     interface Props {
         paper: Paper;
         mode: NetworkMode;
-        /** Most nodes per group, 0 = no limit */
+        /** Most papers per group (references, citations, related), 0 = no limit */
         nodeLimit: number;
         highlightedAuthor: string;
         onselect: (paper: Paper) => void;
@@ -52,7 +56,11 @@
     let error = $state<string | null>(null);
     let hovered = $state<{ paper: Paper; group: Group; x: number; y: number } | null>(null);
     let ring = $state<{ x: number; y: number; size: number } | null>(null);
-    let ticks = $state<{ year: number; left: number }[]>([]);
+    let labels = $state<PlacedLabel[]>([]);
+    /** Year ticks along the top and citation ticks along the left, in px */
+    let yearTicks = $state<{ year: number; left: number }[]>([]);
+    let citationTicks = $state<{ label: string; top: number }[]>([]);
+    let centreLine = $state<number | null>(null);
     let themeVersion = $state(0);
 
     $effect(() => {
@@ -73,20 +81,16 @@
             });
     });
 
+    /** Year with the month as a fraction, so papers of one year spread out */
     function yearOf(p: Paper): number | null {
         const year = Number(publishedYear(p.published));
         if (!year) return null;
-        // spread papers of the same year over the year
         const date = new Date(p.published!);
         return year + (date.getMonth() + date.getDate() / 31) / 12;
     }
 
-    /** Stable pseudo random value in [-1, 1] per paper, so layouts do not jump */
-    function jitter(id: string): number {
-        let h = 2166136261;
-        for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
-        return ((h >>> 0) % 10000) / 5000 - 1;
-    }
+    /** Vertical position: citations on a log scale */
+    const logCitations = (p: Paper) => Math.log10(1 + citationCount(p));
 
     function limit(list: Paper[]): Paper[] {
         if (!nodeLimit || list.length <= nodeLimit) return list;
@@ -117,46 +121,63 @@
             }));
     });
 
-    function buildGraph(n: Neighbourhood, layout: NetworkMode, maxCitations: number, aspect: number): Graph {
+    interface Layout {
+        graph: Graph;
+        /** citations mode: graph y per log10 unit above minLog, and the year of the selected paper */
+        yScale: number;
+        minLog: number;
+        maxLog: number;
+        centreYear: number;
+    }
+
+    /** Tick label for a citation count: 1k, 10k, 100k */
+    function tickLabel(value: number): string {
+        if (value >= 1000) return `${value / 1000}k`;
+        return String(value);
+    }
+
+    function buildGraph(n: Neighbourhood, layout: NetworkMode, aspect: number): Layout {
         const graph = new Graph({ type: "directed" });
         const centre = n.paper;
         const centreYear = yearOf(centre) ?? new Date().getFullYear();
-        const size = (p: Paper) => 3 + 6 * (Math.log1p(citationCount(p)) / Math.log1p(maxCitations));
-        const edge = { type: "arrow", size: 0.7, color: token("--map-edge", "rgba(0,0,0,0.3)") };
+        const shown = layout === "citations" ? [...groups.cites, ...groups.citedBy] : groups.related;
+        const logs = [logCitations(centre), ...shown.map(logCitations)];
+        const maxLog = Math.max(...logs);
+        // the axis covers only the shown papers, which are the most cited ones
+        const minLog = Math.min(maxLog - 0.5, ...logs);
+        const size = (p: Paper) => 3 + 3 * (logCitations(p) / Math.max(1, maxLog));
+        const yOf = (p: Paper) => (logCitations(p) - minLog) * yScale;
+
+        let yScale = 1;
+        if (layout === "citations") {
+            // the year range fills the width, the citation axis the height
+            const years = [centreYear, ...shown.map((p) => yearOf(p) ?? centreYear)];
+            const range = Math.max(2, Math.max(...years) - Math.min(...years));
+            yScale = (range * aspect) / ((maxLog - minLog) * 1.15);
+        }
 
         graph.addNode(centre.entry_id, {
             x: layout === "citations" ? centreYear : centre.x,
-            y: layout === "citations" ? 0 : centre.y,
-            size: size(centre) + 2,
+            y: layout === "citations" ? yOf(centre) : centre.y,
+            size: size(centre) + 3,
             color: categoryColor(centre.categories),
-            label: truncate(centre.title, 70),
             zIndex: 3,
         });
 
         const add = (p: Paper, x: number, y: number) => {
             if (graph.hasNode(p.entry_id)) return;
-            graph.addNode(p.entry_id, {
-                x,
-                y,
-                size: size(p),
-                color: categoryColor(p.categories),
-                label: truncate(p.title, 70),
-                zIndex: 1,
-            });
+            graph.addNode(p.entry_id, { x, y, size: size(p), color: categoryColor(p.categories), zIndex: 1 });
         };
 
         if (layout === "citations") {
-            const all = [...groups.cites, ...groups.citedBy];
-            // the year range fills the width, the vertical room follows the stage's shape
-            const years = [centreYear, ...all.map((p) => yearOf(p) ?? centreYear)];
-            const range = Math.max(2, Math.max(...years) - Math.min(...years));
-            const spread = (range * aspect) / 2;
+            // the links all lead to the selected paper, they are drawn only for the hovered point
+            const edge = { type: "arrow", size: 1.2, color: token("--map-edge", "rgba(0,0,0,0.3)") };
             for (const p of groups.cites) {
-                add(p, yearOf(p) ?? centreYear - 1, jitter(p.entry_id) * spread);
+                add(p, yearOf(p) ?? centreYear - 1, yOf(p));
                 graph.addEdge(centre.entry_id, p.entry_id, edge);
             }
             for (const p of groups.citedBy) {
-                add(p, yearOf(p) ?? centreYear + 1, jitter(p.entry_id) * spread);
+                add(p, yearOf(p) ?? centreYear + 1, yOf(p));
                 if (!graph.hasEdge(p.entry_id, centre.entry_id)) graph.addEdge(p.entry_id, centre.entry_id, edge);
             }
         } else {
@@ -167,12 +188,14 @@
                 add(p, hasPosition ? p.x : centre.x + Math.cos(angle), hasPosition ? p.y : centre.y + Math.sin(angle));
             });
         }
-        return graph;
+        return { graph, yScale, minLog, maxLog, centreYear };
     }
 
-    function updateTicks(renderer: Sigma, n: Neighbourhood) {
+    function updateAxes(renderer: Sigma, n: Neighbourhood, layout: Layout) {
         if (mode !== "citations") {
-            ticks = [];
+            yearTicks = [];
+            citationTicks = [];
+            centreLine = null;
             return;
         }
         const years = [n.paper, ...groups.cites, ...groups.citedBy]
@@ -182,18 +205,32 @@
         const min = Math.min(...years);
         const max = Math.max(...years) + 1;
         const step = max - min > 24 ? 5 : max - min > 10 ? 2 : 1;
-        const next: { year: number; left: number }[] = [];
+        const nextYears: { year: number; left: number }[] = [];
         for (let year = Math.ceil(min / step) * step; year <= max; year += step) {
-            next.push({ year, left: renderer.graphToViewport({ x: year, y: 0 }).x });
+            nextYears.push({ year, left: renderer.graphToViewport({ x: year, y: 0 }).x });
         }
-        ticks = next;
+        yearTicks = nextYears;
+
+        // ticks at 1, 2, 5 × 10^k inside the shown range, only the powers of ten when there are enough
+        const inRange = (value: number) =>
+            Math.log10(1 + value) >= layout.minLog - 0.02 && Math.log10(1 + value) <= layout.maxLog + 0.02;
+        const powers = [1, 10, 100, 1000, 10000, 100000, 1000000].filter(inRange);
+        const values =
+            powers.length >= 3
+                ? powers
+                : [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000].filter(inRange);
+        citationTicks = values.map((value) => ({
+            label: tickLabel(value),
+            top: renderer.graphToViewport({
+                x: layout.centreYear,
+                y: (Math.log10(1 + value) - layout.minLog) * layout.yScale,
+            }).y,
+        }));
+        centreLine = renderer.graphToViewport({ x: layout.centreYear, y: 0 }).x;
     }
 
     let renderer: Sigma | null = null;
     let resetView = () => {};
-    /** Nodes that currently carry their title, see lib/labels.ts */
-    let forced = new Set<string>();
-    const LABEL_FONT = "IBM Plex Sans, system-ui, sans-serif";
 
     $effect(() => {
         const n = data;
@@ -208,12 +245,12 @@
         for (const p of n.citedBy) if (!info.has(p.entry_id)) info.set(p.entry_id, { paper: p, group: "citedBy" });
         for (const p of n.related) if (!info.has(p.entry_id)) info.set(p.entry_id, { paper: p, group: "related" });
 
-        const maxCitations = Math.max(1, ...[...info.values()].map((i) => citationCount(i.paper)));
         const stage = { width: el.clientWidth || 1, height: el.clientHeight || 1 };
-        const graph = buildGraph(n, mode, maxCitations, stage.height / stage.width);
+        const layout = buildGraph(n, mode, stage.height / stage.width);
+        const graph = layout.graph;
         const dim = token("--map-dim", "rgba(0,0,0,0.1)");
         const author = highlightedAuthor.toLowerCase();
-        forced = new Set();
+        let hoveredId: string | null = null;
 
         // titles go to the selected paper and then to the most cited ones that fit
         const shown = mode === "citations" ? [...groups.cites, ...groups.citedBy] : groups.related;
@@ -222,16 +259,12 @@
             ...shown
                 .filter((p) => !author || p.authors.toLowerCase().includes(author))
                 .sort((a, b) => citationCount(b) - citationCount(a)),
-        ].map((p) => ({ id: p.entry_id, label: truncate(p.title, 70) }));
+        ].map((p) => ({ id: p.entry_id, label: truncate(p.title, 90) }));
 
         const r = new Sigma(graph, el, {
+            // titles are HTML elements placed by lib/labels.ts
+            renderLabels: false,
             renderEdgeLabels: false,
-            labelFont: LABEL_FONT,
-            labelSize: 11,
-            labelWeight: "500",
-            labelColor: { color: token("--map-label", "#1c1c1c") },
-            // titles are chosen by the label placer, sigma's own picking is off
-            labelRenderedSizeThreshold: 1e6,
             defaultEdgeType: "arrow",
             zIndex: true,
             stagePadding: 64,
@@ -239,17 +272,16 @@
             maxCameraRatio: 3,
             nodeReducer: (node, attrs) => {
                 const item = info.get(node);
-                const out = { ...attrs };
-                out.forceLabel = forced.has(node);
-                if (!out.forceLabel) out.label = "";
-                if (!author || !item || item.group === "selected") return out;
+                if (!author || !item || item.group === "selected") return attrs;
                 const match = item.paper.authors.toLowerCase().includes(author);
-                return match ? { ...out, size: attrs.size + 2, zIndex: 2 } : { ...out, color: dim, label: "", zIndex: 0 };
+                return match ? { ...attrs, size: attrs.size + 2, zIndex: 2 } : { ...attrs, color: dim, zIndex: 0 };
             },
+            // only the hovered point shows its link to the selected paper
+            edgeReducer: (edge, attrs) => ({ ...attrs, hidden: !hoveredId || !graph.hasExtremity(edge, hoveredId) }),
         });
 
         // sigma fits the graph into the shorter side of the stage, for the
-        // timeline the year axis should span the full width instead
+        // chart the year axis should span the full width instead
         const fit = { x: 0.5, y: 0.5, angle: 0, ratio: mode === "citations" ? Math.min(1, stage.height / stage.width) : 1 };
         r.getCamera().setState(fit);
         resetView = () => r.getCamera().animate(fit, { duration: 300 });
@@ -264,40 +296,40 @@
         r.on("enterNode", ({ node, event }) => {
             const item = info.get(node);
             if (item) hovered = { ...item, x: event.x, y: event.y };
+            hoveredId = node;
             el.style.cursor = "pointer";
+            r.refresh({ skipIndexation: true });
         });
         r.on("moveBody", ({ event }) => {
             if (hovered) hovered = { ...hovered, x: event.x, y: event.y };
         });
         r.on("leaveNode", () => {
             hovered = null;
+            hoveredId = null;
             el.style.cursor = "";
+            r.refresh({ skipIndexation: true });
         });
         r.on("clickNode", ({ node }) => {
             const item = info.get(node);
             if (item && item.group !== "selected") onselect(item.paper);
         });
+
+        const placer = createLabelPlacer(r);
+        let needsLabels = true;
         r.getCamera().on("updated", () => {
-            updateTicks(r, n);
+            needsLabels = true;
+            updateAxes(r, n, layout);
             updateRing();
         });
-        r.on("afterRender", updateRing);
-
-        const placer = createLabelPlacer(r, `500 11px ${LABEL_FONT}`);
-        let needsLabels = true;
-        r.getCamera().on("updated", () => (needsLabels = true));
         r.on("afterRender", () => {
+            updateRing();
             if (!needsLabels) return;
             needsLabels = false;
-            const next = placer.place(ranked);
-            if (!sameSet(next, forced)) {
-                forced = next;
-                r.refresh();
-            }
+            labels = placer.place(ranked);
         });
         // sigma already rendered once in its constructor, render again so the titles get placed
         r.refresh();
-        updateTicks(r, n);
+        updateAxes(r, n, layout);
         renderer = r;
 
         return () => {
@@ -305,7 +337,10 @@
             renderer = null;
             hovered = null;
             ring = null;
-            ticks = [];
+            labels = [];
+            yearTicks = [];
+            citationTicks = [];
+            centreLine = null;
         };
     });
 
@@ -315,13 +350,30 @@
 <div class="network" bind:clientWidth={width}>
     <div class="canvas" bind:this={container}></div>
 
-    {#if ticks.length}
-        <div class="axis" aria-hidden="true">
-            {#each ticks as tick (tick.year)}
-                <span class="tick" style:left="{tick.left}px"><em>{tick.year}</em></span>
+    {#if mode === "citations" && data}
+        <div class="axes" aria-hidden="true">
+            {#each citationTicks as tick (tick.label)}
+                <span class="row" style:top="{tick.top}px"><em>{tick.label}</em></span>
             {/each}
+            {#each yearTicks as tick (tick.year)}
+                <span class="column" style:left="{tick.left}px"><em>{tick.year}</em></span>
+            {/each}
+            {#if centreLine !== null}
+                <span class="centre" style:left="{centreLine}px"><em>selected paper</em></span>
+            {/if}
+            <span class="axis-title">citations ↑</span>
         </div>
     {/if}
+
+    {#each labels as item (item.id)}
+        <span
+            class="node-label"
+            class:primary={item.id === paper.entry_id}
+            style:left="{item.x}px"
+            style:top="{item.y}px"
+            style:width="{item.width}px">{item.label}</span
+        >
+    {/each}
 
     {#if ring}
         <div
@@ -352,8 +404,8 @@
         <div class="legend">
             {#if mode === "citations"}
                 <span class="hint">
-                    ← <b>{groups.cites.length}</b> references · <b>{groups.citedBy.length}</b> citations → · x: year of
-                    publication · arrows: citing → cited
+                    <b>{groups.cites.length}</b> of {data.cites.length} references · <b>{groups.citedBy.length}</b> of
+                    {data.citedBy.length} citations · hover a point for its link
                 </span>
             {:else}
                 <span class="hint"><b>{groups.related.length}</b> related papers at their map positions</span>
@@ -400,25 +452,57 @@
         pointer-events: none;
     }
 
-    .axis {
+    .axes {
         position: absolute;
         inset: 0;
         pointer-events: none;
     }
-    .tick {
+    .axes em {
+        position: absolute;
+        color: var(--text-3);
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+        font-style: normal;
+        white-space: nowrap;
+    }
+    .row {
+        position: absolute;
+        left: 0;
+        right: 0;
+        border-top: 1px dashed var(--map-grid);
+    }
+    .row em {
+        left: 8px;
+        top: 2px;
+    }
+    .column {
         position: absolute;
         top: 0;
         bottom: 0;
         border-left: 1px dashed var(--map-grid);
     }
-    .tick em {
-        position: absolute;
+    .column em {
         top: 8px;
         transform: translateX(-50%);
+    }
+    .centre {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        border-left: 1px solid var(--border-strong);
+    }
+    .centre em {
+        top: 26px;
+        transform: translateX(-50%);
+        color: var(--text-2);
+        font-family: var(--font-sans);
+    }
+    .axis-title {
+        position: absolute;
+        left: 8px;
+        top: 28px;
         color: var(--text-3);
-        font-family: var(--font-mono);
         font-size: var(--text-xs);
-        font-style: normal;
     }
 
     .legend {

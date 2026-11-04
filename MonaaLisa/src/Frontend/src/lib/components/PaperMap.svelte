@@ -6,6 +6,9 @@
   close together. Point size follows the citation count, colour the subject of
   the paper's primary category, which makes cross listed papers visible.
 
+  Titles are HTML elements placed by lib/labels.ts: the most cited papers
+  first, as many as fit without overlap, more when zooming in.
+
   Highlighting (search results, an author's papers) dims everything else and
   adds papers that are not on the map yet at their own position. Selecting a
   paper marks it and draws its citation edges to papers on the map.
@@ -16,7 +19,7 @@
     import HoverCard from "$lib/components/HoverCard.svelte";
     import ZoomControls from "$lib/components/ZoomControls.svelte";
     import { CATEGORY_COLORS, categoryColor, subjectName, subjectOf } from "$lib/categories";
-    import { createLabelPlacer, sameSet } from "$lib/labels";
+    import { createLabelPlacer, type PlacedLabel } from "$lib/labels";
     import { citationCount, primaryCategory, truncate } from "$lib/paper";
     import { onThemeChange, token } from "$lib/theme";
     import type { Paper } from "$lib/types/paper";
@@ -35,11 +38,11 @@
     let width = $state(0);
     let hovered = $state<{ paper: Paper; x: number; y: number } | null>(null);
     let ring = $state<{ x: number; y: number; size: number } | null>(null);
+    let labels = $state<PlacedLabel[]>([]);
     let themeVersion = $state(0);
 
     const byId = $derived(new Map(papers.map((p) => [p.entry_id, p])));
     const maxCitations = $derived(Math.max(1, ...papers.map(citationCount)));
-    const LABEL_FONT = "IBM Plex Sans, system-ui, sans-serif";
 
     // subjects on this map, for the legend
     const legend = $derived.by(() => {
@@ -81,14 +84,7 @@
     }
 
     function nodeAttributes(p: Paper) {
-        return {
-            x: p.x,
-            y: p.y,
-            size: nodeSize(p),
-            color: categoryColor(p.categories),
-            label: truncate(p.title, 70),
-            zIndex: 1,
-        };
+        return { x: p.x, y: p.y, size: nodeSize(p), color: categoryColor(p.categories), zIndex: 1 };
     }
 
     $effect(() => {
@@ -102,8 +98,10 @@
     let highlightSet: Set<string> | null = null;
     let selectedId: string | null = null;
     let neighbours = new Set<string>();
-    /** Nodes that currently carry their title, see lib/labels.ts */
-    let forced = new Set<string>();
+    /** Every paper with a node, including the ones added for a highlight */
+    let nodes = new Map<string, Paper>();
+    /** Nodes added for a highlight (not part of the category map) */
+    let injectedIds: string[] = [];
     let relabel = () => {};
 
     /** Papers that may carry a title, most important first */
@@ -113,7 +111,7 @@
             .sort((a, b) => citationCount(b) - citationCount(a));
         const i = list.findIndex((p) => p.entry_id === selectedId);
         if (i > 0) list.unshift(...list.splice(i, 1));
-        return list.map((p) => ({ id: p.entry_id, label: truncate(p.title, 70) }));
+        return list.map((p) => ({ id: p.entry_id, label: truncate(p.title, 90) }));
     }
 
     $effect(() => {
@@ -130,16 +128,11 @@
             known.set(p.entry_id, p);
         }
         const dim = token("--map-dim", "rgba(0,0,0,0.1)");
-        const labelColor = token("--map-label", "#1c1c1c");
 
         const r = new Sigma(g, el, {
+            // titles are HTML elements placed by lib/labels.ts
+            renderLabels: false,
             renderEdgeLabels: false,
-            labelFont: LABEL_FONT,
-            labelSize: 11,
-            labelWeight: "500",
-            labelColor: { color: labelColor },
-            // titles are chosen by the label placer, sigma's own picking is off
-            labelRenderedSizeThreshold: 1e6,
             defaultEdgeType: "arrow",
             zIndex: true,
             stagePadding: 48,
@@ -147,8 +140,6 @@
             maxCameraRatio: 6,
             nodeReducer: (node, attrs) => {
                 const out = { ...attrs };
-                out.forceLabel = forced.has(node);
-                if (!out.forceLabel) out.label = "";
                 if (node === selectedId) {
                     out.size = attrs.size + 2;
                     out.zIndex = 3;
@@ -160,14 +151,12 @@
                         out.zIndex = 2;
                     } else {
                         out.color = dim;
-                        out.label = "";
                         out.zIndex = 0;
                     }
                 }
                 return out;
             },
         });
-
         r.setCustomBBox(robustBBox(list));
 
         r.on("enterNode", ({ node, event }) => {
@@ -190,17 +179,13 @@
         r.on("afterRender", updateRing);
 
         // titles are placed after a render and again whenever the camera moved
-        const placer = createLabelPlacer(r, `500 11px ${LABEL_FONT}`);
+        const placer = createLabelPlacer(r, 40);
         let needsLabels = true;
         r.getCamera().on("updated", () => (needsLabels = true));
         r.on("afterRender", () => {
             if (!needsLabels) return;
             needsLabels = false;
-            const next = placer.place(candidates());
-            if (!sameSet(next, forced)) {
-                forced = next;
-                r.refresh();
-            }
+            labels = placer.place(candidates());
         });
         relabel = () => {
             needsLabels = true;
@@ -219,15 +204,10 @@
             graph = null;
             hovered = null;
             ring = null;
-            forced = new Set();
+            labels = [];
             relabel = () => {};
         };
     });
-
-    /** Every paper with a node, including the ones added for a highlight */
-    let nodes = new Map<string, Paper>();
-    /** Nodes added for a highlight (not part of the category map) */
-    let injectedIds: string[] = [];
 
     function applyHighlight() {
         if (!graph || !renderer) return;
@@ -311,6 +291,16 @@
 
 <div class="map" bind:clientWidth={width}>
     <div class="canvas" bind:this={container}></div>
+
+    {#each labels as item (item.id)}
+        <span
+            class="node-label"
+            class:primary={item.id === selected?.entry_id}
+            style:left="{item.x}px"
+            style:top="{item.y}px"
+            style:width="{item.width}px">{item.label}</span
+        >
+    {/each}
 
     {#if ring}
         <div

@@ -48,9 +48,11 @@
             papers can be raised in the header.
         </li>
         <li>
-            <strong>Citations:</strong> the selected paper's references (older, left) and the papers citing it (newer,
-            right) on a time axis. Arrows point from the citing paper to the cited paper. Only papers in the dataset are
-            drawn, the counts outside arXiv are listed in the details.
+            <strong>Citations:</strong> a chart of the selected paper's references and the papers citing it: year of
+            publication on the x axis, citation count (log scale) on the y axis. References are mostly left of the
+            selected paper, citations right of it. The most cited papers of each group are shown first, the number can
+            be raised in the header. Only papers in the dataset are drawn, the counts outside arXiv are listed in the
+            details.
         </li>
         <li>
             <strong>Related:</strong> related papers from Semantic Scholar, drawn at their own map positions.
