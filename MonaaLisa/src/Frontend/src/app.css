@@ -74,7 +74,7 @@
   --danger: #f08a80;
   --danger-soft: rgba(240, 138, 128, 0.14);
   --map-dim: #3a3a40;
-  --map-edge: rgba(235, 235, 235, 0.3);
+  --map-edge: rgba(235, 235, 235, 0.12);
   --map-grid: rgba(235, 235, 235, 0.08);
   --map-label: #ebebeb;
   --map-label-halo: #121214;
@@ -100,7 +100,7 @@
     --danger: #f08a80;
     --danger-soft: rgba(240, 138, 128, 0.14);
     --map-dim: #3a3a40;
-    --map-edge: rgba(235, 235, 235, 0.3);
+    --map-edge: rgba(235, 235, 235, 0.12);
     --map-grid: rgba(235, 235, 235, 0.08);
     --map-label: #ebebeb;
     --map-label-halo: #121214;

@@ -16,6 +16,7 @@
     import HoverCard from "$lib/components/HoverCard.svelte";
     import ZoomControls from "$lib/components/ZoomControls.svelte";
     import { CATEGORY_COLORS, categoryColor, subjectName, subjectOf } from "$lib/categories";
+    import { createLabelPlacer, sameSet } from "$lib/labels";
     import { citationCount, primaryCategory, truncate } from "$lib/paper";
     import { onThemeChange, token } from "$lib/theme";
     import type { Paper } from "$lib/types/paper";
@@ -38,15 +39,7 @@
 
     const byId = $derived(new Map(papers.map((p) => [p.entry_id, p])));
     const maxCitations = $derived(Math.max(1, ...papers.map(citationCount)));
-    /** The most cited papers always show their title, the rest appears when zooming in */
-    const labelled = $derived(
-        new Set(
-            [...papers]
-                .sort((a, b) => citationCount(b) - citationCount(a))
-                .slice(0, 8)
-                .map((p) => p.entry_id),
-        ),
-    );
+    const LABEL_FONT = "IBM Plex Sans, system-ui, sans-serif";
 
     // subjects on this map, for the legend
     const legend = $derived.by(() => {
@@ -94,8 +87,7 @@
             size: nodeSize(p),
             color: categoryColor(p.categories),
             label: truncate(p.title, 70),
-            forceLabel: labelled.has(p.entry_id),
-            zIndex: labelled.has(p.entry_id) ? 2 : 1,
+            zIndex: 1,
         };
     }
 
@@ -110,6 +102,19 @@
     let highlightSet: Set<string> | null = null;
     let selectedId: string | null = null;
     let neighbours = new Set<string>();
+    /** Nodes that currently carry their title, see lib/labels.ts */
+    let forced = new Set<string>();
+    let relabel = () => {};
+
+    /** Papers that may carry a title, most important first */
+    function candidates() {
+        const list = [...nodes.values()]
+            .filter((p) => graph?.hasNode(p.entry_id) && (!highlightSet || highlightSet.has(p.entry_id)))
+            .sort((a, b) => citationCount(b) - citationCount(a));
+        const i = list.findIndex((p) => p.entry_id === selectedId);
+        if (i > 0) list.unshift(...list.splice(i, 1));
+        return list.map((p) => ({ id: p.entry_id, label: truncate(p.title, 70) }));
+    }
 
     $effect(() => {
         const list = papers;
@@ -129,14 +134,12 @@
 
         const r = new Sigma(g, el, {
             renderEdgeLabels: false,
-            labelFont: "IBM Plex Sans, system-ui, sans-serif",
+            labelFont: LABEL_FONT,
             labelSize: 11,
             labelWeight: "500",
             labelColor: { color: labelColor },
-            labelRenderedSizeThreshold: 5.5,
-            // small maps have room for most titles, large ones only for a few per screen area
-            labelDensity: list.length <= 60 ? 1 : 0.3,
-            labelGridCellSize: list.length <= 60 ? 100 : 150,
+            // titles are chosen by the label placer, sigma's own picking is off
+            labelRenderedSizeThreshold: 1e6,
             defaultEdgeType: "arrow",
             zIndex: true,
             stagePadding: 48,
@@ -144,10 +147,11 @@
             maxCameraRatio: 6,
             nodeReducer: (node, attrs) => {
                 const out = { ...attrs };
+                out.forceLabel = forced.has(node);
+                if (!out.forceLabel) out.label = "";
                 if (node === selectedId) {
                     out.size = attrs.size + 2;
                     out.zIndex = 3;
-                    out.forceLabel = true;
                 } else if (neighbours.has(node)) {
                     out.zIndex = 2;
                 } else if (highlightSet) {
@@ -185,9 +189,27 @@
         r.getCamera().on("updated", updateRing);
         r.on("afterRender", updateRing);
 
+        // titles are placed after a render and again whenever the camera moved
+        const placer = createLabelPlacer(r, `500 11px ${LABEL_FONT}`);
+        let needsLabels = true;
+        r.getCamera().on("updated", () => (needsLabels = true));
+        r.on("afterRender", () => {
+            if (!needsLabels) return;
+            needsLabels = false;
+            const next = placer.place(candidates());
+            if (!sameSet(next, forced)) {
+                forced = next;
+                r.refresh();
+            }
+        });
+        relabel = () => {
+            needsLabels = true;
+            r.refresh();
+        };
+
         renderer = r;
         graph = g;
-        injected = known;
+        nodes = known;
         applyHighlight();
         applySelection();
 
@@ -197,11 +219,14 @@
             graph = null;
             hovered = null;
             ring = null;
+            forced = new Set();
+            relabel = () => {};
         };
     });
 
-    // papers added for a highlight (not part of the category map)
-    let injected = new Map<string, Paper>();
+    /** Every paper with a node, including the ones added for a highlight */
+    let nodes = new Map<string, Paper>();
+    /** Nodes added for a highlight (not part of the category map) */
     let injectedIds: string[] = [];
 
     function applyHighlight() {
@@ -216,11 +241,11 @@
             for (const p of list) {
                 if (graph.hasNode(p.entry_id) || (p.x === 0 && p.y === 0)) continue;
                 graph.addNode(p.entry_id, nodeAttributes(p));
-                injected.set(p.entry_id, p);
+                nodes.set(p.entry_id, p);
                 injectedIds.push(p.entry_id);
             }
         }
-        renderer.refresh();
+        relabel();
     }
 
     function applySelection() {
@@ -234,7 +259,7 @@
             const full = byId.get(paper.entry_id) ?? paper;
             if (!graph.hasNode(full.entry_id) && !(full.x === 0 && full.y === 0)) {
                 graph.addNode(full.entry_id, nodeAttributes(full));
-                injected.set(full.entry_id, full);
+                nodes.set(full.entry_id, full);
                 injectedIds.push(full.entry_id);
             }
             if (graph.hasNode(full.entry_id)) {
@@ -253,7 +278,7 @@
                 }
             }
         }
-        renderer.refresh();
+        relabel();
         updateRing();
     }
 

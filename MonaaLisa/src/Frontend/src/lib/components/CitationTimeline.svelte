@@ -22,6 +22,7 @@
     import ZoomControls from "$lib/components/ZoomControls.svelte";
     import { CATEGORY_COLORS, categoryColor, subjectName, subjectOf } from "$lib/categories";
     import { loadNeighbourhood, type Neighbourhood } from "$lib/neighbourhood";
+    import { createLabelPlacer, sameSet } from "$lib/labels";
     import { citationCount, primaryCategory, publishedYear, truncate } from "$lib/paper";
     import { onThemeChange, token } from "$lib/theme";
     import type { Paper } from "$lib/types/paper";
@@ -121,7 +122,7 @@
         const centre = n.paper;
         const centreYear = yearOf(centre) ?? new Date().getFullYear();
         const size = (p: Paper) => 3 + 6 * (Math.log1p(citationCount(p)) / Math.log1p(maxCitations));
-        const edge = { type: "arrow", size: 1, color: token("--map-edge", "rgba(0,0,0,0.3)") };
+        const edge = { type: "arrow", size: 0.7, color: token("--map-edge", "rgba(0,0,0,0.3)") };
 
         graph.addNode(centre.entry_id, {
             x: layout === "citations" ? centreYear : centre.x,
@@ -129,11 +130,10 @@
             size: size(centre) + 2,
             color: categoryColor(centre.categories),
             label: truncate(centre.title, 70),
-            forceLabel: true,
             zIndex: 3,
         });
 
-        const add = (p: Paper, x: number, y: number, labelled: boolean) => {
+        const add = (p: Paper, x: number, y: number) => {
             if (graph.hasNode(p.entry_id)) return;
             graph.addNode(p.entry_id, {
                 x,
@@ -141,18 +141,9 @@
                 size: size(p),
                 color: categoryColor(p.categories),
                 label: truncate(p.title, 70),
-                forceLabel: labelled,
                 zIndex: 1,
             });
         };
-        // the most cited papers of each group always carry their title
-        const labelled = (list: Paper[]) =>
-            new Set(
-                [...list]
-                    .sort((a, b) => citationCount(b) - citationCount(a))
-                    .slice(0, 4)
-                    .map((p) => p.entry_id),
-            );
 
         if (layout === "citations") {
             const all = [...groups.cites, ...groups.citedBy];
@@ -160,28 +151,20 @@
             const years = [centreYear, ...all.map((p) => yearOf(p) ?? centreYear)];
             const range = Math.max(2, Math.max(...years) - Math.min(...years));
             const spread = (range * aspect) / 2;
-            const topCites = labelled(groups.cites);
-            const topCitedBy = labelled(groups.citedBy);
             for (const p of groups.cites) {
-                add(p, yearOf(p) ?? centreYear - 1, jitter(p.entry_id) * spread, topCites.has(p.entry_id));
+                add(p, yearOf(p) ?? centreYear - 1, jitter(p.entry_id) * spread);
                 graph.addEdge(centre.entry_id, p.entry_id, edge);
             }
             for (const p of groups.citedBy) {
-                add(p, yearOf(p) ?? centreYear + 1, jitter(p.entry_id) * spread, topCitedBy.has(p.entry_id));
+                add(p, yearOf(p) ?? centreYear + 1, jitter(p.entry_id) * spread);
                 if (!graph.hasEdge(p.entry_id, centre.entry_id)) graph.addEdge(p.entry_id, centre.entry_id, edge);
             }
         } else {
-            const top = labelled(groups.related);
             groups.related.forEach((p, i) => {
                 const hasPosition = p.x !== 0 || p.y !== 0;
                 // papers without a map position go on a ring around the centre
                 const angle = (i / Math.max(groups.related.length, 1)) * Math.PI * 2;
-                add(
-                    p,
-                    hasPosition ? p.x : centre.x + Math.cos(angle),
-                    hasPosition ? p.y : centre.y + Math.sin(angle),
-                    top.has(p.entry_id),
-                );
+                add(p, hasPosition ? p.x : centre.x + Math.cos(angle), hasPosition ? p.y : centre.y + Math.sin(angle));
             });
         }
         return graph;
@@ -208,6 +191,9 @@
 
     let renderer: Sigma | null = null;
     let resetView = () => {};
+    /** Nodes that currently carry their title, see lib/labels.ts */
+    let forced = new Set<string>();
+    const LABEL_FONT = "IBM Plex Sans, system-ui, sans-serif";
 
     $effect(() => {
         const n = data;
@@ -227,16 +213,25 @@
         const graph = buildGraph(n, mode, maxCitations, stage.height / stage.width);
         const dim = token("--map-dim", "rgba(0,0,0,0.1)");
         const author = highlightedAuthor.toLowerCase();
+        forced = new Set();
+
+        // titles go to the selected paper and then to the most cited ones that fit
+        const shown = mode === "citations" ? [...groups.cites, ...groups.citedBy] : groups.related;
+        const ranked = [
+            n.paper,
+            ...shown
+                .filter((p) => !author || p.authors.toLowerCase().includes(author))
+                .sort((a, b) => citationCount(b) - citationCount(a)),
+        ].map((p) => ({ id: p.entry_id, label: truncate(p.title, 70) }));
 
         const r = new Sigma(graph, el, {
             renderEdgeLabels: false,
-            labelFont: "IBM Plex Sans, system-ui, sans-serif",
+            labelFont: LABEL_FONT,
             labelSize: 11,
             labelWeight: "500",
             labelColor: { color: token("--map-label", "#1c1c1c") },
-            labelRenderedSizeThreshold: 7,
-            labelDensity: 0.3,
-            labelGridCellSize: 150,
+            // titles are chosen by the label placer, sigma's own picking is off
+            labelRenderedSizeThreshold: 1e6,
             defaultEdgeType: "arrow",
             zIndex: true,
             stagePadding: 64,
@@ -244,11 +239,12 @@
             maxCameraRatio: 3,
             nodeReducer: (node, attrs) => {
                 const item = info.get(node);
-                if (!author || !item || item.group === "selected") return attrs;
+                const out = { ...attrs };
+                out.forceLabel = forced.has(node);
+                if (!out.forceLabel) out.label = "";
+                if (!author || !item || item.group === "selected") return out;
                 const match = item.paper.authors.toLowerCase().includes(author);
-                return match
-                    ? { ...attrs, size: attrs.size + 2, zIndex: 2, forceLabel: true }
-                    : { ...attrs, color: dim, label: "", zIndex: 0 };
+                return match ? { ...out, size: attrs.size + 2, zIndex: 2 } : { ...out, color: dim, label: "", zIndex: 0 };
             },
         });
 
@@ -286,6 +282,21 @@
             updateRing();
         });
         r.on("afterRender", updateRing);
+
+        const placer = createLabelPlacer(r, `500 11px ${LABEL_FONT}`);
+        let needsLabels = true;
+        r.getCamera().on("updated", () => (needsLabels = true));
+        r.on("afterRender", () => {
+            if (!needsLabels) return;
+            needsLabels = false;
+            const next = placer.place(ranked);
+            if (!sameSet(next, forced)) {
+                forced = next;
+                r.refresh();
+            }
+        });
+        // sigma already rendered once in its constructor, render again so the titles get placed
+        r.refresh();
         updateTicks(r, n);
         renderer = r;
 
