@@ -1,39 +1,37 @@
 <!--
-  Adds a paper to the favorites, optionally into existing groups or a new one.
+  Adds a paper to the favorites, optionally into a group (existing or new).
 -->
 <script lang="ts">
     import Dialog from "$lib/components/ui/Dialog.svelte";
     import Button from "$lib/components/ui/Button.svelte";
+    import type { FavoriteGroup } from "$lib/library.svelte";
     import type { Paper } from "$lib/types/paper";
-
-    interface Group {
-        id: string;
-        name: string;
-    }
 
     interface Props {
         /** The paper to add, null when the dialog is closed */
         paper: Paper | null;
-        groups: Group[];
-        onsave: (groupIds: string[], newGroupName: string | null) => void;
+        groups: FavoriteGroup[];
+        onsave: (groupId: string | null, newGroupName: string | null) => void;
         oncancel: () => void;
     }
 
     let { paper, groups, onsave, oncancel }: Props = $props();
 
-    let selected = $state<string[]>([]);
+    const NEW = "__new__";
+    let choice = $state("");
     let newGroupName = $state("");
 
-    // start empty every time the dialog opens for a paper
+    // start fresh every time the dialog opens for a paper
     $effect(() => {
         if (paper) {
-            selected = [];
+            choice = "";
             newGroupName = "";
         }
     });
 
     function save() {
-        onsave(selected, newGroupName.trim() || null);
+        if (choice === NEW) onsave(null, newGroupName.trim() || null);
+        else onsave(choice || null, null);
     }
 </script>
 
@@ -42,28 +40,28 @@
         <p class="paper-title">{paper.title}</p>
     {/if}
 
-    {#if groups.length > 0}
-        <fieldset>
-            <legend>Groups</legend>
+    <label class="row">
+        <span class="label">Group</span>
+        <select class="field" bind:value={choice}>
+            <option value="">No group</option>
             {#each groups as group (group.id)}
-                <label class="group">
-                    <input type="checkbox" value={group.id} bind:group={selected} />
-                    {group.name}
-                </label>
+                <option value={group.id}>{group.name}</option>
             {/each}
-        </fieldset>
-    {/if}
-
-    <label class="new-group">
-        <span>New group (optional)</span>
-        <input
-            class="field"
-            type="text"
-            placeholder="e.g. Thesis related work"
-            bind:value={newGroupName}
-            onkeydown={(e) => e.key === "Enter" && save()}
-        />
+            <option value={NEW}>New group…</option>
+        </select>
     </label>
+
+    {#if choice === NEW}
+        <label class="row">
+            <span class="label">Name</span>
+            <input
+                class="field"
+                placeholder="e.g. Related work for my thesis"
+                bind:value={newGroupName}
+                onkeydown={(e) => e.key === "Enter" && save()}
+            />
+        </label>
+    {/if}
 
     {#snippet footer()}
         <Button variant="ghost" onclick={oncancel}>Cancel</Button>
@@ -78,33 +76,12 @@
         font-weight: 500;
         line-height: 1.4;
     }
-    fieldset {
-        margin: 0 0 16px;
-        padding: 0;
-        border: 0;
+    .row {
         display: grid;
         gap: 6px;
+        margin-bottom: 12px;
     }
-    legend {
-        margin-bottom: 6px;
-        color: var(--text-3);
-        font-size: var(--text-xs);
-        font-weight: 500;
-    }
-    .group {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: var(--text);
-        cursor: pointer;
-    }
-    .new-group {
-        display: grid;
-        gap: 6px;
-    }
-    .new-group span {
-        color: var(--text-3);
-        font-size: var(--text-xs);
-        font-weight: 500;
+    .row .field {
+        width: 100%;
     }
 </style>

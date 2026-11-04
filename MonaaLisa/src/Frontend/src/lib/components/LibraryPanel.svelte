@@ -1,0 +1,249 @@
+<!--
+  Library drawer: recently opened papers and favorites grouped by the user.
+-->
+<script lang="ts">
+    import { Plus, X } from "@lucide/svelte";
+    import Button from "$lib/components/ui/Button.svelte";
+    import PaperRow from "$lib/components/PaperRow.svelte";
+    import { library, type LibraryItem } from "$lib/library.svelte";
+
+    interface Props {
+        onopen: (entryId: string) => void;
+        onclose: () => void;
+    }
+
+    let { onopen, onclose }: Props = $props();
+
+    let tab = $state<"recent" | "favorites">("favorites");
+    let newGroupName = $state("");
+    let addingGroup = $state(false);
+
+    const sections = $derived.by(() => {
+        const grouped = library.groups.map((g) => ({
+            id: g.id as string | null,
+            name: g.name,
+            items: library.favorites.filter((f) => g.paperIds.includes(f.entry_id)),
+        }));
+        const ungrouped = library.favorites.filter((f) => !library.groupOf(f.entry_id));
+        return [...grouped, { id: null, name: "Not in a group", items: ungrouped }].filter(
+            (s) => s.id !== null || s.items.length > 0,
+        );
+    });
+
+    function addGroup() {
+        if (newGroupName.trim()) library.createGroup(newGroupName);
+        newGroupName = "";
+        addingGroup = false;
+    }
+</script>
+
+{#snippet favoriteActions(item: LibraryItem)}
+    {#if library.groups.length}
+        <select
+            class="field move"
+            aria-label="Move to group"
+            value={library.groupOf(item.entry_id) ?? ""}
+            onchange={(e) => library.moveToGroup(item.entry_id, e.currentTarget.value || null)}
+        >
+            <option value="">No group</option>
+            {#each library.groups as g (g.id)}
+                <option value={g.id}>{g.name}</option>
+            {/each}
+        </select>
+    {/if}
+    <Button variant="ghost" size="sm" icon label="Remove from favorites" onclick={() => library.removeFavorite(item.entry_id)}>
+        <X />
+    </Button>
+{/snippet}
+
+<aside class="library card" aria-label="Library">
+    <header>
+        <h2>Library</h2>
+        <Button variant="ghost" size="sm" icon label="Close library" onclick={onclose}><X /></Button>
+    </header>
+
+    <div class="tabs" role="tablist">
+        <button role="tab" aria-selected={tab === "favorites"} class:active={tab === "favorites"} onclick={() => (tab = "favorites")}>
+            Favorites <span class="count">{library.favorites.length}</span>
+        </button>
+        <button role="tab" aria-selected={tab === "recent"} class:active={tab === "recent"} onclick={() => (tab = "recent")}>
+            Recent <span class="count">{library.history.length}</span>
+        </button>
+    </div>
+
+    <div class="content">
+        {#if tab === "recent"}
+            {#if library.history.length}
+                <ul class="list">
+                    {#each library.history as item (item.entry_id)}
+                        <PaperRow title={item.title} authors={item.authors} published={item.published} categories={item.categories} onclick={() => onopen(item.entry_id)}>
+                            {#snippet actions()}
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    icon
+                                    label="Remove from recent"
+                                    onclick={() => library.removeFromHistory(item.entry_id)}><X /></Button
+                                >
+                            {/snippet}
+                        </PaperRow>
+                    {/each}
+                </ul>
+                <div class="footer">
+                    <Button variant="ghost" size="sm" onclick={() => library.clearHistory()}>Clear recent papers</Button>
+                </div>
+            {:else}
+                <p class="empty">Papers you open appear here.</p>
+            {/if}
+        {:else}
+            {#if library.favorites.length === 0}
+                <p class="empty">Star a paper in its details to keep it here.</p>
+            {/if}
+            {#each sections as section (section.id ?? "none")}
+                <section>
+                    <div class="section-head">
+                        <h3>{section.name}</h3>
+                        {#if section.id}
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                icon
+                                label="Delete group {section.name}"
+                                onclick={() => section.id && library.deleteGroup(section.id)}><X /></Button
+                            >
+                        {/if}
+                    </div>
+                    {#if section.items.length}
+                        <ul class="list">
+                            {#each section.items as item (item.entry_id)}
+                                <PaperRow title={item.title} authors={item.authors} published={item.published} categories={item.categories} onclick={() => onopen(item.entry_id)}>
+                                    {#snippet actions()}{@render favoriteActions(item)}{/snippet}
+                                </PaperRow>
+                            {/each}
+                        </ul>
+                    {:else}
+                        <p class="empty small">No papers in this group yet.</p>
+                    {/if}
+                </section>
+            {/each}
+            <div class="footer">
+                {#if addingGroup}
+                    <input
+                        class="field"
+                        placeholder="Group name"
+                        bind:value={newGroupName}
+                        onkeydown={(e) => {
+                            if (e.key === "Enter") addGroup();
+                            if (e.key === "Escape") addingGroup = false;
+                        }}
+                    />
+                    <Button size="sm" onclick={addGroup}>Add</Button>
+                {:else}
+                    <Button variant="ghost" size="sm" onclick={() => (addingGroup = true)}><Plus /> New group</Button>
+                {/if}
+            </div>
+        {/if}
+    </div>
+</aside>
+
+<style>
+    .library {
+        display: flex;
+        flex-direction: column;
+        width: var(--panel-width);
+        max-height: 100%;
+        overflow: hidden;
+    }
+    header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 12px 4px 16px;
+    }
+    h2 {
+        margin: 0;
+        font-size: var(--text-md);
+        font-weight: 600;
+    }
+    .tabs {
+        display: flex;
+        gap: 2px;
+        padding: 0 8px;
+        border-bottom: 1px solid var(--border);
+    }
+    .tabs button {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 8px;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        background: none;
+        color: var(--text-3);
+        font-size: var(--text-sm);
+        font-weight: 500;
+        cursor: pointer;
+    }
+    .tabs button:hover {
+        color: var(--text);
+    }
+    .tabs button.active {
+        color: var(--text);
+        border-bottom-color: var(--accent);
+    }
+    .count {
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+        font-weight: 400;
+        color: var(--text-3);
+    }
+    .content {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 8px;
+    }
+    section + section {
+        margin-top: 12px;
+    }
+    .section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 4px 4px 10px;
+    }
+    h3 {
+        margin: 0;
+        color: var(--text-2);
+        font-size: var(--text-xs);
+        font-weight: 600;
+    }
+    .list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    .move {
+        height: 24px;
+        max-width: 130px;
+        font-size: var(--text-xs);
+    }
+    .empty {
+        margin: 12px 10px;
+        color: var(--text-3);
+        font-size: var(--text-sm);
+    }
+    .empty.small {
+        margin: 2px 10px 8px;
+        font-size: var(--text-xs);
+    }
+    .footer {
+        display: flex;
+        gap: 6px;
+        padding: 12px 4px 4px;
+    }
+    .footer .field {
+        flex: 1;
+    }
+</style>
