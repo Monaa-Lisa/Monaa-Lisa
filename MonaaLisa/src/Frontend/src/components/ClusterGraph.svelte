@@ -512,18 +512,16 @@
             const c = laid.find((x) => x.id === hoveredCluster);
             if (c) {
                 const s = w2s(c.x, c.y);
-                const showFull = view.scale >= LABEL_FULL_SCALE || true; // hover always shows full
                 const label = c.name;
 
                 ctx.font = `bold ${21}px 'Segoe UI', system-ui, sans-serif`;
                 ctx.fillStyle = "#ffffff";
                 ctx.fillText(label, s.x, s.y - 14);
 
-                if (showFull) {
-                    ctx.font = `15px 'Segoe UI', system-ui, sans-serif`;
-                    ctx.fillStyle = "#cccccc";
-                    ctx.fillText(fmtCount(c.count) + " papers", s.x, s.y + 14);
-                }
+                // the hovered cluster always shows its paper count
+                ctx.font = `15px 'Segoe UI', system-ui, sans-serif`;
+                ctx.fillStyle = "#cccccc";
+                ctx.fillText(fmtCount(c.count) + " papers", s.x, s.y + 14);
             }
         }
 

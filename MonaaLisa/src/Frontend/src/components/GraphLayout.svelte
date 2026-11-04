@@ -12,7 +12,6 @@
   Navigation always pushes forward (top → sub → papers → detail) or uses breadcrumbs to go back.
 -->
 <script lang="ts">
-    import { onMount } from "svelte";
     import ClusterGraph from "./ClusterGraph.svelte";
     import Graph from "./Graph.svelte";
     import PaperDetailGraph from "./PaperDetailGraph.svelte";
@@ -825,10 +824,6 @@
             return view.categoryName || view.parentName || "Paper";
         return "ArXiv";
     })();
-    onMount(() => {
-        // Don't load papers at top level by default
-    });
-
     // ─── drill-down transition ─────────────────────────────────────────────
     // Whether the full-screen fade overlay is visible (true during transitions)
     let drillTransitioning = false;

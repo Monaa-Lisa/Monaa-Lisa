@@ -172,21 +172,6 @@
         saveList(HISTORY_KEY, history);
     }
 
-    /** Backward-compat: remove if favorited, or add (without group) if not */
-    export function toggleFavorite(paper: {
-        entry_id: string;
-        title: string;
-        authors: string;
-        categories: string | null;
-        published: string | null;
-    }) {
-        if (isFavorite(paper.entry_id)) {
-            removeFavoriteById(paper.entry_id);
-        } else {
-            addFavoriteWithGroups(paper, []);
-        }
-    }
-
     export function isFavorite(entryId: string): boolean {
         return favorites.some((f) => f.entry_id === entryId);
     }
