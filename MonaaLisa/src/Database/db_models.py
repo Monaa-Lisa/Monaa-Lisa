@@ -1,9 +1,9 @@
 """
 SQLAlchemy models for the tables the Python pipeline reads and writes.
 
-The tables are created by the Prisma migrations in Backend/prisma, so these
-classes only describe them, they are never used to create tables. Keep them
-in sync with schema.prisma.
+The tables are created by the SQL migrations in db/migrations (dbmate), so
+these classes only describe them, they are never used to create tables.
+Keep them in sync with the migrations.
 """
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import JSON, Column, DateTime, Integer, String, Text, func

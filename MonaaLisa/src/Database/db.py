@@ -1,6 +1,6 @@
 """
 Database access for the Python pipeline. The schema itself is owned by the
-Prisma migrations in Backend/prisma, this module only reads and writes rows.
+SQL migrations in db/migrations (dbmate), this module only reads and writes rows.
 """
 import os
 from datetime import datetime, timezone

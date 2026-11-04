@@ -18,12 +18,25 @@ services:
       timeout: 5s
       retries: 5
 
+  # Applies the SQL migrations in db/migrations (dbmate), then exits.
+  # Every other service that uses the database waits for it.
+  migrate:
+    image: ghcr.io/amacneil/dbmate:2
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB}?sslmode=disable
+    volumes:
+      - ./db:/db:ro
+    command: ["--migrations-dir", "/db/migrations", "--no-dump-schema", "--wait", "up"]
+
   app:
     build:
       context: .
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       PYTHONPATH: /app/MonaaLisa/src
@@ -46,8 +59,8 @@ services:
     image: node:24
     working_dir: /app
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     env_file:
       - .env
     environment:
@@ -56,7 +69,7 @@ services:
     volumes:
       - ./MonaaLisa/src/Backend:/app
       - backend_node_modules:/app/node_modules
-    command: ["sh", "-c", "npm install && npx prisma generate && npx prisma db push && npm run start:dev"]
+    command: ["sh", "-c", "npm install && npm run start:dev"]
     ports:
       - "3000:3000"
     stdin_open: true

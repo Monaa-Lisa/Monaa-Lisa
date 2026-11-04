@@ -17,16 +17,27 @@ services:
       timeout: 5s
       retries: 5
 
+  # Applies the SQL migrations in db/migrations (dbmate), then exits.
+  # Every other service that uses the database waits for it.
+  migrate:
+    image: ghcr.io/amacneil/dbmate:2
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER-monaa}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB-monaa_lisa_db}?sslmode=disable
+    volumes:
+      - ./db:/db:ro
+    command: ["--migrations-dir", "/db/migrations", "--no-dump-schema", "--wait", "up"]
+
   app:
     build:
       context: .
       target: app
     image: monaa-lisa-app:latest
     depends_on:
-      db:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER-monaa}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB-monaa_lisa_db}
       PYTHONPATH: /app/MonaaLisa/src
@@ -44,8 +55,8 @@ services:
       target: prod
     restart: unless-stopped
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     env_file:
       - .env
     environment:
@@ -59,8 +70,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      # time for the migrations to run before the first check counts
-      start_period: 30s
+      start_period: 15s
 
 
   frontend:
@@ -82,8 +92,8 @@ services:
       target: app
     image: monaa-lisa-app:latest
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB}
     volumes:

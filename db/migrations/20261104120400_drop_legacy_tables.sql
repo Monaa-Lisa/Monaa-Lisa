@@ -1,3 +1,4 @@
+-- migrate:up
 -- These tables belong to the old per-category scheduler and the earlier
 -- Semantic Scholar integration. No code reads or writes them any more.
 -- To be safe, the migration stops if one of them still holds data, so nothing
@@ -17,8 +18,10 @@ BEGIN
     END LOOP;
 END $$;
 
-DROP TABLE IF EXISTS "citation";
-DROP TABLE IF EXISTS "reference";
-DROP TABLE IF EXISTS "paper_relation";
-DROP TABLE IF EXISTS "historical_completion";
-DROP TABLE IF EXISTS "program_run";
+DROP TABLE IF EXISTS citation;
+DROP TABLE IF EXISTS reference;
+DROP TABLE IF EXISTS paper_relation;
+DROP TABLE IF EXISTS historical_completion;
+DROP TABLE IF EXISTS program_run;
+
+-- migrate:down

@@ -53,9 +53,9 @@ def main():
     logger.set_level(log_level)
     logger.info(f"SemanticPaper starting (log level={log_level})...")
 
-    # ---- 1. Database Check (WAIT for Prisma) ----
-    # WICHTIG: Wir erstellen keine Tabellen mehr selbst!
-    # Wir warten stattdessen kurz, bis die DB erreichbar ist.
+    # ---- 1. Database check ----
+    # The tables come from the SQL migrations (the compose `migrate` service),
+    # here we only wait until the database accepts connections.
     logger.info("Checking database connection...")
     
     # Einfacher Retry-Loop, falls der DB-Container noch nicht bereit ist
