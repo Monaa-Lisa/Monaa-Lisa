@@ -751,10 +751,11 @@ def save_processed_paper(entry_id: str, title: str, authors: str | None,
     from sqlalchemy.dialects.postgresql import insert as pg_insert
     session = SessionLocal()
     try:
+        # The column is JSON already, so pass the dict as-is (json.dumps here
+        # would store a string and the frontend could not read x/y).
         tsne_val = None
         if tsne_x is not None and tsne_y is not None:
-            import json
-            tsne_val = json.dumps({"x": tsne_x, "y": tsne_y, "method": "umap"})
+            tsne_val = {"x": tsne_x, "y": tsne_y, "method": "umap"}
 
         existing = session.query(DBPaper).filter_by(entry_id=entry_id).first()
         if existing:
