@@ -16,8 +16,10 @@ class ArxivAPI:
 
     def __init__(self):
         self.logger = Logger("ArxivAPI")
-        self.client = arx.Client()
         _interval = cfg.get_float("semanticpaper", "arxiv_min_interval", float(os.getenv("ARXIV_MIN_INTERVAL", "3.0")))
+        # The arxiv library waits delay_seconds between page requests and retries
+        # failed pages. arXiv asks clients to wait at least 3 seconds.
+        self.client = arx.Client(delay_seconds=max(_interval, 3.0), num_retries=5)
         self.rate_limiter = RateLimiter(min_interval=_interval)
 
 

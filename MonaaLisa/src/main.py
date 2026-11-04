@@ -123,6 +123,11 @@ def main():
         int(os.getenv("UNCAUGHT_RETRY_INTERVAL_DAYS", "14"))
     )
 
+    max_papers_per_run = cfg.get_int(
+        "semanticpaper", "incremental_max_papers",
+        int(os.getenv("INCREMENTAL_MAX_PAPERS", "50000"))
+    )
+
     scheduler = BackgroundScheduler()
 
     # Run incremental update immediately, then on schedule
@@ -131,7 +136,7 @@ def main():
         "interval",
         days=update_interval_days,
         next_run_time=datetime.now(),
-        args=[arxiv_client, s2_client, pipeline],
+        args=[arxiv_client, s2_client, pipeline, max_papers_per_run],
         id="incremental_update",
         max_instances=1,
     )
