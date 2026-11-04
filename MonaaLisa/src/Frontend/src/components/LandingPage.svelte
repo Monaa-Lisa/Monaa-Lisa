@@ -483,7 +483,7 @@
   .techlist-img {
     height: 100px;
     object-fit: contain;
-    filter: invert(0); /* Assuming techlist.png is black on transparent, like arxiv_logo.png */
+    filter: invert(0); /* techlist.png is black on transparent */
   }
 
   @keyframes scroll-left {
