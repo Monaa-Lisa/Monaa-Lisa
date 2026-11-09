@@ -1,25 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { sql } from 'kysely';
 import type { Expression, SqlBool } from 'kysely';
 import { DatabaseService } from '../database/database.service';
 import { containsPattern } from '../database/sql';
+import { LIST_COLUMNS, totalCitations } from './paper-columns';
 import { DEFAULT_TAKE, MAX_TAKE, QueryPaperDto } from './dto/query-paper.dto';
 
 /** Requests for more ids than this get no citation lists attached */
 const ENRICH_LIMIT = 50;
-
-/** Columns of a point on the paper map (fields=map) */
-const MAP_COLUMNS = [
-  'id',
-  'entry_id',
-  'title',
-  'authors',
-  'categories',
-  'published',
-  'tsne',
-  'arxiv_citation_count',
-  'non_arxiv_citation_count',
-] as const;
 
 /**
  * Read access to papers: search, pagination, single and batch lookups.
@@ -77,12 +64,7 @@ export class PapersService {
     if (q.sort === 'citations') {
       // citations from arXiv papers plus the ones counted outside arXiv, id as
       // tiebreaker so pages never overlap (the expression has an index)
-      query = query
-        .orderBy(
-          sql<number>`arxiv_citation_count + COALESCE(non_arxiv_citation_count, 0)`,
-          'desc',
-        )
-        .orderBy('id', 'asc');
+      query = query.orderBy(totalCitations, 'desc').orderBy('id', 'asc');
     } else {
       const direction = q.sort === 'published_asc' ? 'asc' : 'desc';
       query = query
@@ -92,7 +74,7 @@ export class PapersService {
 
     if (q.fields === 'map') {
       const [items, counted] = await Promise.all([
-        query.select(MAP_COLUMNS).offset(skip).limit(take).execute(),
+        query.select(LIST_COLUMNS).offset(skip).limit(take).execute(),
         countQuery.executeTakeFirstOrThrow(),
       ]);
       return { items, total: Number(counted.count), skip, take };
