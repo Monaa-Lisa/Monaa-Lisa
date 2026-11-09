@@ -3,7 +3,7 @@
  * it and the papers similar to it. The network view and the inspector both need
  * this, so the result is cached per paper and fetched only once.
  */
-import { getCitingPapers, getPaper, getPapersByIds, getReferencedPapers, getSimilarPapers } from "$lib/api";
+import { getCitingPapers, getConnectedPapers, getPaper, getPapersByIds, getReferencedPapers, getSimilarPapers } from "$lib/api";
 import { toIdList, toPaper, toPapers } from "$lib/paper";
 import type { Paper } from "$lib/types/paper";
 
@@ -69,6 +69,37 @@ export function loadNeighbourhood(entryId: string): Promise<Neighbourhood> {
         // do not keep failed requests, so a retry can succeed
         pending.catch(() => cache.delete(entryId));
         cache.set(entryId, pending);
+    }
+    return pending;
+}
+
+/**
+ * The three ways the "Similar" tab can find papers:
+ *   content     nearest in the embedding (or on the map), see Neighbourhood.related
+ *   references  papers citing the same papers (bibliographic coupling)
+ *   citations   papers cited together with this one (co-citation)
+ */
+export type SimilarBy = "content" | "references" | "citations";
+
+export interface Connected {
+    /** Strongest connection first */
+    papers: Paper[];
+    /** Common references, or papers citing both, per paper */
+    shared: Map<string, number>;
+}
+
+const connectedCache = new Map<string, Promise<Connected>>();
+
+export function loadConnected(entryId: string, by: "references" | "citations"): Promise<Connected> {
+    const key = `${by}:${entryId}`;
+    let pending = connectedCache.get(key);
+    if (!pending) {
+        pending = getConnectedPapers(entryId, by).then(({ items }) => ({
+            papers: toPapers(items),
+            shared: new Map(items.map((p) => [p.entry_id, p.shared])),
+        }));
+        pending.catch(() => connectedCache.delete(key));
+        connectedCache.set(key, pending);
     }
     return pending;
 }

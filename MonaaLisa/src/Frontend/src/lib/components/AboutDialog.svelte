@@ -68,7 +68,11 @@
             the 128-dimensional embeddings. Where the embedding of a paper is not in the database, the nearest papers
             on the two-dimensional map are shown instead, and the view says so. That is a rough guide only: the map keeps
             topic areas well, but of the ten most similar papers in the embedding fewer than one on average is also
-            among the ten nearest on the map (see analysis/README.md in the repository).
+            among the ten nearest on the map (see analysis/README.md in the repository). The tab offers two more ways
+            that use the citations instead of the text: <em>shared references</em> lists papers citing the same papers
+            (bibliographic coupling), <em>cited together</em> lists papers that later work cites alongside this one
+            (co-citation). Both need at least two links in common and are ordered by the number of common links
+            relative to the lengths of the two lists.
         </li>
     </ul>
 

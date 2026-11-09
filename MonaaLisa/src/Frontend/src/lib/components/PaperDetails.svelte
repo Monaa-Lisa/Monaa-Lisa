@@ -14,13 +14,21 @@
     import PaperRow from "$lib/components/PaperRow.svelte";
     import Spinner from "$lib/components/ui/Spinner.svelte";
     import { categoryColor, paperContext, subcategoryName } from "$lib/categories";
-    import { loadNeighbourhood, type Neighbourhood } from "$lib/neighbourhood";
+    import {
+        loadConnected,
+        loadNeighbourhood,
+        type Connected,
+        type Neighbourhood,
+        type SimilarBy,
+    } from "$lib/neighbourhood";
     import { authorList, categoryList, citationCount, formatDate, paperLinks, toBibtex } from "$lib/paper";
     import type { Paper } from "$lib/types/paper";
 
     interface Props {
         paper: Paper;
         tab: DetailsTab;
+        /** How the Similar tab finds its papers */
+        similarBy?: SimilarBy;
         isFavorite: boolean;
         /** Author whose papers are highlighted on the map, "" = none */
         highlightedAuthor: string;
@@ -39,6 +47,7 @@
 
     let {
         paper,
+        similarBy = $bindable("content"),
         tab = $bindable(),
         isFavorite,
         highlightedAuthor,
@@ -79,10 +88,30 @@
     const links = $derived(paperLinks(full));
     const categories = $derived(categoryList(full.categories));
 
+    // papers connected through the citation graph, loaded when that way of the Similar tab is chosen
+    let connected = $state<Connected | null>(null);
+    $effect(() => {
+        const id = paper.entry_id;
+        const by = similarBy;
+        connected = null;
+        if (by === "content") return;
+        loadConnected(id, by)
+            .then((result) => {
+                if (paper.entry_id === id && similarBy === by) connected = result;
+            })
+            .catch(() => {
+                if (paper.entry_id === id && similarBy === by) connected = { papers: [], shared: new Map() };
+            });
+    });
+    /** Number shown in a row of the Similar tab in the two citation graph ways */
+    const sharedWith = (item: Paper) =>
+        tab === "related" && similarBy !== "content" ? connected?.shared.get(item.entry_id) : undefined;
+    const connecting = $derived(similarBy !== "content" && connected === null);
+
     const lists = $derived({
         cites: data?.cites ?? [],
         citedBy: data?.citedBy ?? [],
-        related: data?.related ?? [],
+        related: similarBy === "content" ? (data?.related ?? []) : (connected?.papers ?? []),
     });
 
     const visible = $derived.by(() => {
@@ -268,6 +297,18 @@
         {:else if !data}
             <div class="loading"><Spinner /></div>
         {:else}
+            {#if tab === "related"}
+                <div class="segmented ways" role="tablist" aria-label="Similar by">
+                    {#each [["content", "Content"], ["references", "Shared references"], ["citations", "Cited together"]] as [id, label]}
+                        <button
+                            role="tab"
+                            aria-selected={similarBy === id}
+                            class:active={similarBy === id}
+                            onclick={() => (similarBy = id as SimilarBy)}>{label}</button
+                        >
+                    {/each}
+                </div>
+            {/if}
             {#if lists[tab].length > 4}
                 <div class="list-tools">
                     <input class="field" placeholder="Filter by title or author" bind:value={listFilter} />
@@ -280,13 +321,19 @@
                     {/if}
                 </div>
             {/if}
-            {#if tab === "related" && data && lists.related.length}
+            {#if tab === "related" && connecting}
+                <div class="loading"><Spinner /></div>
+            {:else if tab === "related" && data}
                 <p class="note">
-                    {data.relatedBasis === "embedding"
-                        ? "The papers nearest to this one in the embedding of title and abstract, nearest first."
-                        : data.relatedBasis === "map"
-                          ? "The papers nearest to this one on the map, nearest first. The embedding of this paper is not in the database, so this is a rough guide: same topic area, not necessarily the most similar papers."
-                          : "Recommended by Semantic Scholar."}
+                    {similarBy === "references"
+                        ? "Papers that cite the same papers as this one (bibliographic coupling). The number is how many references they share; the order also weighs how long both reference lists are."
+                        : similarBy === "citations"
+                          ? "Papers that are cited together with this one (co-citation). The number is how many papers in the dataset cite both; the order also weighs how often each is cited."
+                          : data.relatedBasis === "embedding"
+                            ? "The papers nearest to this one in the embedding of title and abstract, nearest first."
+                            : data.relatedBasis === "map"
+                              ? "The papers nearest to this one on the map, nearest first. The embedding of this paper is not in the database, so this is a rough guide: same topic area, not necessarily the most similar papers."
+                              : "Recommended by Semantic Scholar."}
                 </p>
             {/if}
             {#if tab !== "related" && shownOf[tab] > lists[tab].length}
@@ -301,12 +348,26 @@
                         authors={item.authors}
                         published={item.published}
                         categories={item.categories}
-                        count={citationCount(item)}
-                        countLabel="Citations"
+                        count={sharedWith(item) ?? citationCount(item)}
+                        countLabel={sharedWith(item) === undefined
+                            ? "Citations"
+                            : similarBy === "references"
+                              ? "Shared references"
+                              : "Papers citing both"}
                         onclick={() => onselect(item)}
                     />
                 {:else}
-                    <li class="note">{listFilter ? "Nothing matches the filter." : emptyText[tab]}</li>
+                    {#if !(tab === "related" && connecting)}
+                        <li class="note">
+                            {listFilter
+                                ? "Nothing matches the filter."
+                                : tab === "related" && similarBy === "references"
+                                  ? "No paper in the dataset shares two or more references with this one."
+                                  : tab === "related" && similarBy === "citations"
+                                    ? "No paper in the dataset is cited together with this one at least twice."
+                                    : emptyText[tab]}
+                        </li>
+                    {/if}
                 {/each}
             </ul>
         {/if}
@@ -492,6 +553,16 @@
         margin-left: 4px;
         color: var(--text-3);
         font-size: var(--text-xs);
+    }
+    .ways {
+        display: flex;
+        margin: 10px 14px 0;
+    }
+    .ways :global(button) {
+        flex: 1;
+        padding: 4px 6px;
+        font-size: var(--text-xs);
+        white-space: nowrap;
     }
     .list-tools {
         display: flex;

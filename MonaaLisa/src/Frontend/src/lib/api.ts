@@ -129,6 +129,21 @@ export function getSimilarPapers(entryId: string, take = 30): Promise<SimilarPap
     return request<SimilarPapers>(`/papers/${encodeURIComponent(entryId)}/similar?take=${take}`);
 }
 
+export interface ConnectedPapers {
+    by: "references" | "citations";
+    /** Best score first; `shared` = common references, or papers citing both */
+    items: (ApiPaper & { shared: number; score: number })[];
+}
+
+/**
+ * GET /papers/:id/connected: papers that cite the same papers as this one
+ * ("references", bibliographic coupling) or are cited together with it
+ * ("citations", co-citation).
+ */
+export function getConnectedPapers(entryId: string, by: "references" | "citations"): Promise<ConnectedPapers> {
+    return request<ConnectedPapers>(`/papers/${encodeURIComponent(entryId)}/connected?by=${by}`);
+}
+
 export interface PaperNeighbours {
     /** The most cited ones, at most 500 */
     items: ApiPaper[];

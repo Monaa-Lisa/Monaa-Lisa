@@ -28,7 +28,7 @@
     import ZoomControls from "$lib/components/ZoomControls.svelte";
     import { categoryColor, subjectColor, subjectName, subjectOf } from "$lib/categories";
     import { createLabelPlacer, overlayBoxes, type PlacedLabel } from "$lib/labels";
-    import { loadNeighbourhood, type Neighbourhood } from "$lib/neighbourhood";
+    import { loadConnected, loadNeighbourhood, type Neighbourhood, type SimilarBy } from "$lib/neighbourhood";
     import { citationCount, primaryCategory, publishedYear, truncate } from "$lib/paper";
     import { onThemeChange, resolveColor, token, withAlpha } from "$lib/theme";
     import type { Paper } from "$lib/types/paper";
@@ -39,12 +39,14 @@
         /** Most papers per group (references, citations, related), 0 = no limit */
         nodeLimit: number;
         highlightedAuthor: string;
+        /** How the similar papers are found (related view) */
+        similarBy?: SimilarBy;
         /** Papers of the open category map, the backdrop of the related view */
         context?: Paper[];
         onselect: (paper: Paper) => void;
     }
 
-    let { paper, mode, nodeLimit, highlightedAuthor, context = [], onselect }: Props = $props();
+    let { paper, mode, nodeLimit, highlightedAuthor, similarBy = "content", context = [], onselect }: Props = $props();
 
     type Group = "selected" | "cites" | "citedBy" | "related" | "context";
     const groupNote: Record<Group, string> = {
@@ -86,6 +88,23 @@
             });
     });
 
+    // the similar papers: from the embedding, or connected through the citation graph
+    let connected = $state<Paper[] | null>(null);
+    $effect(() => {
+        const id = paper.entry_id;
+        const by = similarBy;
+        connected = null;
+        if (by === "content") return;
+        loadConnected(id, by)
+            .then((result) => {
+                if (paper.entry_id === id && similarBy === by) connected = result.papers;
+            })
+            .catch(() => {
+                if (paper.entry_id === id && similarBy === by) connected = [];
+            });
+    });
+    const related = $derived(similarBy === "content" ? (data?.related ?? []) : (connected ?? []));
+
     /** Year with the month as a fraction, so papers of one year spread out */
     function yearOf(p: Paper): number | null {
         const year = Number(publishedYear(p.published));
@@ -105,7 +124,7 @@
     const groups = $derived({
         cites: data ? limit(data.cites) : [],
         citedBy: data ? limit(data.citedBy) : [],
-        related: data ? limit(data.related) : [],
+        related: limit(related),
     });
 
     const legend = $derived.by(() => {
@@ -248,7 +267,7 @@
         ]);
         for (const p of n.cites) info.set(p.entry_id, { paper: p, group: "cites" });
         for (const p of n.citedBy) if (!info.has(p.entry_id)) info.set(p.entry_id, { paper: p, group: "citedBy" });
-        for (const p of n.related) if (!info.has(p.entry_id)) info.set(p.entry_id, { paper: p, group: "related" });
+        for (const p of related) if (!info.has(p.entry_id)) info.set(p.entry_id, { paper: p, group: "related" });
 
         const stage = { width: el.clientWidth || 1, height: el.clientHeight || 1 };
         const layout = buildGraph(n, mode, stage.height / stage.width);
@@ -443,11 +462,15 @@
             {:else}
                 <span class="hint">
                     <b>{groups.related.length}</b>
-                    {data.relatedBasis === "embedding"
-                        ? "nearest papers in the embedding"
-                        : data.relatedBasis === "map"
-                          ? "nearest papers on the map (rough guide, no embedding for this paper)"
-                          : "papers recommended by Semantic Scholar"}, at their map positions{context.length
+                    {similarBy === "references"
+                        ? "papers sharing references"
+                        : similarBy === "citations"
+                          ? "papers cited together with it"
+                          : data.relatedBasis === "embedding"
+                            ? "nearest papers in the embedding"
+                            : data.relatedBasis === "map"
+                              ? "nearest papers on the map (rough guide, no embedding for this paper)"
+                              : "papers recommended by Semantic Scholar"}, at their map positions{context.length
                         ? " · grey: the other papers of this category"
                         : ""}
                 </span>

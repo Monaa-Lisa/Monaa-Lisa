@@ -34,6 +34,7 @@
     import logoMark from "../../assets/logo-mark.png";
     import { MAX_PAPERS_PER_REQUEST, getCategoryCounts, getPaper, getPapers, getYearRange } from "$lib/api";
     import { primaryCategory, toPaper, toPapers } from "$lib/paper";
+    import type { SimilarBy } from "$lib/neighbourhood";
     import { download, papersToCsv, sceneToCanvas, sceneToSvg } from "$lib/exportMap";
     import { library } from "$lib/library.svelte";
     import { currentTheme, setTheme, type Theme } from "$lib/theme";
@@ -102,6 +103,8 @@
     let trail = $state<Paper[]>([]);
     let stageView = $state<StageView>("map");
     let detailsTab = $state<DetailsTab>("abstract");
+    /** How the Similar tab and view find their papers */
+    let similarBy = $state<SimilarBy>("content");
 
     let papers = $state<Paper[]>([]);
     let papersTotal = $state(0);
@@ -647,6 +650,7 @@
                             mode={stageView}
                             {nodeLimit}
                             {highlightedAuthor}
+                            {similarBy}
                             context={view.level === "papers" ? papers : []}
                             onselect={openPaper}
                         />
@@ -677,6 +681,7 @@
             <PaperDetails
                 paper={selected}
                 bind:tab={detailsTab}
+                bind:similarBy
                 isFavorite={library.isFavorite(selected.entry_id)}
                 {highlightedAuthor}
                 backTo={trail.at(-1)?.title ?? null}
