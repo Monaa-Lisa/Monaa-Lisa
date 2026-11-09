@@ -306,7 +306,7 @@
                 take: paperLimit > 0 ? paperLimit : MAX_PAPERS_PER_REQUEST,
             });
             papers = toPapers(page.items);
-            papersTotal = page.total;
+            papersTotal = page.total ?? papers.length;
             if (!papers.length) error = "No papers in this category yet.";
         } catch {
             error = "The papers could not be loaded. Is the backend running?";
@@ -502,7 +502,14 @@
                 {/if}
                 {#if selected && stageView !== "map"}
                     {#key selected.entry_id}
-                        <CitationTimeline paper={selected} mode={stageView} {nodeLimit} {highlightedAuthor} onselect={openPaper} />
+                        <CitationTimeline
+                            paper={selected}
+                            mode={stageView}
+                            {nodeLimit}
+                            {highlightedAuthor}
+                            context={view.level === "papers" ? papers : []}
+                            onselect={openPaper}
+                        />
                     {/key}
                 {:else if view.level === "top"}
                     <BubbleMap items={subjects} color={browse.color} onselect={showSubject} />

@@ -13,7 +13,7 @@
     import { ChevronLeft, ChevronRight, LoaderCircle, Search, SlidersHorizontal, X } from "@lucide/svelte";
     import Button from "$lib/components/ui/Button.svelte";
     import PaperRow from "$lib/components/PaperRow.svelte";
-    import { getPapers, type PaperQuery } from "$lib/api";
+    import { countPapers, getPapers, type PaperQuery } from "$lib/api";
     import { toPapers, citationCount } from "$lib/paper";
     import { formatCount } from "$lib/categories";
     import type { CategoryNode, Paper } from "$lib/types/paper";
@@ -66,7 +66,8 @@
     let sort = $state<NonNullable<PaperQuery["sort"]>>("citations");
 
     let results = $state<Paper[] | null>(null);
-    let total = $state(0);
+    /** null while the matches are still being counted */
+    let total = $state<number | null>(0);
     let searching = $state(false);
     let error = $state<string | null>(null);
 
@@ -99,6 +100,7 @@
             categories: searchScope,
             sort,
             take: 50,
+            count: "none",
         };
         if (!isSearching) {
             results = null;
@@ -111,10 +113,16 @@
             searching = true;
             error = null;
             try {
+                // the list comes first, counting all matches can take seconds
+                total = null;
+                countPapers(params)
+                    .then((n) => {
+                        if (id === requestId) total = n;
+                    })
+                    .catch(() => {});
                 const page = await getPapers(params);
                 if (id !== requestId) return; // a newer search started meanwhile
                 results = toPapers(page.items);
-                total = page.total;
                 const found = results;
                 untrack(() => onresults(found));
             } catch {
@@ -211,10 +219,15 @@
                 {#if error}
                     {error}
                 {:else if results}
-                    {total.toLocaleString("en")} {total === 1 ? "result" : "results"} in {searchScopeLabel}{total >
-                    results.length
-                        ? `, showing ${results.length}`
-                        : ""}
+                    {#if total === null}
+                        {results.length === 0 ? "No results" : `First ${results.length} results`} in {searchScopeLabel},
+                        counting…
+                    {:else}
+                        {total.toLocaleString("en")} {total === 1 ? "result" : "results"} in {searchScopeLabel}{total >
+                        results.length
+                            ? `, showing ${results.length}`
+                            : ""}
+                    {/if}
                 {:else}
                     Searching…
                 {/if}

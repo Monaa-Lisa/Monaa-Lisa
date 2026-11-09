@@ -10,6 +10,8 @@
              a point to see its link.
   related    the related papers (Semantic Scholar) at their map positions
              around the selected paper, i.e. its neighbourhood on the map.
+             The papers of the open category map are drawn in grey behind
+             them (`context`), so the neighbourhood has its surroundings.
 
   Nodes are coloured by subject like everywhere else, so citations from other
   fields stand out. Titles are HTML elements placed by lib/labels.ts.
@@ -37,17 +39,20 @@
         /** Most papers per group (references, citations, related), 0 = no limit */
         nodeLimit: number;
         highlightedAuthor: string;
+        /** Papers of the open category map, the backdrop of the related view */
+        context?: Paper[];
         onselect: (paper: Paper) => void;
     }
 
-    let { paper, mode, nodeLimit, highlightedAuthor, onselect }: Props = $props();
+    let { paper, mode, nodeLimit, highlightedAuthor, context = [], onselect }: Props = $props();
 
-    type Group = "selected" | "cites" | "citedBy" | "related";
+    type Group = "selected" | "cites" | "citedBy" | "related" | "context";
     const groupNote: Record<Group, string> = {
         selected: "Selected paper",
         cites: "Cited by the selected paper",
         citedBy: "Cites the selected paper",
         related: "Related to the selected paper",
+        context: "On the map of this category",
     };
 
     let container = $state<HTMLDivElement>();
@@ -249,6 +254,29 @@
         const layout = buildGraph(n, mode, stage.height / stage.width);
         const graph = layout.graph;
         const dim = token("--map-dim", "rgba(0,0,0,0.1)");
+
+        // related view: the view is fitted to the related papers, the category map lies behind them
+        let focus: { x: [number, number]; y: [number, number] } | null = null;
+        if (mode === "related" && context.length) {
+            const xs: number[] = [];
+            const ys: number[] = [];
+            graph.forEachNode((_, a) => {
+                xs.push(a.x);
+                ys.push(a.y);
+            });
+            const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 0.5);
+            const pad = span * 0.5;
+            focus = {
+                x: [Math.min(...xs) - pad, Math.max(...xs) + pad],
+                y: [Math.min(...ys) - pad, Math.max(...ys) + pad],
+            };
+            const backdrop = token("--border-strong", "#b9bdc9");
+            for (const p of context) {
+                if (graph.hasNode(p.entry_id) || (p.x === 0 && p.y === 0)) continue;
+                graph.addNode(p.entry_id, { x: p.x, y: p.y, size: 3.5, color: backdrop, zIndex: 0 });
+                info.set(p.entry_id, { paper: p, group: "context" });
+            }
+        }
         const author = highlightedAuthor.toLowerCase();
         let hoveredId: string | null = null;
 
@@ -272,13 +300,15 @@
             maxCameraRatio: 3,
             nodeReducer: (node, attrs) => {
                 const item = info.get(node);
-                if (!author || !item || item.group === "selected") return attrs;
+                if (!author || !item || item.group === "selected" || item.group === "context") return attrs;
                 const match = item.paper.authors.toLowerCase().includes(author);
                 return match ? { ...attrs, size: attrs.size + 2, zIndex: 2 } : { ...attrs, color: dim, zIndex: 0 };
             },
             // only the hovered point shows its link to the selected paper
             edgeReducer: (edge, attrs) => ({ ...attrs, hidden: !hoveredId || !graph.hasExtremity(edge, hoveredId) }),
         });
+
+        if (focus) r.setCustomBBox(focus);
 
         // sigma fits the graph into the shorter side of the stage, for the
         // chart the year axis should span the full width instead
@@ -409,7 +439,11 @@
                     hover a point for its link
                 </span>
             {:else}
-                <span class="hint"><b>{groups.related.length}</b> related papers at their map positions</span>
+                <span class="hint">
+                    <b>{groups.related.length}</b> related papers at their map positions{context.length
+                        ? " · grey: the other papers of this category"
+                        : ""}
+                </span>
             {/if}
             {#each legend as item (item.id)}
                 <span><i style:background={item.color}></i>{item.name} <b>{item.count}</b></span>

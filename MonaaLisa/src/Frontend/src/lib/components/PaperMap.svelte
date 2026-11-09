@@ -486,4 +486,10 @@
     .legend .hint {
         color: var(--text-3);
     }
+    /* little room: the legend keeps to the colours */
+    @media (max-width: 1180px) {
+        .legend .hint {
+            display: none;
+        }
+    }
 </style>

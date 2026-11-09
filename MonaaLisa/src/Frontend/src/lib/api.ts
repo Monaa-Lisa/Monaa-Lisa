@@ -38,13 +38,16 @@ export interface PaperQuery {
     sort?: "published" | "published_asc" | "citations";
     /** "map" leaves out the abstract and the citation lists, for the paper map */
     fields?: "full" | "map";
+    /** "none" skips counting all matches (total is null), which is slow for common words */
+    count?: "exact" | "none";
     skip?: number;
     take?: number;
 }
 
 export interface PaperPage {
     items: ApiPaper[];
-    total: number;
+    /** null when the request asked for count "none" */
+    total: number | null;
     skip: number;
     take: number;
 }
@@ -56,6 +59,17 @@ export function getPapers(query: PaperQuery): Promise<PaperPage> {
         if (value !== undefined && value !== "") params.set(key, String(value));
     }
     return request<PaperPage>(`/papers?${params}`);
+}
+
+/** GET /papers/count: how many papers match the filters of a query. */
+export async function countPapers(query: PaperQuery): Promise<number> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+        if (value !== undefined && value !== "" && !["take", "skip", "sort", "fields", "count"].includes(key)) {
+            params.set(key, String(value));
+        }
+    }
+    return (await request<{ total: number }>(`/papers/count?${params}`)).total;
 }
 
 /** GET /papers/:id. Includes the citation and reference id lists. */
