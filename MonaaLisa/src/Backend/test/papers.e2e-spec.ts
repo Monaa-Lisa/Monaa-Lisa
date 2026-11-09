@@ -38,12 +38,17 @@ describeWithTestDb('papers and citations (e2e)', () => {
     title: string,
     arxiv: number,
     elsewhere: number | null,
-    extra: { authors?: string; categories?: string; published?: string } = {},
+    extra: {
+      authors?: string;
+      categories?: string;
+      published?: string;
+      abstract?: string;
+    } = {},
   ) => ({
     entry_id,
     title,
     authors: extra.authors ?? 'Ada Lovelace',
-    abstract: `Abstract of ${title}`,
+    abstract: extra.abstract ?? `Abstract of ${title}`,
     categories: extra.categories ?? 'cs.LG',
     published: new Date(extra.published ?? '2015-01-01'),
     arxiv_citation_count: arxiv,
@@ -72,6 +77,7 @@ describeWithTestDb('papers and citations (e2e)', () => {
         paper('1000.0002', 'A survey of optimisers', 0, 500, {
           categories: 'stat.ML cs.LG',
           published: '2018-06-01',
+          abstract: 'We compare schedules for training.',
         }),
         paper('1000.0003', 'Faster training', 5, null, {
           authors: 'Grace Hopper',
@@ -147,6 +153,46 @@ describeWithTestDb('papers and citations (e2e)', () => {
     expect(ids(await get('/papers?search=hopper'))).toEqual(['1000.0003']);
     expect(ids(await get('/papers?search=100%25'))).toEqual(['1000.0004']);
     expect((await get('/papers?search=%25')).total).toBe(1);
+  });
+
+  it('finds words in any order and across title and authors', async () => {
+    expect(ids(await get('/papers?search=lovelace%20deep'))).toEqual([
+      '1000.0001',
+    ]);
+    expect(ids(await get('/papers?search=networks%20optimisers'))).toEqual([
+      '1000.0001',
+    ]);
+  });
+
+  it('takes a short word only as a whole word', async () => {
+    // "ada" is the author Ada Lovelace, not part of another word
+    expect((await get('/papers?search=ada')).total).toBe(3);
+    expect((await get('/papers?search=ad')).total).toBe(0);
+  });
+
+  it('finds a paper by its arXiv id, with prefix and version', async () => {
+    expect(ids(await get('/papers?search=arXiv:1000.0004v2'))).toEqual([
+      '1000.0004',
+    ]);
+  });
+
+  it('puts matches in title or authors before matches in the abstract', async () => {
+    // 0002 is cited more, but only its abstract mentions training
+    const page = await get('/papers?search=training&sort=relevance');
+    expect(ids(page)).toEqual(['1000.0003', '1000.0002']);
+    expect(ids(await get('/papers?search=training&sort=citations'))).toEqual([
+      '1000.0002',
+      '1000.0003',
+    ]);
+  });
+
+  it('offers similar titles when nothing matches', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/papers?search=optimizers%20for%20deep%20netwrks&sort=relevance')
+      .expect(200);
+    const page = res.body as Page & { fuzzy: boolean };
+    expect(page.fuzzy).toBe(true);
+    expect(ids(page)[0]).toBe('1000.0001');
   });
 
   it('leaves the abstract and the citation lists out of the map fields', async () => {

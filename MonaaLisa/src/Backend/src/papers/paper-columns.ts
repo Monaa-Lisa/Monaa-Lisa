@@ -22,3 +22,17 @@ export const LIST_COLUMNS = [
  * expression exactly as it is there.
  */
 export const totalCitations = sql<number>`arxiv_citation_count + COALESCE(non_arxiv_citation_count, 0)`;
+
+/** Every column of a paper */
+export const ALL_COLUMNS = [
+  ...LIST_COLUMNS,
+  'abstract',
+  'updated',
+  'doi',
+  'journal_ref',
+  'license',
+  'url',
+  's2_id',
+  'non_arxiv_reference_count',
+  'related_arxiv_ids',
+] as const;

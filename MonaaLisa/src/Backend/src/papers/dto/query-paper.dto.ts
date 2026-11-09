@@ -15,6 +15,7 @@ export const MAX_TAKE = 20000;
 export const DEFAULT_TAKE = 100;
 
 export const SORT_OPTIONS = [
+  'relevance',
   'published',
   'published_asc',
   'citations',
@@ -63,7 +64,8 @@ export class QueryPaperDto {
   dateTo?: string;
 
   // 'published' = newest first (default), 'published_asc' = oldest first,
-  // 'citations' = most cited first (arXiv and elsewhere)
+  // 'citations' = most cited first (arXiv and elsewhere), 'relevance' = best
+  // matches of `search` first
   @IsOptional()
   @IsIn(SORT_OPTIONS)
   sort?: PaperSort;

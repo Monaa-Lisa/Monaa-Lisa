@@ -23,12 +23,19 @@ Originally written by Nico (2025), ported from Prisma to Kysely in November
 
 Query parameters of `GET /papers`:
 
-- `search` matches title, authors or abstract; `title`, `author` and
-  `abstract` each match their own column
+- `search` takes an arXiv id (`1706.03762`, `arXiv:1706.03762v5`, a link) or
+  words in any order. Every word has to occur in the title, the authors or
+  the abstract; words of up to three letters only as whole words
+- `title`, `author` and `abstract` work the same way on their own column
 - `categories` matches anywhere in the category list (`cs.LG` also finds
   papers cross listed there)
 - `dateFrom`, `dateTo` limit the publication date
-- `sort`: `published` (default), `published_asc` or `citations`. Citations
+- `sort`: `published` (default), `published_asc`, `citations` or
+  `relevance`. Relevance puts papers with all search words in title or
+  authors first, then the ones where a word is only in the abstract, each
+  group most cited first. When nothing matches it returns up to ten papers
+  with a similar title instead (`fuzzy: true`), which catches typing
+  mistakes. Citations
   are the ones from arXiv papers plus the ones Semantic Scholar counts outside
   arXiv
 - `skip`, `take` (at most 20000)

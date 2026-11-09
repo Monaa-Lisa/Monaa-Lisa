@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { sql } from 'kysely';
 import type { Expression, SqlBool } from 'kysely';
 import { DatabaseService } from '../database/database.service';
 import { containsPattern } from '../database/sql';
-import { LIST_COLUMNS, totalCitations } from './paper-columns';
+import { ALL_COLUMNS, LIST_COLUMNS, totalCitations } from './paper-columns';
+import { arxivId, searchWords } from './search-text';
 import { DEFAULT_TAKE, MAX_TAKE, QueryPaperDto } from './dto/query-paper.dto';
 
 /** Requests for more ids than this get no citation lists attached */
 const ENRICH_LIMIT = 50;
+/** Similar titles offered when a search finds nothing */
+const FUZZY_LIMIT = 10;
 
 /**
  * Read access to papers: search, pagination, single and batch lookups.
@@ -18,10 +22,12 @@ export class PapersService {
 
   /**
    * Search and list papers.
-   * - search: matches title, authors or abstract (any of them)
-   * - title / author / abstract: each must match its own column (all of them)
+   * - search: an arXiv id, or words that all have to occur in the title, the
+   *   authors or the abstract (in any order, each word in any of the three)
+   * - title / author / abstract: every word must occur in that column
    * - categories: substring of the space separated category list
    * - dateFrom / dateTo: range on the published date
+   * - sort=relevance: see `byRelevance`
    */
   async findMany(q: QueryPaperDto) {
     const skip = q.skip ?? 0;
@@ -29,40 +35,35 @@ export class PapersService {
     // loading the whole table in one request.
     const take = Math.min(q.take ?? DEFAULT_TAKE, MAX_TAKE);
 
-    let query = this.filtered(q);
     // Counting every match of a common word takes seconds while the first
     // page is there at once, so a caller can leave the count out and ask
     // GET /papers/count for it.
     const total = q.count === 'none' ? Promise.resolve(null) : this.count(q);
 
-    if (q.sort === 'citations') {
-      // citations from arXiv papers plus the ones counted outside arXiv, id as
-      // tiebreaker so pages never overlap (the expression has an index)
-      query = query.orderBy(totalCitations, 'desc').orderBy('id', 'asc');
-    } else {
-      const direction = q.sort === 'published_asc' ? 'asc' : 'desc';
-      query = query
-        .orderBy('published', (ob) => ob[direction]().nullsLast())
-        .orderBy('id', 'asc');
-    }
-
-    if (q.fields === 'map') {
-      const [items, counted] = await Promise.all([
-        query.select(LIST_COLUMNS).offset(skip).limit(take).execute(),
+    if (q.sort === 'relevance' && q.search?.trim() && skip === 0) {
+      const [found, counted] = await Promise.all([
+        this.byRelevance(q, take),
         total,
       ]);
-      return { items, total: counted, skip, take };
+      return {
+        items: await this.shaped(found.items, q, take),
+        total: found.fuzzy ? found.items.length : counted,
+        skip,
+        take,
+        fuzzy: found.fuzzy,
+      };
     }
 
     const [items, counted] = await Promise.all([
-      query.selectAll().offset(skip).limit(take).execute(),
+      this.sorted(this.filtered(q), q)
+        .select(this.columns(q))
+        .offset(skip)
+        .limit(take)
+        .execute(),
       total,
     ]);
-
-    // the citation lists are only attached to short lists
-    const enrich = take <= 40;
     return {
-      items: enrich ? await this.withEdges(items) : items.map(withoutEdges),
+      items: await this.shaped(items, q, take),
       total: counted,
       skip,
       take,
@@ -77,28 +78,118 @@ export class PapersService {
     return Number(counted.count);
   }
 
-  private filtered(q: QueryPaperDto) {
+  /**
+   * The best matches for a search text first:
+   * 1. papers with all words in the title or the authors, most cited first
+   * 2. then papers where some words are only in the abstract
+   * 3. nothing found at all: titles that are similar to the text, which
+   *    catches typing mistakes (`fuzzy` is true then)
+   */
+  private async byRelevance(q: QueryPaperDto, take: number) {
+    const columns = this.columns(q);
+    const mostCited = { ...q, sort: 'citations' as const };
+    const items = await this.sorted(this.filtered(q, false), mostCited)
+      .select(columns)
+      .limit(take)
+      .execute();
+
+    if (items.length < take && !arxivId(q.search ?? '')) {
+      let rest = this.filtered(q);
+      if (items.length) {
+        rest = rest.where(
+          'entry_id',
+          'not in',
+          items.map((p) => p.entry_id),
+        );
+      }
+      items.push(
+        ...(await this.sorted(rest, mostCited)
+          .select(columns)
+          .limit(take - items.length)
+          .execute()),
+      );
+    }
+    if (items.length) return { items, fuzzy: false };
+
+    const text = q.search!.trim();
+    const similar = await this.filtered({ ...q, search: undefined })
+      .where(sql<boolean>`${text} <% title`)
+      .select(columns)
+      .orderBy(sql`word_similarity(${text}, title)`, 'desc')
+      .orderBy(totalCitations, 'desc')
+      .limit(Math.min(take, FUZZY_LIMIT))
+      .execute();
+    return { items: similar, fuzzy: similar.length > 0 };
+  }
+
+  /** Slim columns for fields=map, everything otherwise */
+  private columns(q: QueryPaperDto) {
+    return q.fields === 'map' ? LIST_COLUMNS : ALL_COLUMNS;
+  }
+
+  /** Short full lists get their citation lists attached */
+  private async shaped<T extends { entry_id: string }>(
+    items: T[],
+    q: QueryPaperDto,
+    take: number,
+  ) {
+    if (q.fields === 'map') return items;
+    return take <= 40 ? this.withEdges(items) : items.map(withoutEdges);
+  }
+
+  private sorted<Q extends ReturnType<PapersService['filtered']>>(
+    query: Q,
+    q: QueryPaperDto,
+  ) {
+    if (q.sort === 'citations' || q.sort === 'relevance') {
+      // citations from arXiv papers plus the ones counted outside arXiv, id as
+      // tiebreaker so pages never overlap (the expression has an index)
+      return query.orderBy(totalCitations, 'desc').orderBy('id', 'asc');
+    }
+    const direction = q.sort === 'published_asc' ? 'asc' : 'desc';
+    return query
+      .orderBy('published', (ob) => ob[direction]().nullsLast())
+      .orderBy('id', 'asc');
+  }
+
+  /**
+   * The papers matching the filters of `q`. With `inAbstract` false the
+   * search words have to be in the title or the authors.
+   */
+  private filtered(q: QueryPaperDto, inAbstract = true) {
     return this.db.selectFrom('paper').where((eb) => {
       const filters: Expression<SqlBool>[] = [];
       const search = q.search?.trim();
-      if (search) {
-        const pattern = containsPattern(search);
-        filters.push(
-          eb.or([
-            eb('title', 'ilike', pattern),
-            eb('authors', 'ilike', pattern),
-            eb('abstract', 'ilike', pattern),
-          ]),
-        );
+      const id = search ? arxivId(search) : null;
+      if (id) {
+        filters.push(eb('entry_id', '=', id));
+      } else if (search) {
+        for (const word of searchWords(search)) {
+          // a short word has to stand alone ("AI" is not part of "training"),
+          // a longer one may be part of a word ("network" finds "networks")
+          const whole = /^[a-z0-9]{1,3}$/.test(word);
+          const pattern = whole ? `\\m${word}\\M` : containsPattern(word);
+          const op = whole ? '~*' : 'ilike';
+          const anywhere = [
+            eb('title', op, pattern),
+            eb('authors', op, pattern),
+          ];
+          if (inAbstract) anywhere.push(eb('abstract', op, pattern));
+          filters.push(eb.or(anywhere));
+        }
       }
-      if (q.title?.trim())
-        filters.push(eb('title', 'ilike', containsPattern(q.title.trim())));
-      if (q.author?.trim())
-        filters.push(eb('authors', 'ilike', containsPattern(q.author.trim())));
-      if (q.abstract?.trim())
-        filters.push(
-          eb('abstract', 'ilike', containsPattern(q.abstract.trim())),
-        );
+      const columns = {
+        title: q.title,
+        authors: q.author,
+        abstract: q.abstract,
+      };
+      for (const [column, text] of Object.entries(columns)) {
+        for (const word of searchWords(text ?? '')) {
+          filters.push(
+            eb(column as keyof typeof columns, 'ilike', containsPattern(word)),
+          );
+        }
+      }
       if (q.categories)
         filters.push(eb('categories', 'like', containsPattern(q.categories)));
       if (q.dateFrom) filters.push(eb('published', '>=', new Date(q.dateFrom)));
