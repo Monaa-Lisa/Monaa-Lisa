@@ -92,6 +92,13 @@
     const searchScope = $derived(everywhere ? "" : scope);
     const searchScopeLabel = $derived(everywhere || !scope ? "all of arXiv" : scopeLabel);
 
+    /** Results asked for, raised by "Show more" */
+    const PAGE = 50;
+    const MOST = 400;
+    let shown = $state(PAGE);
+    /** The search without its size, a change starts again with the first page */
+    let lastSearch = "";
+
     // run the search 250ms after the last change of query, filters, sort or scope
     let requestId = 0;
     $effect(() => {
@@ -104,9 +111,18 @@
             dateTo: filters.dateTo,
             categories: searchScope,
             sort,
-            take: 50,
+            take: shown,
+            // the list needs no abstracts
+            fields: "map",
             count: "none",
         };
+        const search = JSON.stringify({ ...params, take: 0 });
+        const more = search === lastSearch;
+        lastSearch = search;
+        if (!more && shown !== PAGE) {
+            shown = PAGE; // runs this effect again
+            return;
+        }
         if (!isSearching) {
             results = null;
             error = null;
@@ -119,12 +135,14 @@
             error = null;
             try {
                 // the list comes first, counting all matches can take seconds
-                total = null;
-                countPapers(params)
-                    .then((n) => {
-                        if (id === requestId && !fuzzy) total = n;
-                    })
-                    .catch(() => {});
+                if (!more) {
+                    total = null;
+                    countPapers(params)
+                        .then((n) => {
+                            if (lastSearch === search && !fuzzy) total = n;
+                        })
+                        .catch(() => {});
+                }
                 const page = await getPapers(params);
                 if (id !== requestId) return; // a newer search started meanwhile
                 results = toPapers(page.items);
@@ -263,6 +281,13 @@
                     <li class="empty">No papers match this search.</li>
                 {/if}
             {/each}
+            {#if results && !fuzzy && results.length >= shown && shown < MOST && (total === null || total > results.length)}
+                <li>
+                    <button class="more" disabled={searching} onclick={() => (shown = Math.min(MOST, shown * 2))}>
+                        {searching ? "Loading…" : "Show more"}
+                    </button>
+                </li>
+            {/if}
         </ul>
     {:else}
         {#if up}
@@ -344,6 +369,23 @@
         min-height: 0;
         background: var(--surface);
         border-right: 1px solid var(--border);
+    }
+
+    .more {
+        display: block;
+        width: calc(100% - 28px);
+        margin: 8px 14px 14px;
+        padding: 7px 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        color: var(--text-2);
+        font-size: var(--text-sm);
+        cursor: pointer;
+    }
+    .more:hover:not(:disabled) {
+        border-color: var(--border-strong);
+        color: var(--text);
     }
 
     .search {
