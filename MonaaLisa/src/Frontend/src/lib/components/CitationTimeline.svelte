@@ -8,7 +8,7 @@
              of each group are shown by default (nodeLimit). Every point is
              linked to the selected paper, so the links are not drawn; hover
              a point to see its link.
-  related    the related papers (Semantic Scholar) at their map positions
+  related    the papers most similar to it (lib/neighbourhood.ts) at their map positions
              around the selected paper, i.e. its neighbourhood on the map.
              The papers of the open category map are drawn in grey behind
              them (`context`), so the neighbourhood has its surroundings.
@@ -51,7 +51,7 @@
         selected: "Selected paper",
         cites: "Cited by the selected paper",
         citedBy: "Cites the selected paper",
-        related: "Related to the selected paper",
+        related: "Similar to the selected paper",
         context: "On the map of this category",
     };
 
@@ -425,7 +425,7 @@
     {:else if mode === "citations" && groups.cites.length + groups.citedBy.length === 0}
         <p class="state">None of this paper's references or citations are in the dataset.</p>
     {:else if mode === "related" && groups.related.length === 0}
-        <p class="state">No related papers are known for this paper.</p>
+        <p class="state">No similar papers are known for this paper.</p>
     {/if}
 
     {#if hovered}
@@ -442,7 +442,12 @@
                 </span>
             {:else}
                 <span class="hint">
-                    <b>{groups.related.length}</b> related papers at their map positions{context.length
+                    <b>{groups.related.length}</b>
+                    {data.relatedBasis === "embedding"
+                        ? "nearest papers in the embedding"
+                        : data.relatedBasis === "map"
+                          ? "nearest papers on the map"
+                          : "papers recommended by Semantic Scholar"}, at their map positions{context.length
                         ? " · grey: the other papers of this category"
                         : ""}
                 </span>

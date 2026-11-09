@@ -109,13 +109,13 @@
         { id: "abstract" as const, label: "Abstract" },
         { id: "cites" as const, label: "References", count: data?.citesTotal ?? 0 },
         { id: "citedBy" as const, label: "Citations", count: data?.citedByTotal ?? 0 },
-        { id: "related" as const, label: "Related", count: lists.related.length },
+        { id: "related" as const, label: "Similar", count: lists.related.length },
     ]);
 
     const emptyText: Record<Exclude<DetailsTab, "abstract">, string> = {
         cites: "None of the papers it references are in the dataset.",
         citedBy: "No paper in the dataset cites this one.",
-        related: "No related papers are known for this paper.",
+        related: "No similar papers are known for this paper.",
     };
 
     async function copyBibtex() {
@@ -279,6 +279,15 @@
                         </select>
                     {/if}
                 </div>
+            {/if}
+            {#if tab === "related" && data && lists.related.length}
+                <p class="note">
+                    {data.relatedBasis === "embedding"
+                        ? "The papers nearest to this one in the embedding of title and abstract, nearest first."
+                        : data.relatedBasis === "map"
+                          ? "The papers nearest to this one on the map, nearest first."
+                          : "Recommended by Semantic Scholar."}
+                </p>
             {/if}
             {#if tab !== "related" && shownOf[tab] > lists[tab].length}
                 <p class="note">

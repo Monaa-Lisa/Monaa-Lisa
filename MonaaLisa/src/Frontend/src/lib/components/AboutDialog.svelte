@@ -61,8 +61,10 @@
             details.
         </li>
         <li>
-            <strong>Related:</strong> related papers from Semantic Scholar, drawn at their own map positions, with the
-            papers of the open category in grey behind them.
+            <strong>Similar:</strong> the papers nearest to the selected one, drawn at their own map positions with
+            the papers of the open category in grey behind them. Nearest means the smallest cosine distance between
+            the 128-dimensional embeddings. Where the embedding of a paper is not in the database, the nearest papers
+            on the two-dimensional map are shown instead, and the view says so.
         </li>
     </ul>
 

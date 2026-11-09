@@ -18,8 +18,8 @@ NestJS backend (`PUBLIC_API_BASE_URL`, default `http://localhost:3000`).
   regions come from `lib/regions.ts` (k-means on the positions, each group
   named after the term typical for its titles).
 - `CitationTimeline.svelte`: references and citations of one paper as a
-  chart (year against citations), or its related papers at their map
-  positions with the category map behind them.
+  chart (year against citations), or the papers most similar to it at their
+  map positions with the category map behind them.
 - `PaperDetails.svelte`: metadata, links (arXiv, PDF, DOI, Semantic Scholar),
   BibTeX, abstract, and the reference / citation / related lists.
 - `LibraryPanel.svelte` (+ `lib/library.svelte.ts`): saved and recently

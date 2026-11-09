@@ -98,6 +98,18 @@ export async function getPapersByIds(entryIds: string[]): Promise<ApiPaper[]> {
     return results.flat();
 }
 
+export interface SimilarPapers {
+    /** What "similar" means here: near in the embedding, near on the map, or nothing known */
+    basis: "embedding" | "map" | null;
+    /** Nearest first */
+    items: ApiPaper[];
+}
+
+/** GET /papers/:id/similar: the papers nearest to this one. */
+export function getSimilarPapers(entryId: string, take = 30): Promise<SimilarPapers> {
+    return request<SimilarPapers>(`/papers/${encodeURIComponent(entryId)}/similar?take=${take}`);
+}
+
 export interface PaperNeighbours {
     /** The most cited ones, at most 500 */
     items: ApiPaper[];

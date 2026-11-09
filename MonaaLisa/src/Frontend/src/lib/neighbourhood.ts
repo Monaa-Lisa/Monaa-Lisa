@@ -1,9 +1,9 @@
 /**
  * Loads everything around one paper: the papers it cites, the papers citing
- * it and its related papers. The network view and the inspector both need
+ * it and the papers similar to it. The network view and the inspector both need
  * this, so the result is cached per paper and fetched only once.
  */
-import { getCitingPapers, getPaper, getPapersByIds, getReferencedPapers } from "$lib/api";
+import { getCitingPapers, getPaper, getPapersByIds, getReferencedPapers, getSimilarPapers } from "$lib/api";
 import { toIdList, toPaper, toPapers } from "$lib/paper";
 import type { Paper } from "$lib/types/paper";
 
@@ -17,8 +17,14 @@ export interface Neighbourhood {
     /** How many of each the dataset holds */
     citesTotal: number;
     citedByTotal: number;
-    /** Related papers from Semantic Scholar, in their original order */
+    /** Similar papers, the most similar first */
     related: Paper[];
+    /**
+     * Where they come from: the nearest papers in the embedding, the nearest
+     * on the map (the embedding of this paper is not in the database), or
+     * the recommendations of Semantic Scholar when the paper has no position
+     */
+    relatedBasis: "embedding" | "map" | "semantic-scholar";
     /** Citing / referenced papers outside arXiv, only counted */
     externalCitedBy: number;
     externalCites: number;
@@ -27,17 +33,21 @@ export interface Neighbourhood {
 const cache = new Map<string, Promise<Neighbourhood>>();
 
 async function load(entryId: string): Promise<Neighbourhood> {
-    const [raw, citing, referenced] = await Promise.all([
+    const [raw, citing, referenced, similar] = await Promise.all([
         getPaper(entryId),
         getCitingPapers(entryId),
         getReferencedPapers(entryId),
+        getSimilarPapers(entryId),
     ]);
     const paper = toPaper(raw);
     if (!paper) throw new Error(`Paper ${entryId} has no data`);
 
-    const relatedIds = toIdList(raw.related_arxiv_ids).slice(0, 30);
-    const byId = new Map(toPapers(await getPapersByIds(relatedIds)).map((p) => [p.entry_id, p]));
-    const related = relatedIds.map((id) => byId.get(id)).filter((p): p is Paper => !!p);
+    let related = toPapers(similar.items);
+    if (!similar.basis) {
+        const relatedIds = toIdList(raw.related_arxiv_ids).slice(0, 30);
+        const byId = new Map(toPapers(await getPapersByIds(relatedIds)).map((p) => [p.entry_id, p]));
+        related = relatedIds.map((id) => byId.get(id)).filter((p): p is Paper => !!p);
+    }
 
     return {
         paper,
@@ -46,6 +56,7 @@ async function load(entryId: string): Promise<Neighbourhood> {
         citesTotal: referenced.total,
         citedByTotal: citing.total,
         related: related.filter((p) => p.entry_id !== entryId),
+        relatedBasis: similar.basis ?? "semantic-scholar",
         externalCitedBy: paper.non_arxiv_citation_count,
         externalCites: paper.non_arxiv_reference_count,
     };

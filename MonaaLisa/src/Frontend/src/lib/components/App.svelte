@@ -367,7 +367,7 @@
 
     const caption = $derived.by(() => {
         if (selected && stageView !== "map") {
-            return stageView === "citations" ? "References and citations by year" : "Related papers on the map";
+            return stageView === "citations" ? "References and citations by year" : "Similar papers on the map";
         }
         if (view.level === "top") return `${subjects.length} subjects · circle area = papers on arXiv · pick one to see its categories`;
         if (view.level === "sub") return `${subcategories(view.parentId).length} categories · circle area = papers on arXiv · pick one to see its papers`;
@@ -482,7 +482,7 @@
                             role="tab"
                             aria-selected={stageView === "related"}
                             class:active={stageView === "related"}
-                            onclick={() => (stageView = "related")}>Related</button
+                            onclick={() => (stageView = "related")}>Similar</button
                         >
                     </div>
                 {/if}
