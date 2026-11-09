@@ -63,7 +63,9 @@
     let filtersOpen = $state(false);
     let filters = $state({ title: "", author: "", abstract: "", dateFrom: "", dateTo: "" });
     let everywhere = $state(false);
-    let sort = $state<NonNullable<PaperQuery["sort"]>>("citations");
+    let sort = $state<NonNullable<PaperQuery["sort"]>>("relevance");
+    /** Nothing matched, the results are similar titles */
+    let fuzzy = $state(false);
 
     let results = $state<Paper[] | null>(null);
     /** null while the matches are still being counted */
@@ -117,12 +119,14 @@
                 total = null;
                 countPapers(params)
                     .then((n) => {
-                        if (id === requestId) total = n;
+                        if (id === requestId && !fuzzy) total = n;
                     })
                     .catch(() => {});
                 const page = await getPapers(params);
                 if (id !== requestId) return; // a newer search started meanwhile
                 results = toPapers(page.items);
+                fuzzy = page.fuzzy === true;
+                if (fuzzy) total = results.length;
                 const found = results;
                 untrack(() => onresults(found));
             } catch {
@@ -180,7 +184,7 @@
             </Button>
         </div>
         <p class="hint">
-            Titles, authors, abstracts
+            Title, author or arXiv id
             {#if scope}
                 <label class="everywhere"><input type="checkbox" bind:checked={everywhere} /> All of arXiv</label>
             {/if}
@@ -219,7 +223,9 @@
                 {#if error}
                     {error}
                 {:else if results}
-                    {#if total === null}
+                    {#if fuzzy}
+                        Nothing matches exactly. Similar titles in {searchScopeLabel}:
+                    {:else if total === null}
                         {results.length === 0 ? "No results" : `First ${results.length} results`} in {searchScopeLabel},
                         counting…
                     {:else}
@@ -233,6 +239,7 @@
                 {/if}
             </span>
             <select class="field sort" bind:value={sort} aria-label="Sort results">
+                <option value="relevance">Best match</option>
                 <option value="citations">Most cited</option>
                 <option value="published">Newest</option>
                 <option value="published_asc">Oldest</option>

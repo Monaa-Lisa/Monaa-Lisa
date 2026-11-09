@@ -35,7 +35,8 @@ export interface PaperQuery {
     categories?: string;
     dateFrom?: string;
     dateTo?: string;
-    sort?: "published" | "published_asc" | "citations";
+    /** "relevance": best matches of `search` first (title and author matches, then the most cited) */
+    sort?: "relevance" | "published" | "published_asc" | "citations";
     /** "map" leaves out the abstract and the citation lists, for the paper map */
     fields?: "full" | "map";
     /** "none" skips counting all matches (total is null), which is slow for common words */
@@ -48,6 +49,8 @@ export interface PaperPage {
     items: ApiPaper[];
     /** null when the request asked for count "none" */
     total: number | null;
+    /** The search found nothing, the items are papers with a similar title */
+    fuzzy?: boolean;
     skip: number;
     take: number;
 }
