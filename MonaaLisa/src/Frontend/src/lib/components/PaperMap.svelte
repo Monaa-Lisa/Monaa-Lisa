@@ -8,7 +8,8 @@
   rest is grey) or its year of publication (`colorBy`).
 
   The regions of the map are named after the terms typical for the titles of
-  their papers (lib/regions.ts, `showRegions`).
+  their papers (lib/regions.ts, `showRegions`). After zooming in, the papers
+  in view are grouped and named again, so the names get more specific.
 
   Titles are HTML elements placed by lib/labels.ts: the most cited papers
   first, as many as fit without overlap, more when zooming in.
@@ -30,7 +31,7 @@
     import { DEFAULT_CATEGORY_COLOR, subcategoryName } from "$lib/categories";
     import { loadNeighbourhood } from "$lib/neighbourhood";
     import { createLabelPlacer, overlayBoxes, type Box, type PlacedLabel } from "$lib/labels";
-    import { findRegions } from "$lib/regions";
+    import { findRegions, type Region } from "$lib/regions";
     import { citationCount, primaryCategory, publishedYear, truncate } from "$lib/paper";
     import { onThemeChange, resolveColor, token, withAlpha } from "$lib/theme";
     import type { Paper } from "$lib/types/paper";
@@ -56,6 +57,10 @@
     let regionLabels = $state<{ id: string; label: string; x: number; y: number }[]>([]);
 
     const regions = $derived(findRegions(papers));
+    /** Regions of the papers in view after zooming in, null = the regions of the whole map */
+    let zoomRegions = $state<Region[] | null>(null);
+    /** Zoomed in further than this, the names come from the papers in view */
+    const ZOOM_NAMES_BELOW = 0.7;
 
     /** Must match .region-label in app.css */
     const REGION_FONT = '600 14px "IBM Plex Sans", system-ui, sans-serif';
@@ -73,7 +78,7 @@
         if (showRegions && measure) {
             measure.font = REGION_FONT;
             const { width: stageWidth, height: stageHeight } = r.getDimensions();
-            for (const region of [...regions].sort((a, b) => b.size - a.size)) {
+            for (const region of [...(zoomRegions ?? regions)].sort((a, b) => b.size - a.size)) {
                 const p = r.graphToViewport(region);
                 const half = measure.measureText(region.label).width / 2 + 8;
                 const box: Box = [p.x - half, p.y - REGION_HEIGHT / 2, p.x + half, p.y + REGION_HEIGHT / 2];
@@ -319,12 +324,38 @@
         const placer = createLabelPlacer(r, 30, () => [...overlayBoxes(el), ...regionBoxes]);
         let needsLabels = true;
         r.getCamera().on("updated", () => (needsLabels = true));
+
+        // once the view rests after zooming in, the papers in view get their own names
+        let rest: ReturnType<typeof setTimeout> | undefined;
+        const nameView = () => {
+            let next: Region[] | null = null;
+            if (r.getCamera().ratio < ZOOM_NAMES_BELOW) {
+                const { width: w, height: h } = r.getDimensions();
+                const inView = list.filter((p) => {
+                    if (p.x === 0 && p.y === 0) return false;
+                    const v = r.graphToViewport(p);
+                    return v.x >= 0 && v.y >= 0 && v.x <= w && v.y <= h;
+                });
+                // nearly everything in view: the names of the whole map still fit
+                next = inView.length > list.length * 0.85 ? null : findRegions(inView);
+            }
+            if (next === null && zoomRegions === null) return;
+            zoomRegions = next;
+            relabel();
+        };
+        r.getCamera().on("updated", () => {
+            clearTimeout(rest);
+            rest = setTimeout(nameView, 250);
+        });
         r.on("afterRender", () => {
             if (!needsLabels) return;
             needsLabels = false;
-            regionBoxes = placeRegions(r, overlayBoxes(el));
-            // only a few titles, the others show when hovering a point or zooming in; fewer still under the region names
-            labels = placer.place(candidates(), regionBoxes.length ? 8 : 14);
+            // not tracked: the names changing must not rebuild the map
+            untrack(() => {
+                regionBoxes = placeRegions(r, overlayBoxes(el));
+                // only a few titles, the others show when hovering a point or zooming in; fewer still under the region names
+                labels = placer.place(candidates(), regionBoxes.length ? 8 : 14);
+            });
         });
         relabel = () => {
             needsLabels = true;
@@ -343,6 +374,8 @@
             graph = null;
             hovered = null;
             ring = null;
+            clearTimeout(rest);
+            zoomRegions = null;
             labels = [];
             regionLabels = [];
             relabel = () => {};

@@ -51,7 +51,8 @@
         <li>
             <strong>Topic names</strong> on the paper map are an aid for reading it, not part of the method. The papers
             shown are grouped by their position (k-means), and each group is named after the word or phrase that is
-            frequent in its titles and rare in the rest of the map. The names change with the papers shown and can be
+            frequent in its titles and rare in the rest of the map. After zooming in, the papers in view are grouped and
+            named again, so the names become more specific. The names change with the papers shown and can be
             switched off in the header.
         </li>
         <li>
