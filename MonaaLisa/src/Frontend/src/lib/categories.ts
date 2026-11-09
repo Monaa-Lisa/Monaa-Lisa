@@ -18,21 +18,33 @@ interface ClusterEntry {
 const clusters = clusterData as ClusterEntry[];
 
 /**
- * One colour per subject, a muted print palette (after Tableau 10) that
- * stays readable on white and on near-black.
+ * One colour per subject, as slots of the categorical palette in app.css
+ * (--series-1 ... --series-8, with their own steps for the dark theme). The
+ * three large subjects take the three slots that stay apart for colour blind
+ * readers in every pairing.
  */
-export const CATEGORY_COLORS: Record<string, string> = {
-    physics: "#4e79a7",
-    computer_science: "#e15759",
-    mathematics: "#59a14f",
-    statistics: "#b07aa1",
-    electrical_engineering: "#f28e2b",
-    quantitative_biology: "#76b7b2",
-    quantitative_finance: "#c9a227",
-    economics: "#9c755f",
+const SUBJECT_SLOT: Record<string, number> = {
+    physics: 1,
+    computer_science: 2,
+    mathematics: 3,
+    electrical_engineering: 4,
+    quantitative_finance: 5,
+    quantitative_biology: 6,
+    statistics: 7,
+    economics: 8,
 };
 
-export const DEFAULT_CATEGORY_COLOR = "#8c8c88";
+/** For everything without a subject, and for "other" on the maps */
+export const DEFAULT_CATEGORY_COLOR = "var(--map-other)";
+
+/**
+ * Colour of a subject as a CSS value, usable in styles as it is. Canvases
+ * resolve it with resolveColor() from lib/theme.ts.
+ */
+export function subjectColor(subjectId: string): string {
+    const slot = SUBJECT_SLOT[subjectId];
+    return slot ? `var(--series-${slot})` : DEFAULT_CATEGORY_COLOR;
+}
 
 /**
  * Category prefix used to search within a subject.
@@ -98,7 +110,7 @@ export function paperContext(categories: string | null): {
 
 /** Colour of the subject a paper belongs to (by its primary category). */
 export function categoryColor(categories: string | null): string {
-    return CATEGORY_COLORS[subjectOf(primaryCategory(categories))] ?? DEFAULT_CATEGORY_COLOR;
+    return subjectColor(subjectOf(primaryCategory(categories)));
 }
 
 /** Compact count for labels: 1234 -> "1.2k", 2200822 -> "2.2M" */

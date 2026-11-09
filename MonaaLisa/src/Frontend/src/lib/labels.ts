@@ -35,7 +35,7 @@ const GAP = 5;
 const MARGIN_X = 6;
 const MARGIN_Y = 3;
 /** A title may cover at most this many other points, crowded spots stay readable */
-const MAX_COVERED_POINTS = 2;
+const MAX_COVERED_POINTS = 1;
 /** The selected paper's title is shortened rather than dropped, down to this width */
 const MIN_PRIMARY_WIDTH = 90;
 

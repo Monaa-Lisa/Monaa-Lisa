@@ -20,7 +20,7 @@
     import { BookMarked, Info, Moon, Sun } from "@lucide/svelte";
     import Sidebar from "$lib/components/Sidebar.svelte";
     import BubbleMap from "$lib/components/BubbleMap.svelte";
-    import PaperMap from "$lib/components/PaperMap.svelte";
+    import PaperMap, { type ColorBy } from "$lib/components/PaperMap.svelte";
     import CitationTimeline, { type NetworkMode } from "$lib/components/CitationTimeline.svelte";
     import PaperDetails, { type DetailsTab } from "$lib/components/PaperDetails.svelte";
     import LibraryPanel from "$lib/components/LibraryPanel.svelte";
@@ -37,9 +37,8 @@
     import { library } from "$lib/library.svelte";
     import { currentTheme, setTheme, type Theme } from "$lib/theme";
     import {
-        CATEGORY_COLORS,
         CATEGORY_PREFIX,
-        DEFAULT_CATEGORY_COLOR,
+        subjectColor,
         subcategories,
         subcategoryName,
         subjectName,
@@ -63,6 +62,7 @@
     const LARGE_LIMIT = 10000;
 
     let paperLimit = $state(1000);
+    let colorBy = $state<ColorBy>("category");
     let nodeLimit = $state(40);
     let pendingLimit = $state<{ target: "paper" | "node"; value: number } | null>(null);
 
@@ -333,11 +333,11 @@
               : { id: "", label: "all of arXiv" },
     );
 
-    const subjectColor = (c: CategoryNode) => CATEGORY_COLORS[c.id] ?? DEFAULT_CATEGORY_COLOR;
+    const colorOfSubject = (c: CategoryNode) => subjectColor(c.id);
     const browse = $derived.by(() => {
         const v = view;
-        if (v.level === "top") return { items: subjects, title: "Subjects", color: subjectColor, up: null };
-        const color = () => CATEGORY_COLORS[v.parentId] ?? DEFAULT_CATEGORY_COLOR;
+        if (v.level === "top") return { items: subjects, title: "Subjects", color: colorOfSubject, up: null };
+        const color = () => subjectColor(v.parentId);
         const items = subcategories(v.parentId);
         const title = `Categories in ${v.parentName}`;
         if (v.level === "sub") {
@@ -472,6 +472,13 @@
                     </label>
                 {:else if view.level === "papers"}
                     <label class="limit">
+                        <span>Colour</span>
+                        <select class="field" bind:value={colorBy}>
+                            <option value="category">Primary category</option>
+                            <option value="year">Year</option>
+                        </select>
+                    </label>
+                    <label class="limit">
                         <span>Most cited</span>
                         <select class="field" value={paperLimit} onchange={(e) => requestLimit("paper", Number(e.currentTarget.value))}>
                             {#each LIMIT_OPTIONS as value}
@@ -502,7 +509,7 @@
                         <Button onclick={() => view.level === "papers" && loadPapers(view.categoryId)}>Try again</Button>
                     </div>
                 {:else}
-                    <PaperMap {papers} {highlight} {selected} onselect={openPaper} />
+                    <PaperMap {papers} {highlight} {selected} {colorBy} onselect={openPaper} />
                 {/if}
             </div>
         </main>

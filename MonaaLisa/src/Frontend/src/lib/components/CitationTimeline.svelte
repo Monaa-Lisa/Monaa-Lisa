@@ -24,11 +24,11 @@
     import HoverCard from "$lib/components/HoverCard.svelte";
     import Spinner from "$lib/components/ui/Spinner.svelte";
     import ZoomControls from "$lib/components/ZoomControls.svelte";
-    import { CATEGORY_COLORS, categoryColor, subjectName, subjectOf } from "$lib/categories";
+    import { categoryColor, subjectColor, subjectName, subjectOf } from "$lib/categories";
     import { createLabelPlacer, overlayBoxes, type PlacedLabel } from "$lib/labels";
     import { loadNeighbourhood, type Neighbourhood } from "$lib/neighbourhood";
     import { citationCount, primaryCategory, publishedYear, truncate } from "$lib/paper";
-    import { onThemeChange, token } from "$lib/theme";
+    import { onThemeChange, resolveColor, token, withAlpha } from "$lib/theme";
     import type { Paper } from "$lib/types/paper";
 
     interface Props {
@@ -116,7 +116,7 @@
             .map(([id, count]) => ({
                 id,
                 name: id === "other" ? "Other" : subjectName(id),
-                color: CATEGORY_COLORS[id] ?? token("--text-3", "#888"),
+                color: subjectColor(id),
                 count,
             }));
     });
@@ -160,13 +160,13 @@
             x: layout === "citations" ? centreYear : centre.x,
             y: layout === "citations" ? yOf(centre) : centre.y,
             size: size(centre) + 3,
-            color: categoryColor(centre.categories),
+            color: resolveColor(categoryColor(centre.categories)),
             zIndex: 3,
         });
 
         const add = (p: Paper, x: number, y: number) => {
             if (graph.hasNode(p.entry_id)) return;
-            graph.addNode(p.entry_id, { x, y, size: size(p), color: categoryColor(p.categories), zIndex: 1 });
+            graph.addNode(p.entry_id, { x, y, size: size(p), color: withAlpha(resolveColor(categoryColor(p.categories)), 0.85), zIndex: 1 });
         };
 
         if (layout === "citations") {
@@ -359,7 +359,7 @@
                 <span class="column" style:left="{tick.left}px"><em>{tick.year}</em></span>
             {/each}
             {#if centreLine !== null}
-                <span class="centre" style:left="{centreLine}px"><em>selected paper</em></span>
+                <span class="centre" style:left="{centreLine}px"></span>
             {/if}
             <span class="axis-title">citations ↑</span>
         </div>
@@ -404,8 +404,9 @@
         <div class="legend">
             {#if mode === "citations"}
                 <span class="hint">
-                    <b>{groups.cites.length}</b> of {data.cites.length} references · <b>{groups.citedBy.length}</b> of
-                    {data.citedBy.length} citations · hover a point for its link
+                    {#if data.cites.length}<b>{groups.cites.length}</b> of {data.cites.length} references ·{/if}
+                    {#if data.citedBy.length}<b>{groups.citedBy.length}</b> of {data.citedBy.length} citations ·{/if}
+                    hover a point for its link
                 </span>
             {:else}
                 <span class="hint"><b>{groups.related.length}</b> related papers at their map positions</span>
@@ -490,12 +491,6 @@
         top: 0;
         bottom: 0;
         border-left: 1px solid var(--border-strong);
-    }
-    .centre em {
-        top: 26px;
-        transform: translateX(-50%);
-        color: var(--text-2);
-        font-family: var(--font-sans);
     }
     .axis-title {
         position: absolute;

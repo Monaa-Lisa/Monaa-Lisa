@@ -32,6 +32,12 @@ export function token(name: string, fallback = ""): string {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
 
+/** Resolves a colour given as "var(--name)" to its current value, for the canvases. */
+export function resolveColor(color: string, fallback = "#888888"): string {
+    const m = color.match(/^var\((--[\w-]+)\)$/);
+    return m ? token(m[1], fallback) : color;
+}
+
 /**
  * Calls `callback` whenever the theme changes (switch in the header or the
  * system setting). Returns a function that stops listening.

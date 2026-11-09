@@ -3,8 +3,9 @@
 
   Every point is a paper at its UMAP position (a fixed projection of the
   SPECTER2 embedding of title and abstract), so papers on similar topics sit
-  close together. Point size follows the citation count, colour the subject of
-  the paper's primary category, which makes cross listed papers visible.
+  close together. Point size follows the citation count, colour either the
+  primary category of the paper (the three most common ones on this map, the
+  rest is grey) or its year of publication (`colorBy`).
 
   Titles are HTML elements placed by lib/labels.ts: the most cited papers
   first, as many as fit without overlap, more when zooming in.
@@ -13,15 +14,20 @@
   adds papers that are not on the map yet at their own position. Selecting a
   paper marks it and draws its citation edges to papers on the map.
 -->
+<script module lang="ts">
+    export type ColorBy = "category" | "year";
+</script>
+
 <script lang="ts">
+    import { untrack } from "svelte";
     import Graph from "graphology";
     import Sigma from "sigma";
     import HoverCard from "$lib/components/HoverCard.svelte";
     import ZoomControls from "$lib/components/ZoomControls.svelte";
-    import { CATEGORY_COLORS, categoryColor, subjectName, subjectOf } from "$lib/categories";
+    import { DEFAULT_CATEGORY_COLOR, subcategoryName } from "$lib/categories";
     import { createLabelPlacer, overlayBoxes, type PlacedLabel } from "$lib/labels";
-    import { citationCount, primaryCategory, truncate } from "$lib/paper";
-    import { onThemeChange, token } from "$lib/theme";
+    import { citationCount, primaryCategory, publishedYear, truncate } from "$lib/paper";
+    import { onThemeChange, resolveColor, token, withAlpha } from "$lib/theme";
     import type { Paper } from "$lib/types/paper";
 
     interface Props {
@@ -29,10 +35,11 @@
         /** Papers to emphasise, everything else is dimmed. null = no highlight. */
         highlight: Paper[] | null;
         selected: Paper | null;
+        colorBy: ColorBy;
         onselect: (paper: Paper) => void;
     }
 
-    let { papers, highlight, selected, onselect }: Props = $props();
+    let { papers, highlight, selected, colorBy, onselect }: Props = $props();
 
     let container = $state<HTMLDivElement>();
     let width = $state(0);
@@ -44,22 +51,89 @@
     const byId = $derived(new Map(papers.map((p) => [p.entry_id, p])));
     const maxCitations = $derived(Math.max(1, ...papers.map(citationCount)));
 
-    // subjects on this map, for the legend
-    const legend = $derived.by(() => {
+    interface Scheme {
+        /** Colour of a paper as a CSS value */
+        colorOf: (p: Paper) => string;
+        legend: { id: string; name: string; detail?: string; color: string; count: number }[];
+    }
+
+    /** At most this many categories get a colour of their own, more can not be told apart on a scatter */
+    const CATEGORY_SLOTS = 3;
+    const YEAR_STEPS = 5;
+
+    function categoryScheme(list: Paper[]): Scheme {
         const counts = new Map<string, number>();
-        for (const p of papers) {
-            const id = subjectOf(primaryCategory(p.categories)) || "other";
+        for (const p of list) {
+            const id = primaryCategory(p.categories);
             counts.set(id, (counts.get(id) ?? 0) + 1);
         }
-        return [...counts.entries()]
-            .sort((a, b) => b[1] - a[1])
-            .map(([id, count]) => ({
-                id,
-                name: id === "other" ? "Other" : subjectName(id),
-                color: CATEGORY_COLORS[id] ?? token("--text-3", "#888"),
-                count,
-            }));
-    });
+        const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+        const top = ranked.slice(0, CATEGORY_SLOTS);
+        const slot = new Map(top.map(([id], i) => [id, `var(--series-${i + 1})`]));
+        const legend = top.map(([id, count]) => ({
+            id,
+            name: subcategoryName(id),
+            detail: id,
+            color: slot.get(id)!,
+            count,
+        }));
+        const rest = ranked.slice(CATEGORY_SLOTS);
+        if (rest.length) {
+            legend.push({
+                id: "other",
+                name: `${rest.length} other ${rest.length === 1 ? "category" : "categories"}`,
+                detail: "",
+                color: DEFAULT_CATEGORY_COLOR,
+                count: rest.reduce((sum, [, n]) => sum + n, 0),
+            });
+        }
+        return { colorOf: (p) => slot.get(primaryCategory(p.categories)) ?? DEFAULT_CATEGORY_COLOR, legend };
+    }
+
+    /** Years in up to five groups of about the same number of papers, old (light) to recent (dark) */
+    function yearScheme(list: Paper[]): Scheme {
+        const years = list
+            .map((p) => Number(publishedYear(p.published)))
+            .filter(Boolean)
+            .sort((a, b) => a - b);
+        if (!years.length) return { colorOf: () => DEFAULT_CATEGORY_COLOR, legend: [] };
+        // last year of every group
+        const ends: number[] = [];
+        for (let i = 1; i <= YEAR_STEPS; i++) {
+            const end = years[Math.min(years.length - 1, Math.ceil((i / YEAR_STEPS) * years.length) - 1)];
+            if (ends.at(-1) !== end) ends.push(end);
+        }
+        // with fewer groups the steps are spread over the whole ramp
+        const step = (i: number) =>
+            ends.length === 1 ? 3 : 1 + Math.round((i * (YEAR_STEPS - 1)) / (ends.length - 1));
+        const group = (year: number) => {
+            const i = ends.findIndex((end) => year <= end);
+            return i < 0 ? ends.length - 1 : i;
+        };
+        const counts = ends.map(() => 0);
+        for (const year of years) counts[group(year)]++;
+        const legend = ends.map((end, i) => {
+            const start = i === 0 ? years[0] : ends[i - 1] + 1;
+            return {
+                id: String(end),
+                name: start === end ? String(end) : `${start}–${String(end).slice(2)}`,
+                color: `var(--seq-${step(i)})`,
+                count: counts[i],
+            };
+        });
+        return {
+            colorOf: (p) => {
+                const year = Number(publishedYear(p.published));
+                return year ? `var(--seq-${step(group(year))})` : DEFAULT_CATEGORY_COLOR;
+            },
+            legend,
+        };
+    }
+
+    const scheme = $derived(colorBy === "year" ? yearScheme(papers) : categoryScheme(papers));
+
+    /** Slightly transparent, so points lying on each other show how dense a spot is */
+    const nodeColor = (p: Paper, s: Scheme) => withAlpha(resolveColor(s.colorOf(p)), 0.8);
 
     /**
      * Bounding box of the bulk of the papers: the initial view ignores a few
@@ -80,11 +154,11 @@
     }
 
     function nodeSize(p: Paper): number {
-        return 2.2 + 5 * (Math.log1p(citationCount(p)) / Math.log1p(maxCitations));
+        return 1.8 + 4.6 * (Math.log1p(citationCount(p)) / Math.log1p(maxCitations));
     }
 
     function nodeAttributes(p: Paper) {
-        return { x: p.x, y: p.y, size: nodeSize(p), color: categoryColor(p.categories), zIndex: 1 };
+        return { x: p.x, y: p.y, size: nodeSize(p), color: nodeColor(p, untrack(() => scheme)), zIndex: 1 };
     }
 
     $effect(() => {
@@ -280,6 +354,12 @@
         void highlight;
         applyHighlight();
     });
+    // switching the colouring repaints the points and keeps the view
+    $effect(() => {
+        const s = scheme;
+        if (!graph) return;
+        for (const [id, p] of nodes) if (graph.hasNode(id)) graph.setNodeAttribute(id, "color", nodeColor(p, s));
+    });
     $effect(() => {
         void selected;
         void byId;
@@ -318,8 +398,12 @@
     {/if}
 
     <div class="legend">
-        {#each legend as item (item.id)}
-            <span><i style:background={item.color}></i>{item.name} <b>{item.count.toLocaleString("en")}</b></span>
+        {#each scheme.legend as item (item.id)}
+            <span>
+                <i style:background={item.color}></i>{item.name}
+                {#if item.detail}<em>{item.detail}</em>{/if}
+                <b>{item.count.toLocaleString("en")}</b>
+            </span>
         {/each}
         <span class="hint">close points = similar content · size = citations · zoom for more titles</span>
     </div>
@@ -382,6 +466,10 @@
         color: var(--text-3);
         font-variant-numeric: tabular-nums;
         font-weight: 400;
+    }
+    .legend em {
+        color: var(--text-3);
+        font-style: normal;
     }
     .legend .hint {
         color: var(--text-3);

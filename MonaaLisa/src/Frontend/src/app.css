@@ -43,6 +43,23 @@
   --map-label: #191c26;
   --map-label-halo: #f6f7f9;
 
+  /* categorical palette for data, validated for colour blind readers (see lib/categories.ts) */
+  --series-1: #2a78d6; /* blue */
+  --series-2: #eb6834; /* orange */
+  --series-3: #1baf7a; /* aqua */
+  --series-4: #eda100; /* yellow */
+  --series-5: #e87ba4; /* magenta */
+  --series-6: #008300; /* green */
+  --series-7: #6250d6; /* violet */
+  --series-8: #e34948; /* red */
+  /* one hue for ordered values (publication year), old to recent */
+  --seq-1: #86b6ef;
+  --seq-2: #5598e7;
+  --seq-3: #2a78d6;
+  --seq-4: #1c5cab;
+  --seq-5: #0d366b;
+  --map-other: #8b90a0;
+
   --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --text-xs: 0.8125rem; /* 13px */
   --text-sm: 0.875rem; /* 14px */
@@ -95,6 +112,20 @@
   --map-grid: rgba(233, 234, 240, 0.07);
   --map-label: #e9eaf0;
   --map-label-halo: #10121c;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --seq-1: #184f95;
+  --seq-2: #256abf;
+  --seq-3: #3987e5;
+  --seq-4: #6da7ec;
+  --seq-5: #b7d3f6;
+  --map-other: #6b7088;
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.5);
 }
@@ -124,6 +155,20 @@
     --map-grid: rgba(233, 234, 240, 0.07);
     --map-label: #e9eaf0;
     --map-label-halo: #10121c;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+    --seq-1: #184f95;
+    --seq-2: #256abf;
+    --seq-3: #3987e5;
+    --seq-4: #6da7ec;
+    --seq-5: #b7d3f6;
+    --map-other: #6b7088;
     --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.5);
   }
@@ -303,10 +348,9 @@ input[type="checkbox"] {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-shadow:
-    0 0 2px var(--map-label-halo),
-    0 0 2px var(--map-label-halo),
-    0 0 4px var(--map-label-halo);
+  /* halo in the canvas colour, so a title stays readable next to points */
+  -webkit-text-stroke: 3px var(--map-label-halo);
+  paint-order: stroke fill;
   pointer-events: none;
 }
 .node-label.primary {
