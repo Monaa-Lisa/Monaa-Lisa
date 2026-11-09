@@ -38,8 +38,9 @@
     <h3>Reading the views</h3>
     <ul>
         <li>
-            <strong>Subjects and categories:</strong> the size of a circle follows the number of papers arXiv lists
-            in that category (arXiv-wide totals, not only the papers in this map).
+            <strong>Subjects and categories:</strong> the area of a circle follows the number of papers of the dataset
+            in that category. A category counts every paper listed in it, cross listed ones included; a subject counts
+            every paper once, by its primary category.
         </li>
         <li>
             <strong>Paper map:</strong> one point per paper at its UMAP position. Distances are meaningful locally

@@ -26,6 +26,8 @@
         categories: CategoryNode[];
         categoriesTitle: string;
         categoryColor: (item: CategoryNode) => string;
+        /** What the category counts are, e.g. "papers in the dataset" */
+        categoryUnit: string;
         /** Show the category ids (cs.LG) next to the names */
         showIds: boolean;
         /** Category whose papers are on the map, marked in the list */
@@ -47,6 +49,7 @@
         categories,
         categoriesTitle,
         categoryColor,
+        categoryUnit,
         showIds,
         activeCategoryId,
         onbrowse,
@@ -303,7 +306,7 @@
         {:else}
             <div class="list-head">
                 <span class="eyebrow">{categoriesTitle}</span>
-                <span class="eyebrow" title="Papers listed on arXiv">Papers</span>
+                <span class="eyebrow" title={categoryUnit}>Papers</span>
             </div>
             <ul class="list">
                 {#each categories as item (item.id)}
@@ -320,7 +323,7 @@
                                 {item.name}
                                 {#if showIds}<span class="id">{item.id}</span>{/if}
                             </span>
-                            <span class="count" title="{item.count.toLocaleString('en')} papers on arXiv"
+                            <span class="count" title="{item.count.toLocaleString('en')} {categoryUnit}"
                                 >{formatCount(item.count)}</span
                             >
                             <ChevronRight class="chev" aria-hidden="true" />

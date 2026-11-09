@@ -14,10 +14,12 @@
         color: (item: CategoryNode) => string;
         /** Show the category id (e.g. hep-th) as well as the name */
         showIds?: boolean;
+        /** What the counts are, e.g. "papers in the dataset" */
+        unit?: string;
         onselect: (item: CategoryNode) => void;
     }
 
-    let { items, color, showIds = false, onselect }: Props = $props();
+    let { items, color, showIds = false, unit = "papers", onselect }: Props = $props();
 
     const PADDING = 32;
     let width = $state(0);
@@ -59,7 +61,7 @@
             style:height="{bubble.r * 2}px"
             style:padding="{bubble.r * 0.14}px"
             style:--c={color(bubble.item)}
-            title="{bubble.item.name} · {bubble.item.count.toLocaleString('en')} papers on arXiv"
+            title="{bubble.item.name} · {bubble.item.count.toLocaleString('en')} {unit}"
             onclick={() => onselect(bubble.item)}
         >
             <span class="name" style:font-size="{nameSize(bubble.r)}px">{bubble.item.name}</span>

@@ -32,7 +32,7 @@
     import Spinner from "$lib/components/ui/Spinner.svelte";
     import type { CategoryNode, Paper } from "$lib/types/paper";
     import logoMark from "../../assets/logo-mark.png";
-    import { MAX_PAPERS_PER_REQUEST, getPaper, getPapers } from "$lib/api";
+    import { MAX_PAPERS_PER_REQUEST, getCategoryCounts, getPaper, getPapers } from "$lib/api";
     import { primaryCategory, toPaper, toPapers } from "$lib/paper";
     import { library } from "$lib/library.svelte";
     import { currentTheme, setTheme, type Theme } from "$lib/theme";
@@ -43,7 +43,9 @@
         subcategoryName,
         subjectName,
         subjectOf,
+        subjectList,
         subjects,
+        type DatasetCounts,
     } from "$lib/categories";
 
     type MapView =
@@ -110,7 +112,20 @@
     /** The router is ready, the URL may be updated */
     let routerReady = $state(false);
 
+    /** Papers per category in the dataset, null until counted (the arXiv totals are shown meanwhile) */
+    let counts = $state<DatasetCounts | null>(null);
+    const subjectItems = $derived(subjectList(counts));
+    const countUnit = $derived(counts ? "papers in the dataset" : "papers on arXiv");
+
     onMount(() => {
+        getCategoryCounts()
+            .then((list) => {
+                counts = {
+                    papers: new Map(list.map((c) => [c.id, c.papers])),
+                    primary: new Map(list.map((c) => [c.id, c.primary])),
+                };
+            })
+            .catch(() => {});
         library.load();
         theme = currentTheme();
         openFromUrl();
@@ -347,9 +362,9 @@
     const colorOfSubject = (c: CategoryNode) => subjectColor(c.id);
     const browse = $derived.by(() => {
         const v = view;
-        if (v.level === "top") return { items: subjects, title: "Subjects", color: colorOfSubject, up: null };
+        if (v.level === "top") return { items: subjectItems, title: "Subjects", color: colorOfSubject, up: null };
         const color = () => subjectColor(v.parentId);
-        const items = subcategories(v.parentId);
+        const items = subcategories(v.parentId, counts);
         const title = `Categories in ${v.parentName}`;
         if (v.level === "sub") {
             return { items, title, color, up: { label: "All subjects", onclick: () => withFade(() => showMap({ level: "top" })) } };
@@ -369,8 +384,8 @@
         if (selected && stageView !== "map") {
             return stageView === "citations" ? "References and citations by year" : "Similar papers on the map";
         }
-        if (view.level === "top") return `${subjects.length} subjects · circle area = papers on arXiv · pick one to see its categories`;
-        if (view.level === "sub") return `${subcategories(view.parentId).length} categories · circle area = papers on arXiv · pick one to see its papers`;
+        if (view.level === "top") return `${subjects.length} subjects · circle area = ${countUnit} · pick one to see its categories`;
+        if (view.level === "sub") return `${subcategories(view.parentId).length} categories · circle area = ${countUnit} · pick one to see its papers`;
         if (loading || error) return "";
         const shown = papers.length.toLocaleString("en");
         const total = papersTotal.toLocaleString("en");
@@ -440,6 +455,7 @@
             categories={browse.items}
             categoriesTitle={browse.title}
             categoryColor={browse.color}
+            categoryUnit={countUnit}
             showIds={view.level !== "top"}
             activeCategoryId={view.level === "papers" ? view.categoryId : null}
             up={browse.up}
@@ -539,9 +555,9 @@
                         />
                     {/key}
                 {:else if view.level === "top"}
-                    <BubbleMap items={subjects} color={browse.color} onselect={showSubject} />
+                    <BubbleMap items={browse.items} color={browse.color} unit={countUnit} onselect={showSubject} />
                 {:else if view.level === "sub"}
-                    <BubbleMap items={subcategories(view.parentId)} color={browse.color} showIds onselect={showCategory} />
+                    <BubbleMap items={browse.items} color={browse.color} unit={countUnit} showIds onselect={showCategory} />
                 {:else if loading}
                     <div class="state">
                         <Spinner size={24} />

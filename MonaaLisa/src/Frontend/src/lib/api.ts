@@ -98,6 +98,20 @@ export async function getPapersByIds(entryIds: string[]): Promise<ApiPaper[]> {
     return results.flat();
 }
 
+export interface CategoryCount {
+    /** arXiv category, e.g. "cs.LG" */
+    id: string;
+    /** Papers of the dataset listed in the category, cross listed ones included */
+    papers: number;
+    /** Papers that have it as their primary category */
+    primary: number;
+}
+
+/** GET /categories: how many papers of the dataset every category holds. */
+export function getCategoryCounts(): Promise<CategoryCount[]> {
+    return request<CategoryCount[]>("/categories");
+}
+
 export interface SimilarPapers {
     /** What "similar" means here: near in the embedding, near on the map, or nothing known */
     basis: "embedding" | "map" | null;

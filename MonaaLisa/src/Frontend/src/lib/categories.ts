@@ -62,19 +62,41 @@ export const CATEGORY_PREFIX: Record<string, string> = {
     physics: "physics.",
 };
 
-export const subjects: CategoryNode[] = clusters.map((c) => ({
-    id: c.id,
-    name: c.name,
-    count: c.total_count,
-}));
+/**
+ * The subjects and categories come with the number of papers arXiv lists in
+ * them (a snapshot in arxiv_cluster_data.json). `datasetCounts` replaces
+ * these by the papers that are really in the dataset, once the backend has
+ * counted them.
+ */
+export interface DatasetCounts {
+    /** Papers listed in a category, cross listed ones included */
+    papers: Map<string, number>;
+    /** Papers with the category as their primary one */
+    primary: Map<string, number>;
+}
+
+export function subjectList(counts: DatasetCounts | null = null): CategoryNode[] {
+    return clusters
+        .map((c) => ({
+        id: c.id,
+        name: c.name,
+        // every paper has one primary category, so this counts each paper once
+        count: counts ? c.children.reduce((sum, sub) => sum + (counts.primary.get(sub.id) ?? 0), 0) : c.total_count,
+    }))
+        .sort((a, b) => b.count - a.count);
+}
+
+export const subjects: CategoryNode[] = subjectList();
 
 export function subjectName(subjectId: string): string {
     return clusters.find((c) => c.id === subjectId)?.name ?? subjectId;
 }
 
-export function subcategories(subjectId: string): CategoryNode[] {
+export function subcategories(subjectId: string, counts: DatasetCounts | null = null): CategoryNode[] {
     const parent = clusters.find((c) => c.id === subjectId);
-    return (parent?.children ?? []).map((sub) => ({ id: sub.id, name: sub.name, count: sub.value }));
+    return (parent?.children ?? [])
+        .map((sub) => ({ id: sub.id, name: sub.name, count: counts ? (counts.papers.get(sub.id) ?? 0) : sub.value }))
+        .sort((a, b) => b.count - a.count);
 }
 
 /** Subject a subcategory belongs to, e.g. "cs.LG" -> "computer_science". */

@@ -60,6 +60,6 @@ export interface Paper {
 export interface CategoryNode {
     id: string;
     name: string;
-    /** Papers on arXiv in this category (arXiv wide, not only in the dataset) */
+    /** Papers in this category: in the dataset, or arXiv wide until the dataset is counted */
     count: number;
 }
