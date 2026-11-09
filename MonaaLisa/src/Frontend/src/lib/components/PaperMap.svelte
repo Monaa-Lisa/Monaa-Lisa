@@ -32,6 +32,7 @@
     import { loadNeighbourhood } from "$lib/neighbourhood";
     import { createLabelPlacer, overlayBoxes, type Box, type PlacedLabel } from "$lib/labels";
     import { findRegions, type Region } from "$lib/regions";
+    import type { MapScene } from "$lib/exportMap";
     import { citationCount, primaryCategory, publishedYear, truncate } from "$lib/paper";
     import { onThemeChange, resolveColor, token, withAlpha } from "$lib/theme";
     import type { Paper } from "$lib/types/paper";
@@ -480,6 +481,50 @@
     });
 
     const camera = () => renderer?.getCamera();
+
+    /** What the map shows right now, for the export (lib/exportMap.ts). null before the map is drawn. */
+    export function scene(title: string): MapScene | null {
+        const r = renderer;
+        const g = graph;
+        if (!r || !g) return null;
+        const { width: w, height: h } = r.getDimensions();
+        const at = new Map<string, { x: number; y: number; r: number; color: string; z: number }>();
+        g.forEachNode((id) => {
+            const d = r.getNodeDisplayData(id);
+            if (!d || d.hidden) return;
+            const v = r.framedGraphToViewport(d);
+            at.set(id, { x: v.x, y: v.y, r: r.scaleSize(d.size), color: d.color, z: d.zIndex ?? 0 });
+        });
+        const lines: MapScene["lines"] = [];
+        g.forEachEdge((_edge, _attrs, source, target) => {
+            const a = at.get(source);
+            const b = at.get(target);
+            if (a && b) lines.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+        });
+        return {
+            width: Math.round(w),
+            height: Math.round(h),
+            title,
+            // points outside the view are left out, the ones in front are drawn last
+            points: [...at.values()]
+                .filter((p) => p.x > -p.r && p.y > -p.r && p.x < w + p.r && p.y < h + p.r)
+                .sort((a, b) => a.z - b.z),
+            lines,
+            titles: labels.map((l) => ({ x: l.x, y: l.y, text: l.label, bold: l.id === selected?.entry_id })),
+            names: regionLabels.map((l) => ({ x: l.x, y: l.y, text: l.label })),
+            ring: ring ? { x: ring.x, y: ring.y, r: ring.size / 2 } : null,
+            legend: scheme.legend.map((item) => ({
+                color: resolveColor(item.color),
+                label: [item.name, item.detail, item.count.toLocaleString("en")].filter(Boolean).join(" "),
+            })),
+            colors: {
+                background: token("--surface", "#ffffff"),
+                text: token("--text", "#191c26"),
+                muted: token("--text-2", "#464b5a"),
+                line: token("--map-edge", "#b3b7c4"),
+            },
+        };
+    }
 </script>
 
 <div class="map" bind:clientWidth={width}>

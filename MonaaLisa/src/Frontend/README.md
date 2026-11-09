@@ -24,6 +24,8 @@ NestJS backend (`PUBLIC_API_BASE_URL`, default `http://localhost:3000`).
   BibTeX, abstract, and the reference / citation / related lists.
 - `LibraryPanel.svelte` (+ `lib/library.svelte.ts`): saved and recently
   opened papers in localStorage, BibTeX export.
+- `lib/exportMap.ts`: saves a paper map as a figure (SVG, PNG) and its papers
+  as CSV. The figure is drawn again from the data, not copied from the screen.
 - `lib/api.ts`: the only place that calls the backend. `lib/neighbourhood.ts`
   loads and caches everything around one paper.
 - `lib/categories.ts`: the arXiv hierarchy and the subject colours.

@@ -34,6 +34,7 @@
     import logoMark from "../../assets/logo-mark.png";
     import { MAX_PAPERS_PER_REQUEST, getCategoryCounts, getPaper, getPapers, getYearRange } from "$lib/api";
     import { primaryCategory, toPaper, toPapers } from "$lib/paper";
+    import { download, papersToCsv, sceneToCanvas, sceneToSvg } from "$lib/exportMap";
     import { library } from "$lib/library.svelte";
     import { currentTheme, setTheme, type Theme } from "$lib/theme";
     import {
@@ -116,6 +117,21 @@
     let favoriteCandidate = $state<Paper | null>(null);
     let theme = $state<Theme>("light");
     let sidebar = $state<Sidebar>();
+    let paperMap = $state<PaperMap>();
+
+    /** Saves the paper map as it is shown: a figure (SVG, PNG) or its papers (CSV) */
+    function exportMap(kind: string) {
+        if (view.level !== "papers") return;
+        const name = `monaa-lisa-${view.categoryId}${yearFrom || yearTo ? `-${yearFrom || "start"}-${yearTo || "now"}` : ""}`;
+        if (kind === "csv") {
+            download(`${name}.csv`, papersToCsv(papers), "text/csv");
+            return;
+        }
+        const scene = paperMap?.scene(`${view.categoryName} (${view.categoryId}) · ${caption} · Monaa-Lisa`);
+        if (!scene) return;
+        if (kind === "svg") download(`${name}.svg`, sceneToSvg(scene), "image/svg+xml");
+        else sceneToCanvas(scene).toBlob((blob) => blob && download(`${name}.png`, blob), "image/png");
+    }
 
     let highlightedAuthor = $state("");
     let authorPapers = $state<Paper[]>([]);
@@ -554,6 +570,23 @@
                         </select>
                     </label>
                 {:else if view.level === "papers"}
+                    {#if papers.length && stageView === "map"}
+                        <select
+                            class="field export"
+                            aria-label="Export this map"
+                            title="Save this map as a figure, or its papers as a table"
+                            value=""
+                            onchange={(e) => {
+                                exportMap(e.currentTarget.value);
+                                e.currentTarget.value = "";
+                            }}
+                        >
+                            <option value="" disabled hidden>Export</option>
+                            <option value="svg">Figure, SVG (print)</option>
+                            <option value="png">Figure, PNG</option>
+                            <option value="csv">Papers, CSV</option>
+                        </select>
+                    {/if}
                     <label class="limit" title="Name the regions of the map after the terms typical for their titles">
                         <input type="checkbox" bind:checked={showRegions} />
                         <span>Topics</span>
@@ -633,7 +666,7 @@
                         <Button onclick={() => view.level === "papers" && loadPapers(view.categoryId)}>Try again</Button>
                     </div>
                 {:else}
-                    <PaperMap {papers} {highlight} {selected} {colorBy} {showRegions} onselect={openPaper} />
+                    <PaperMap bind:this={paperMap} {papers} {highlight} {selected} {colorBy} {showRegions} onselect={openPaper} />
                 {/if}
             </div>
         </main>
@@ -922,6 +955,11 @@
         color: var(--text-3);
         font-size: var(--text-xs);
         white-space: nowrap;
+    }
+    .export {
+        height: 26px;
+        font-size: var(--text-xs);
+        color: var(--text-2);
     }
     .limit .field {
         height: 26px;
