@@ -75,6 +75,11 @@ export async function countPapers(query: PaperQuery): Promise<number> {
     return (await request<{ total: number }>(`/papers/count?${params}`)).total;
 }
 
+/** GET /papers/years: first and last year of publication in the dataset. */
+export function getYearRange(): Promise<{ first: number | null; last: number | null }> {
+    return request("/papers/years");
+}
+
 /** GET /papers/:id. Includes the citation and reference id lists. */
 export function getPaper(entryId: string): Promise<ApiPaper> {
     return request<ApiPaper>(`/papers/${encodeURIComponent(entryId)}`);

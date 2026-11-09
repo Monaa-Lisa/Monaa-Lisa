@@ -32,7 +32,7 @@
     import Spinner from "$lib/components/ui/Spinner.svelte";
     import type { CategoryNode, Paper } from "$lib/types/paper";
     import logoMark from "../../assets/logo-mark.png";
-    import { MAX_PAPERS_PER_REQUEST, getCategoryCounts, getPaper, getPapers } from "$lib/api";
+    import { MAX_PAPERS_PER_REQUEST, getCategoryCounts, getPaper, getPapers, getYearRange } from "$lib/api";
     import { primaryCategory, toPaper, toPapers } from "$lib/paper";
     import { library } from "$lib/library.svelte";
     import { currentTheme, setTheme, type Theme } from "$lib/theme";
@@ -66,6 +66,17 @@
     let paperLimit = $state(1000);
     let colorBy = $state<ColorBy>("category");
     let showRegions = $state(true);
+    /** The paper map can be limited to years of publication, 0 = no limit */
+    let yearFrom = $state(0);
+    let yearTo = $state(0);
+    /** Years the dataset covers, newest first, for the two selects */
+    let years = $state<number[]>([]);
+
+    function setYears(from: number, to: number) {
+        // a range the wrong way round is turned
+        [yearFrom, yearTo] = from && to && from > to ? [to, from] : [from, to];
+        if (view.level === "papers") loadPapers(view.categoryId);
+    }
     let nodeLimit = $state(40);
     let pendingLimit = $state<{ target: "paper" | "node"; value: number } | null>(null);
 
@@ -126,6 +137,11 @@
                 };
             })
             .catch(() => {});
+        getYearRange()
+            .then(({ first, last }) => {
+                if (first && last) years = Array.from({ length: last - first + 1 }, (_, i) => last - i);
+            })
+            .catch(() => {});
         library.load();
         theme = currentTheme();
         openFromUrl();
@@ -170,6 +186,12 @@
     function openFromUrl() {
         const params = new URLSearchParams(location.search);
         const category = params.get("category");
+        const year = (name: string) => {
+            const value = Number(params.get(name));
+            return Number.isInteger(value) && value > 1900 && value < 2200 ? value : 0;
+        };
+        yearFrom = year("from");
+        yearTo = year("to");
         const subject = params.get("subject");
         if (category && subjectOf(category)) {
             const parentId = subjectOf(category);
@@ -192,7 +214,11 @@
         if (!routerReady) return;
         const params = new URLSearchParams();
         if (view.level === "sub") params.set("subject", view.parentId);
-        if (view.level === "papers") params.set("category", view.categoryId);
+        if (view.level === "papers") {
+            params.set("category", view.categoryId);
+            if (yearFrom) params.set("from", String(yearFrom));
+            if (yearTo) params.set("to", String(yearTo));
+        }
         if (selected) params.set("paper", selected.entry_id);
         const search = params.toString();
         const url = `${location.pathname}${search ? `?${search}` : ""}`;
@@ -325,11 +351,15 @@
                 categories: categoryId,
                 sort: "citations",
                 fields: "map",
+                dateFrom: yearFrom ? `${yearFrom}-01-01` : undefined,
+                dateTo: yearTo ? `${yearTo}-12-31T23:59:59.999Z` : undefined,
                 take: paperLimit > 0 ? paperLimit : MAX_PAPERS_PER_REQUEST,
             });
             papers = toPapers(page.items);
             papersTotal = page.total ?? papers.length;
-            if (!papers.length) error = "No papers in this category yet.";
+            if (!papers.length) {
+                error = yearFrom || yearTo ? "No papers in this category in these years." : "No papers in this category yet.";
+            }
         } catch {
             error = "The papers could not be loaded. Is the backend running?";
         } finally {
@@ -389,7 +419,17 @@
         if (loading || error) return "";
         const shown = papers.length.toLocaleString("en");
         const total = papersTotal.toLocaleString("en");
-        return papers.length < papersTotal ? `${shown} of ${total} papers` : `${shown} papers`;
+        const range =
+            yearFrom && yearTo
+                ? yearFrom === yearTo
+                    ? ` from ${yearFrom}`
+                    : ` from ${yearFrom} to ${yearTo}`
+                : yearFrom
+                  ? ` since ${yearFrom}`
+                  : yearTo
+                    ? ` up to ${yearTo}`
+                    : "";
+        return (papers.length < papersTotal ? `${shown} of ${total} papers` : `${shown} papers`) + range;
     });
 
     function saveFavorite(groupId: string | null, newGroupName: string | null) {
@@ -518,6 +558,30 @@
                         <input type="checkbox" bind:checked={showRegions} />
                         <span>Topics</span>
                     </label>
+                    {#if years.length}
+                        <span class="limit">
+                            <label for="year-from">Years</label>
+                            <select
+                                id="year-from"
+                                class="field"
+                                value={yearFrom}
+                                aria-label="From year"
+                                onchange={(e) => setYears(Number(e.currentTarget.value), yearTo)}
+                            >
+                                <option value={0}>from</option>
+                                {#each years as y}<option value={y}>{y}</option>{/each}
+                            </select>
+                            <select
+                                class="field"
+                                value={yearTo}
+                                aria-label="To year"
+                                onchange={(e) => setYears(yearFrom, Number(e.currentTarget.value))}
+                            >
+                                <option value={0}>to</option>
+                                {#each years as y}<option value={y}>{y}</option>{/each}
+                            </select>
+                        </span>
+                    {/if}
                     <label class="limit">
                         <span>Colour</span>
                         <select class="field" bind:value={colorBy}>
