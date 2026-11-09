@@ -121,10 +121,15 @@
         return [...list].sort((a, b) => citationCount(b) - citationCount(a)).slice(0, nodeLimit);
     }
 
-    const groups = $derived({
-        cites: data ? limit(data.cites) : [],
-        citedBy: data ? limit(data.citedBy) : [],
-        related: limit(related),
+    const groups = $derived.by(() => {
+        const cites = data ? limit(data.cites) : [];
+        // two papers can cite each other (a later version cites back): such a paper is drawn once, as a reference
+        const drawn = new Set([paper.entry_id, ...cites.map((p) => p.entry_id)]);
+        return {
+            cites,
+            citedBy: data ? limit(data.citedBy).filter((p) => !drawn.has(p.entry_id)) : [],
+            related: limit(related).filter((p) => p.entry_id !== paper.entry_id),
+        };
     });
 
     const legend = $derived.by(() => {

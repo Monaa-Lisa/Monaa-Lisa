@@ -116,6 +116,10 @@
     let libraryOpen = $state(false);
     /** Small screens: the sidebar is a drawer over the map, closed until asked for */
     let sidebarOpen = $state(false);
+    /** Small screens: the details cover the map, this puts them aside to look at the view */
+    let detailsAside = $state(false);
+    /** Height of the bar above the map, it grows when its controls wrap */
+    let headHeight = $state(48);
     let aboutOpen = $state(false);
     let favoriteCandidate = $state<Paper | null>(null);
     let theme = $state<Theme>("light");
@@ -274,6 +278,7 @@
 
     function openPaper(paper: Paper) {
         notice = null;
+        detailsAside = false;
         sidebarOpen = false;
         if (selected && selected.entry_id !== paper.entry_id) trail = [...trail, selected].slice(-20);
         if (selected?.entry_id === paper.entry_id) return;
@@ -506,7 +511,13 @@
         </div>
     </header>
 
-    <div class="columns" class:with-panel={selected !== null || libraryOpen} class:sidebar-open={sidebarOpen}>
+    <div
+        class="columns"
+        class:with-panel={selected !== null || libraryOpen}
+        class:sidebar-open={sidebarOpen}
+        class:details-aside={detailsAside && selected !== null && !libraryOpen}
+        style:--head-height="{headHeight + 1}px"
+    >
         <Sidebar
             bind:this={sidebar}
             scope={scope.id}
@@ -530,18 +541,14 @@
             <button class="scrim" aria-label="Hide search and lists" onclick={() => (sidebarOpen = false)}></button>
         {/if}
 
+        {#if selected && !libraryOpen}
+            <button class="peek" onclick={() => (detailsAside = !detailsAside)}>
+                {detailsAside ? "Show details" : stageView === "map" ? "Show map" : "Show chart"}
+            </button>
+        {/if}
+
         <main class="stage">
-            <div class="stage-head">
-                {#if !selected}
-                    <h1 class="stage-title">
-                        {#if view.level === "top"}
-                            Subjects on arXiv
-                        {:else}
-                            {view.level === "sub" ? view.parentName : view.categoryName}
-                            {#if view.level === "papers"}<span class="ident">{view.categoryId}</span>{/if}
-                        {/if}
-                    </h1>
-                {/if}
+            <div class="stage-head" bind:clientHeight={headHeight}>
                 {#if selected}
                     <div class="segmented" role="tablist" aria-label="View">
                         {#if view.level === "papers"}
@@ -561,8 +568,20 @@
                         >
                     </div>
                 {/if}
-                <span class="caption">{caption}</span>
-                <span class="spacer"></span>
+                <!-- title and caption share what the controls leave, and shorten before the bar wraps -->
+                <div class="lead">
+                    {#if !selected}
+                        <h1 class="stage-title">
+                            {#if view.level === "top"}
+                                Subjects on arXiv
+                            {:else}
+                                {view.level === "sub" ? view.parentName : view.categoryName}
+                                {#if view.level === "papers"}<span class="ident">{view.categoryId}</span>{/if}
+                            {/if}
+                        </h1>
+                    {/if}
+                    <span class="caption">{caption}</span>
+                </div>
                 {#if selected && stageView !== "map"}
                     <label class="limit">
                         <span>Per group</span>
@@ -599,7 +618,7 @@
                             <label for="year-from">Years</label>
                             <select
                                 id="year-from"
-                                class="field"
+                                class="field year"
                                 value={yearFrom}
                                 aria-label="From year"
                                 onchange={(e) => setYears(Number(e.currentTarget.value), yearTo)}
@@ -608,7 +627,7 @@
                                 {#each years as y}<option value={y}>{y}</option>{/each}
                             </select>
                             <select
-                                class="field"
+                                class="field year"
                                 value={yearTo}
                                 aria-label="To year"
                                 onchange={(e) => setYears(yearFrom, Number(e.currentTarget.value))}
@@ -619,17 +638,15 @@
                         </span>
                     {/if}
                     <label class="limit">
-                        <span>Colour</span>
-                        <select class="field" bind:value={colorBy}>
-                            <option value="category">Primary category</option>
-                            <option value="year">Year</option>
+                        <select class="field" bind:value={colorBy} aria-label="Colour of the points">
+                            <option value="category">Colour: category</option>
+                            <option value="year">Colour: year</option>
                         </select>
                     </label>
                     <label class="limit">
-                        <span>Most cited</span>
-                        <select class="field" value={paperLimit} onchange={(e) => requestLimit("paper", Number(e.currentTarget.value))}>
+                        <select class="field" value={paperLimit} aria-label="Number of papers, most cited first" onchange={(e) => requestLimit("paper", Number(e.currentTarget.value))}>
                             {#each LIMIT_OPTIONS as value}
-                                <option {value}>{value === 0 ? "All" : value.toLocaleString("en")}</option>
+                                <option {value}>{value === 0 ? "All papers" : `Top ${value.toLocaleString("en")}`}</option>
                             {/each}
                         </select>
                     </label>
@@ -819,7 +836,7 @@
         }
         .columns.with-panel > :global(aside:not(.sidebar)) {
             position: absolute;
-            top: 48px;
+            top: var(--head-height, 48px);
             right: 0;
             bottom: 0;
             z-index: 5;
@@ -840,7 +857,8 @@
 
     /* phones and narrow windows: one column, the sidebar is a drawer and the details cover the map */
     .menu,
-    .scrim {
+    .scrim,
+    .peek {
         display: none;
     }
     @media (max-width: 900px) {
@@ -903,11 +921,35 @@
             overflow: hidden;
         }
         .stage-head {
-            padding: 0 10px;
-            overflow-x: auto;
+            padding: 8px 10px;
         }
         .caption {
             display: none;
+        }
+        .columns.details-aside > :global(aside:not(.sidebar)) {
+            display: none;
+        }
+        /* with the details aside the button sits at the top, clear of the legend */
+        .columns.details-aside .peek {
+            top: calc(var(--head-height, 48px) + 10px);
+            bottom: auto;
+        }
+        .peek {
+            display: block;
+            position: absolute;
+            left: 50%;
+            bottom: 14px;
+            z-index: 8;
+            padding: 8px 16px;
+            border: 0;
+            border-radius: 999px;
+            background: var(--accent);
+            box-shadow: var(--shadow-pop);
+            color: var(--accent-fg);
+            font-size: var(--text-sm);
+            font-weight: 500;
+            transform: translateX(-50%);
+            cursor: pointer;
         }
     }
 
@@ -920,38 +962,51 @@
     .stage-head {
         display: flex;
         align-items: center;
-        gap: 12px;
-        height: 48px;
-        padding: 0 16px 0 18px;
+        /* the controls move to a second row when the bar gets too narrow for them */
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        min-height: 48px;
+        padding: 8px 16px 8px 18px;
         border-bottom: 1px solid var(--border);
         background: var(--surface);
         flex-shrink: 0;
     }
-    .stage-title {
+    .lead {
         display: flex;
-        align-items: center;
-        gap: 8px;
+        align-items: baseline;
+        gap: 12px;
+        flex: 1 1 0;
+        min-width: 0;
+        overflow: hidden;
+    }
+    .lead:has(.stage-title) {
+        min-width: 150px;
+    }
+    .stage-title {
+        min-width: 0;
         margin: 0;
         color: var(--text);
         font-size: var(--text-md);
         font-weight: 600;
         white-space: nowrap;
-        flex-shrink: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 0 1 auto;
     }
     .stage-title .ident {
+        margin-left: 6px;
         color: var(--text-3);
         font-weight: 400;
     }
     .caption {
+        /* gives way before the title does */
+        flex: 0 100 auto;
         min-width: 0;
         color: var(--text-3);
         font-size: var(--text-sm);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-    }
-    .spacer {
-        flex: 1;
     }
     .limit {
         display: flex;
@@ -962,9 +1017,13 @@
         white-space: nowrap;
     }
     .export {
+        width: 78px;
         height: 26px;
         font-size: var(--text-xs);
         color: var(--text-2);
+    }
+    .limit .year {
+        width: 70px;
     }
     .limit .field {
         height: 26px;
