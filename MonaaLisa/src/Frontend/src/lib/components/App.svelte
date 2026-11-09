@@ -17,7 +17,7 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { afterNavigate, replaceState } from "$app/navigation";
-    import { BookMarked, Info, Menu, Moon, Sun } from "@lucide/svelte";
+    import { BookMarked, Info, Menu, Moon, Pause, Play, Sun } from "@lucide/svelte";
     import Sidebar from "$lib/components/Sidebar.svelte";
     import BubbleMap from "$lib/components/BubbleMap.svelte";
     import PaperMap, { type ColorBy } from "$lib/components/PaperMap.svelte";
@@ -73,6 +73,31 @@
     let yearTo = $state(0);
     /** Years the dataset covers, newest first, for the two selects */
     let years = $state<number[]>([]);
+
+    /** Time-lapse over the papers on the map: the year shown up to, null = not running */
+    let playYear = $state<number | null>(null);
+    let playTimer: ReturnType<typeof setInterval> | undefined;
+
+    function stopPlay() {
+        clearInterval(playTimer);
+        playYear = null;
+    }
+
+    /** Shows the papers on the map year by year, in the order they were published */
+    function togglePlay() {
+        if (playYear !== null) return stopPlay();
+        const present = [...new Set(papers.map((p) => new Date(p.published ?? "").getFullYear()).filter(Boolean))].sort(
+            (a, b) => a - b,
+        );
+        if (present.length < 2) return;
+        let i = 0;
+        playYear = present[0];
+        playTimer = setInterval(() => {
+            i++;
+            if (i >= present.length) stopPlay();
+            else playYear = present[i];
+        }, 1100);
+    }
 
     function setYears(from: number, to: number) {
         // a range the wrong way round is turned
@@ -367,6 +392,7 @@
 
     // ─── data ─────────────────────────────────────────────────────────
     async function loadPapers(categoryId: string) {
+        stopPlay();
         loading = true;
         error = null;
         papers = [];
@@ -635,6 +661,15 @@
                                 <option value={0}>to</option>
                                 {#each years as y}<option value={y}>{y}</option>{/each}
                             </select>
+                            <button
+                                class="play"
+                                title={playYear === null ? "Play the years: show the papers in the order they were published" : "Stop"}
+                                aria-label={playYear === null ? "Play the years" : "Stop"}
+                                aria-pressed={playYear !== null}
+                                onclick={togglePlay}
+                            >
+                                {#if playYear === null}<Play />{:else}<Pause />{/if}
+                            </button>
                         </span>
                     {/if}
                     <label class="limit">
@@ -687,7 +722,16 @@
                         <Button onclick={() => view.level === "papers" && loadPapers(view.categoryId)}>Try again</Button>
                     </div>
                 {:else}
-                    <PaperMap bind:this={paperMap} {papers} {highlight} {selected} {colorBy} {showRegions} onselect={openPaper} />
+                    <PaperMap
+                        bind:this={paperMap}
+                        {papers}
+                        {highlight}
+                        {selected}
+                        {colorBy}
+                        {showRegions}
+                        untilYear={playYear}
+                        onselect={openPaper}
+                    />
                 {/if}
             </div>
         </main>
@@ -1021,6 +1065,27 @@
         height: 26px;
         font-size: var(--text-xs);
         color: var(--text-2);
+    }
+    .play {
+        display: grid;
+        place-items: center;
+        width: 26px;
+        height: 26px;
+        padding: 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        color: var(--text-2);
+        cursor: pointer;
+    }
+    .play:hover,
+    .play[aria-pressed="true"] {
+        border-color: var(--border-strong);
+        color: var(--text);
+    }
+    .play :global(svg) {
+        width: 13px;
+        height: 13px;
     }
     .limit .year {
         width: 70px;

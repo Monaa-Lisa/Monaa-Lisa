@@ -46,7 +46,8 @@
             <strong>Paper map:</strong> one point per paper at its UMAP position. Distances are meaningful locally
             (close points are similar), the axes have no meaning. Point size follows the citation count (on arXiv and
             elsewhere), colour the paper's primary category or its year of publication. A category map shows the most
-            cited papers first; the number of papers can be raised in the header.
+            cited papers first; the number of papers can be raised in the header. It can be limited to a range of years, and the
+            play button next to the years shows the papers on the map in the order they were published.
         </li>
         <li>
             <strong>Topic names</strong> on the paper map are an aid for reading it, not part of the method. The papers

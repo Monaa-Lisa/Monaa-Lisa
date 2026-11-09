@@ -43,12 +43,14 @@
         highlight: Paper[] | null;
         selected: Paper | null;
         colorBy: ColorBy;
+        /** Time-lapse: only papers published up to this year are shown, null = all */
+        untilYear?: number | null;
         /** Name the regions of the map */
         showRegions: boolean;
         onselect: (paper: Paper) => void;
     }
 
-    let { papers, highlight, selected, colorBy, showRegions, onselect }: Props = $props();
+    let { papers, highlight, selected, colorBy, showRegions, untilYear = null, onselect }: Props = $props();
 
     let container = $state<HTMLDivElement>();
     let width = $state(0);
@@ -57,7 +59,12 @@
     let labels = $state<PlacedLabel[]>([]);
     let regionLabels = $state<{ id: string; label: string; x: number; y: number }[]>([]);
 
-    const regions = $derived(findRegions(papers));
+    const yearOf = (p: Paper) => Number(publishedYear(p.published)) || 0;
+    // the regions are named from the papers shown, so the names change as the time-lapse runs
+    const regions = $derived(findRegions(untilYear ? papers.filter((p) => yearOf(p) <= untilYear) : papers));
+    /** Copy of `untilYear` for the renderer's callbacks, which must not be tracked */
+    let hideAfter: number | null = null;
+    const hiddenByYear = (p: Paper | undefined) => !!hideAfter && !!p && yearOf(p) > hideAfter;
     /** Regions of the papers in view after zooming in, null = the regions of the whole map */
     let zoomRegions = $state<Region[] | null>(null);
     /** Zoomed in further than this, the names come from the papers in view */
@@ -247,7 +254,12 @@
     /** Papers that may carry a title, most important first */
     function candidates() {
         const list = [...nodes.values()]
-            .filter((p) => graph?.hasNode(p.entry_id) && (!highlightSet || highlightSet.has(p.entry_id)))
+            .filter(
+                (p) =>
+                    graph?.hasNode(p.entry_id) &&
+                    !hiddenByYear(p) &&
+                    (!highlightSet || highlightSet.has(p.entry_id)),
+            )
             .sort((a, b) => citationCount(b) - citationCount(a));
         const i = list.findIndex((p) => p.entry_id === selectedId);
         if (i > 0) list.unshift(...list.splice(i, 1));
@@ -281,6 +293,7 @@
             minCameraRatio: 0.02,
             maxCameraRatio: 6,
             nodeReducer: (node, attrs) => {
+                if (node !== selectedId && hiddenByYear(nodes.get(node))) return { ...attrs, hidden: true };
                 const out = { ...attrs };
                 if (node === selectedId) {
                     out.size = attrs.size + 2;
@@ -333,7 +346,7 @@
             if (r.getCamera().ratio < ZOOM_NAMES_BELOW) {
                 const { width: w, height: h } = r.getDimensions();
                 const inView = list.filter((p) => {
-                    if (p.x === 0 && p.y === 0) return false;
+                    if ((p.x === 0 && p.y === 0) || hiddenByYear(p)) return false;
                     const v = r.graphToViewport(p);
                     return v.x >= 0 && v.y >= 0 && v.x <= w && v.y <= h;
                 });
@@ -469,6 +482,10 @@
         void showRegions;
         relabel();
     });
+    $effect(() => {
+        hideAfter = untilYear;
+        relabel();
+    });
     // switching the colouring repaints the points and keeps the view
     $effect(() => {
         const s = scheme;
@@ -543,6 +560,10 @@
     {#each regionLabels as item (item.id)}
         <span class="region-label" style:left="{item.x}px" style:top="{item.y}px">{item.label}</span>
     {/each}
+
+    {#if untilYear}
+        <div class="year-now" aria-live="polite">up to {untilYear}</div>
+    {/if}
 
     {#if ring}
         <div
@@ -628,6 +649,16 @@
         color: var(--text-3);
         font-variant-numeric: tabular-nums;
         font-weight: 400;
+    }
+    .year-now {
+        position: absolute;
+        top: 12px;
+        left: 16px;
+        color: var(--text-2);
+        font-size: var(--text-xl);
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        pointer-events: none;
     }
     .legend em {
         color: var(--text-3);
