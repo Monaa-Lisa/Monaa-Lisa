@@ -63,6 +63,15 @@ export class PapersController {
   }
 
   /**
+   * GET /papers/years
+   * First and last year of publication in the dataset: { first, last }
+   */
+  @Get('years')
+  years() {
+    return this.papers.years();
+  }
+
+  /**
    * GET /papers/:entryId/similar
    * The papers nearest to one paper: { basis, items }, see the service.
    */

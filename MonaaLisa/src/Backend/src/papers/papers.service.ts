@@ -74,6 +74,15 @@ export class PapersService {
     };
   }
 
+  /** First and last year of publication in the dataset (uses the index on published) */
+  async years() {
+    const { rows } = await sql<{ first: number | null; last: number | null }>`
+      SELECT EXTRACT(YEAR FROM MIN(published))::int AS first,
+             EXTRACT(YEAR FROM MAX(published))::int AS last
+      FROM paper`.execute(this.db);
+    return rows[0];
+  }
+
   /** How many papers match the filters of `q` */
   async count(q: QueryPaperDto): Promise<number> {
     const counted = await this.filtered(q)

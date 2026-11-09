@@ -16,6 +16,7 @@ Originally written by Nico (2025), ported from Prisma to Kysely in November
 | `GET /health` | `{ status: "ok" }` when the database answers |
 | `GET /papers` | a page of papers: `{ items, total, skip, take }` |
 | `GET /papers/count` | `{ total }` for the same filters as `GET /papers` |
+| `GET /papers/years` | first and last year of publication in the dataset: `{ first, last }` |
 | `GET /papers/:entryId` | one paper with the ids of its citations and references |
 | `GET /papers/:entryId/similar` | the papers nearest to a paper: `{ basis, items }` |
 | `POST /papers/batch` | several papers by id, body `{ entryIds: [...] }` |

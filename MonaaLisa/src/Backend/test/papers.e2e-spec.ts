@@ -245,6 +245,20 @@ describeWithTestDb('papers and citations (e2e)', () => {
     expect(res.body).toEqual({ basis: null, items: [] });
   });
 
+  it('knows the first and last year of the dataset', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/papers/years')
+      .expect(200);
+    expect(res.body).toEqual({ first: 2010, last: 2019 });
+  });
+
+  it('limits a list to a range of years', async () => {
+    const page = await get(
+      '/papers?sort=citations&dateFrom=2015-01-01&dateTo=2018-12-31T23:59:59.999Z',
+    );
+    expect(ids(page)).toEqual(['1000.0002', '1000.0001']);
+  });
+
   it('counts the papers per category, cross listed and primary', async () => {
     const res = await request(app.getHttpServer())
       .get('/categories')
