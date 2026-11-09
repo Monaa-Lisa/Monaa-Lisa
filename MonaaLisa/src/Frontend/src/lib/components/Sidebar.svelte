@@ -86,6 +86,16 @@
     const largest = $derived(Math.max(1, ...categories.map((c) => c.count)));
     // the backend sorts by the arXiv count only, the list shows all citations
     const ranked = $derived([...papers].sort((a, b) => citationCount(b) - citationCount(a)));
+    /**
+     * Rows of the ranked list that are drawn. A map can hold 20,000 papers,
+     * that many rows make every click take seconds, so the list grows on demand.
+     */
+    const LIST_STEP = 200;
+    let listShown = $state(LIST_STEP);
+    $effect(() => {
+        void papers;
+        listShown = LIST_STEP;
+    });
 
     const activeFilters = $derived(Object.values(filters).filter((v) => v.trim()).length);
     const isSearching = $derived(query.trim() !== "" || activeFilters > 0);
@@ -313,7 +323,7 @@
                 <span class="eyebrow" title="Citations on arXiv and elsewhere">Cited</span>
             </div>
             <ul class="list">
-                {#each ranked as paper (paper.entry_id)}
+                {#each ranked.slice(0, listShown) as paper (paper.entry_id)}
                     <PaperRow
                         title={paper.title}
                         authors={paper.authors}
@@ -327,6 +337,13 @@
                 {:else}
                     <li class="empty">No papers loaded.</li>
                 {/each}
+                {#if ranked.length > listShown}
+                    <li>
+                        <button class="more" onclick={() => (listShown += LIST_STEP * 2)}>
+                            Show more ({listShown.toLocaleString("en")} of {ranked.length.toLocaleString("en")})
+                        </button>
+                    </li>
+                {/if}
             </ul>
         {:else}
             <div class="list-head">
