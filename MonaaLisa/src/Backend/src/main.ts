@@ -4,6 +4,7 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import compression from 'compression';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
@@ -21,6 +22,8 @@ async function bootstrap() {
   const env = readEnv();
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.use(helmet());
+  // the paper lists are JSON of several hundred kB, gzip takes two thirds off
+  app.use(compression());
   // Behind a reverse proxy (Caddy/nginx) the rate limiter needs the client IP
   // from X-Forwarded-For. Set TRUST_PROXY to the number of proxies in front.
   if (env.TRUST_PROXY) {

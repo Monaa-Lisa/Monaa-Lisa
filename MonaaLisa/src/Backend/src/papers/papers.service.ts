@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { sql } from 'kysely';
 import type { Expression, SqlBool } from 'kysely';
 import { DatabaseService } from '../database/database.service';
 import { containsPattern } from '../database/sql';
@@ -6,6 +7,19 @@ import { DEFAULT_TAKE, MAX_TAKE, QueryPaperDto } from './dto/query-paper.dto';
 
 /** Requests for more ids than this get no citation lists attached */
 const ENRICH_LIMIT = 50;
+
+/** Columns of a point on the paper map (fields=map) */
+const MAP_COLUMNS = [
+  'id',
+  'entry_id',
+  'title',
+  'authors',
+  'categories',
+  'published',
+  'tsne',
+  'arxiv_citation_count',
+  'non_arxiv_citation_count',
+] as const;
 
 /**
  * Read access to papers: search, pagination, single and batch lookups.
@@ -61,9 +75,13 @@ export class PapersService {
     );
 
     if (q.sort === 'citations') {
-      // stored count + id as tiebreaker, so pages never overlap (uses an index)
+      // citations from arXiv papers plus the ones counted outside arXiv, id as
+      // tiebreaker so pages never overlap (the expression has an index)
       query = query
-        .orderBy('arxiv_citation_count', 'desc')
+        .orderBy(
+          sql<number>`arxiv_citation_count + COALESCE(non_arxiv_citation_count, 0)`,
+          'desc',
+        )
         .orderBy('id', 'asc');
     } else {
       const direction = q.sort === 'published_asc' ? 'asc' : 'desc';
@@ -72,14 +90,21 @@ export class PapersService {
         .orderBy('id', 'asc');
     }
 
+    if (q.fields === 'map') {
+      const [items, counted] = await Promise.all([
+        query.select(MAP_COLUMNS).offset(skip).limit(take).execute(),
+        countQuery.executeTakeFirstOrThrow(),
+      ]);
+      return { items, total: Number(counted.count), skip, take };
+    }
+
     const [items, counted] = await Promise.all([
       query.selectAll().offset(skip).limit(take).execute(),
       countQuery.executeTakeFirstOrThrow(),
     ]);
 
-    // the paper map (category + citation sort) needs the citation lists for
-    // its node sizes, other lists only get them when they are small
-    const enrich = (q.sort === 'citations' && !!q.categories) || take <= 40;
+    // the citation lists are only attached to short lists
+    const enrich = take <= 40;
     return {
       items: enrich ? await this.withEdges(items) : items.map(withoutEdges),
       total: Number(counted.count),

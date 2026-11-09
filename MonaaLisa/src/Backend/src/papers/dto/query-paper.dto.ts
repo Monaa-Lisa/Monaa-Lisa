@@ -21,6 +21,11 @@ export const SORT_OPTIONS = [
 ] as const;
 export type PaperSort = (typeof SORT_OPTIONS)[number];
 
+// 'map' returns only what a point on the paper map needs: no abstract, no
+// citation lists. A page of 1000 papers is then a tenth of the size.
+export const FIELD_SETS = ['full', 'map'] as const;
+export type PaperFields = (typeof FIELD_SETS)[number];
+
 export class QueryPaperDto {
   // Free text, matched against title, authors and abstract (any of them)
   @IsOptional()
@@ -58,10 +63,14 @@ export class QueryPaperDto {
   dateTo?: string;
 
   // 'published' = newest first (default), 'published_asc' = oldest first,
-  // 'citations' = most cited by arXiv papers first
+  // 'citations' = most cited first (arXiv and elsewhere)
   @IsOptional()
   @IsIn(SORT_OPTIONS)
   sort?: PaperSort;
+
+  @IsOptional()
+  @IsIn(FIELD_SETS)
+  fields?: PaperFields;
 
   // Pagination
   @IsOptional()
