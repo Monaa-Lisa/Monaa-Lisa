@@ -446,7 +446,7 @@
                     {data.relatedBasis === "embedding"
                         ? "nearest papers in the embedding"
                         : data.relatedBasis === "map"
-                          ? "nearest papers on the map"
+                          ? "nearest papers on the map (rough guide, no embedding for this paper)"
                           : "papers recommended by Semantic Scholar"}, at their map positions{context.length
                         ? " · grey: the other papers of this category"
                         : ""}

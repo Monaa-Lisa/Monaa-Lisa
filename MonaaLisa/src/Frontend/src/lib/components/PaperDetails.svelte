@@ -285,7 +285,7 @@
                     {data.relatedBasis === "embedding"
                         ? "The papers nearest to this one in the embedding of title and abstract, nearest first."
                         : data.relatedBasis === "map"
-                          ? "The papers nearest to this one on the map, nearest first."
+                          ? "The papers nearest to this one on the map, nearest first. The embedding of this paper is not in the database, so this is a rough guide: same topic area, not necessarily the most similar papers."
                           : "Recommended by Semantic Scholar."}
                 </p>
             {/if}

@@ -65,7 +65,9 @@
             <strong>Similar:</strong> the papers nearest to the selected one, drawn at their own map positions with
             the papers of the open category in grey behind them. Nearest means the smallest cosine distance between
             the 128-dimensional embeddings. Where the embedding of a paper is not in the database, the nearest papers
-            on the two-dimensional map are shown instead, and the view says so.
+            on the two-dimensional map are shown instead, and the view says so. That is a rough guide only: the map keeps
+            topic areas well, but of the ten most similar papers in the embedding fewer than one on average is also
+            among the ten nearest on the map (see analysis/README.md in the repository).
         </li>
     </ul>
 
