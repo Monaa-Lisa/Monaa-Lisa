@@ -157,14 +157,11 @@
         </div>
 
         <p class="context" style:--c={categoryColor(full.categories)}>
-            <span class="chip">
-                <i></i>
-                <span class="mono">{context.categoryId}</span>
-                {#if context.categoryName && context.categoryName !== context.categoryId}
-                    <span class="cat-name">{context.categoryName}</span>
-                {/if}
-            </span>
-            {#if context.subjectName}<span class="dim">{context.subjectName}</span>{/if}
+            <span class="cat-name">{context.categoryName || context.categoryId}</span>
+            {#if context.categoryName && context.categoryName !== context.categoryId}
+                <span class="ident">{context.categoryId}</span>
+            {/if}
+            {#if context.subjectName}<span class="dim">· {context.subjectName}</span>{/if}
         </p>
 
         <h2>{full.title}</h2>
@@ -182,7 +179,7 @@
 
         <p class="meta">
             {#if full.published}<span>{formatDate(full.published)}</span>{/if}
-            <span>arXiv:<span class="mono">{full.entry_id}</span></span>
+            <span>arXiv:<span class="ident">{full.entry_id}</span></span>
             {#if full.journal_ref}<span class="journal" title={full.journal_ref}>{full.journal_ref}</span>{/if}
         </p>
 
@@ -245,7 +242,7 @@
                         <dt>Categories</dt>
                         <dd>
                             {#each categories as c, i}
-                                <span title={subcategoryName(c)}><span class="mono">{c}</span>{i < categories.length - 1 ? ", " : ""}</span>
+                                <span title={subcategoryName(c)}><span class="ident">{c}</span>{i < categories.length - 1 ? ", " : ""}</span>
                             {/each}
                         </dd>
                     </div>
@@ -259,7 +256,7 @@
                 {#if full.doi}
                     <div>
                         <dt>DOI</dt>
-                        <dd><a href={links.doi} target="_blank" rel="noopener noreferrer" class="mono">{full.doi}</a></dd>
+                        <dd><a href={links.doi} target="_blank" rel="noopener noreferrer" class="ident">{full.doi}</a></dd>
                     </div>
                 {/if}
             </dl>
@@ -328,34 +325,20 @@
 
     .context {
         display: flex;
-        align-items: center;
-        gap: 8px;
+        align-items: baseline;
+        gap: 6px;
         min-width: 0;
         margin: 6px 0 0;
         color: var(--text-3);
         font-size: var(--text-xs);
         white-space: nowrap;
     }
-    .chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
+    .context .cat-name {
         min-width: 0;
-        padding: 2px 8px;
-        border-radius: 999px;
-        background: color-mix(in srgb, var(--c) 13%, var(--surface));
-        color: var(--text);
-    }
-    .chip i {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background: var(--c);
-        flex-shrink: 0;
-    }
-    .chip .cat-name {
         overflow: hidden;
         text-overflow: ellipsis;
+        color: color-mix(in srgb, var(--c) 72%, var(--text));
+        font-weight: 600;
     }
     .context .dim {
         overflow: hidden;

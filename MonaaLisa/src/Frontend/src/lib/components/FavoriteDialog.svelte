@@ -35,7 +35,7 @@
     }
 </script>
 
-<Dialog open={paper !== null} onclose={oncancel} title="Add to favorites">
+<Dialog open={paper !== null} onclose={oncancel} title="Save to library">
     {#if paper}
         <p class="paper-title">{paper.title}</p>
     {/if}
@@ -65,7 +65,7 @@
 
     {#snippet footer()}
         <Button variant="ghost" onclick={oncancel}>Cancel</Button>
-        <Button variant="primary" onclick={save}>Add to favorites</Button>
+        <Button variant="primary" onclick={save}>Save</Button>
     {/snippet}
 </Dialog>
 

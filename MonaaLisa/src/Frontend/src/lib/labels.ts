@@ -126,9 +126,15 @@ export function createLabelPlacer(renderer: Sigma, maxLabels = 60, obstacles: ()
                 }
                 // the selected paper always gets its title, shortened to the wider side
                 if (!chosen && rank === 0) {
-                    const room = Math.max(p.x - size - GAP, stageWidth - (p.x + size + GAP)) - 8;
-                    w = Math.max(MIN_PRIMARY_WIDTH, Math.min(w, room));
-                    chosen = box(stageWidth - p.x > p.x ? "right" : "left", w);
+                    // free room on both sides, up to the stage edge or an overlay on that line
+                    const sameLine = blocked.filter((b) => b[1] < p.y + half && b[3] > p.y - half);
+                    const rightEdge = Math.min(stageWidth, ...sameLine.filter((b) => b[0] > p.x).map((b) => b[0]));
+                    const leftEdge = Math.max(0, ...sameLine.filter((b) => b[2] < p.x).map((b) => b[2]));
+                    const roomRight = rightEdge - (p.x + size + GAP) - 4;
+                    const roomLeft = p.x - size - GAP - leftEdge - 4;
+                    const side = roomRight >= Math.min(w, roomLeft) ? "right" : "left";
+                    w = Math.max(MIN_PRIMARY_WIDTH, Math.min(w, side === "right" ? roomRight : roomLeft));
+                    chosen = box(side, w);
                 }
                 if (!chosen) continue;
                 taken.push(padded(chosen));

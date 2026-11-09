@@ -380,7 +380,7 @@
     }
     .legend b {
         color: var(--text-3);
-        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
         font-weight: 400;
     }
     .legend .hint {

@@ -397,25 +397,27 @@
         border: 1px solid var(--border);
         border-radius: var(--radius-sm);
         color: var(--text-3);
-        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
         font-size: 11px;
     }
 
     .filters {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         gap: 8px 10px;
         padding: 10px 0 4px;
     }
     .filters label {
         display: grid;
         gap: 3px;
+        min-width: 0;
     }
     .filters .wide {
         grid-column: 1 / -1;
     }
     .filters .field {
         width: 100%;
+        min-width: 0;
     }
 
     .list-head {
@@ -501,7 +503,7 @@
     }
     .switch .n {
         color: var(--text-3);
-        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
         font-size: var(--text-xs);
         font-weight: 400;
     }
@@ -540,12 +542,12 @@
     .category .id {
         margin-left: 6px;
         color: var(--text-3);
-        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
         font-size: 0.75rem;
     }
     .category .count {
         color: var(--text-2);
-        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
         font-size: var(--text-xs);
     }
     .category :global(.chev) {

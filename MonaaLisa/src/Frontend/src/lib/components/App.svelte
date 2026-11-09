@@ -435,9 +435,8 @@
                         {#if view.level === "top"}
                             Subjects on arXiv
                         {:else}
-                            <i style:background={CATEGORY_COLORS[view.parentId] ?? DEFAULT_CATEGORY_COLOR}></i>
                             {view.level === "sub" ? view.parentName : view.categoryName}
-                            {#if view.level === "papers"}<span class="mono">{view.categoryId}</span>{/if}
+                            {#if view.level === "papers"}<span class="ident">{view.categoryId}</span>{/if}
                         {/if}
                     </h1>
                 {/if}
@@ -627,7 +626,7 @@
         border-radius: 8px;
         background: var(--header-fg);
         color: var(--header-bg);
-        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
         font-size: 11px;
         font-weight: 500;
     }
@@ -640,6 +639,34 @@
     }
     .columns.with-panel {
         grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--panel-width);
+    }
+    /* small screens: the details lie over the right side of the map, below its toolbar */
+    @media (max-width: 1180px) {
+        .columns {
+            position: relative;
+        }
+        .columns.with-panel {
+            grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+        }
+        .columns.with-panel > :global(aside:nth-child(3)) {
+            position: absolute;
+            top: 48px;
+            right: 0;
+            bottom: 0;
+            z-index: 5;
+            width: var(--overlay-width);
+            box-shadow: var(--shadow-pop);
+        }
+        .columns.with-panel {
+            --overlay-width: min(var(--panel-width), calc(100% - var(--sidebar-width) - 120px));
+        }
+        /* the maps lay themselves out in the uncovered part */
+        .columns.with-panel .stage-body {
+            padding-right: var(--overlay-width);
+        }
+        .columns.with-panel .state {
+            right: var(--overlay-width);
+        }
     }
 
     .stage {
@@ -669,12 +696,7 @@
         white-space: nowrap;
         flex-shrink: 0;
     }
-    .stage-title i {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-    }
-    .stage-title .mono {
+    .stage-title .ident {
         color: var(--text-3);
         font-weight: 400;
     }

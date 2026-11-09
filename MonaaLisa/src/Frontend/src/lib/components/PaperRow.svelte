@@ -33,7 +33,7 @@
         <span class="title">{title}</span>
         <span class="meta">
             {#if category}
-                <span class="cat"><i style:background={categoryColor(categories)}></i>{category}</span>
+                <span class="cat" style:--c={categoryColor(categories)}>{category}</span>
             {/if}
             {#if year}<span class="year">{year}</span>{/if}
             {#if authors}<span class="authors">{shortAuthors(authors, 2)}</span>{/if}
@@ -93,16 +93,9 @@
         font-size: var(--text-xs);
     }
     .cat {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        font-family: var(--font-mono);
         flex-shrink: 0;
-    }
-    .cat i {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
+        color: color-mix(in srgb, var(--c) 72%, var(--text));
+        font-weight: 500;
     }
     .year {
         flex-shrink: 0;
@@ -115,7 +108,7 @@
     .count {
         padding: 10px 12px 0 0;
         color: var(--text-2);
-        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
         font-size: var(--text-xs);
     }
     .actions {

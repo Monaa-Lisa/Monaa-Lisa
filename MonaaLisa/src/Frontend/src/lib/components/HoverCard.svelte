@@ -32,7 +32,7 @@
         {shortAuthors(paper.authors)}{publishedYear(paper.published) ? ` · ${publishedYear(paper.published)}` : ""}
     </span>
     <span class="meta">
-        <span class="mono">{context.categoryId}</span>
+        <span class="ident">{context.categoryId}</span>
         {#if context.categoryName && context.categoryName !== context.categoryId}· {context.categoryName}{/if}
         · {citationCount(paper).toLocaleString("en")} citations
     </span>

@@ -460,7 +460,7 @@
     .axes em {
         position: absolute;
         color: var(--text-3);
-        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
         font-size: var(--text-xs);
         font-style: normal;
         white-space: nowrap;
@@ -534,7 +534,7 @@
     }
     .legend b {
         color: var(--text);
-        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
         font-weight: 500;
     }
     .legend .hint {
