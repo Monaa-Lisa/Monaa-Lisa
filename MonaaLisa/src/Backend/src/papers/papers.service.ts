@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { sql } from 'kysely';
-import type { Expression, SqlBool } from 'kysely';
+import type { Expression, Selectable, SqlBool } from 'kysely';
+import type { Paper } from '../database/schema';
 import { DatabaseService } from '../database/database.service';
 import { containsPattern } from '../database/sql';
 import { ALL_COLUMNS, LIST_COLUMNS, totalCitations } from './paper-columns';
@@ -9,6 +10,9 @@ import { DEFAULT_TAKE, MAX_TAKE, QueryPaperDto } from './dto/query-paper.dto';
 
 /** Requests for more ids than this get no citation lists attached */
 const ENRICH_LIMIT = 50;
+/** Papers returned by GET /papers/:entryId/similar */
+export const DEFAULT_SIMILAR = 20;
+const MAX_SIMILAR = 40;
 /** Similar titles offered when a search finds nothing */
 const FUZZY_LIMIT = 10;
 
@@ -208,6 +212,64 @@ export class PapersService {
     if (!paper) throw new NotFoundException(`Paper ${entryId} not found`);
     const [withEdges] = await this.withEdges([paper]);
     return withEdges;
+  }
+
+  /**
+   * The papers most similar to one paper, nearest first, each with its
+   * `distance`. `basis` says what the distance is:
+   * - 'embedding': cosine distance of the 128-d embeddings
+   * - 'map': distance on the 2-d map, for a paper whose embedding is not in
+   *   the database (the map position is a projection of it, so this is a
+   *   coarser version of the same thing)
+   * - null: the paper has neither, `items` is empty
+   */
+  async similarTo(entryId: string, take = DEFAULT_SIMILAR) {
+    const limit = Math.max(1, Math.min(take, MAX_SIMILAR));
+    const columns = sql.join(LIST_COLUMNS.map((c) => sql.ref(`p.${c}`)));
+    type Similar = Pick<Selectable<Paper>, (typeof LIST_COLUMNS)[number]> & {
+      distance: number;
+    };
+
+    const embedded = await this.db
+      .selectFrom('embedding')
+      .select('id')
+      .where('belonging_paper_entry_id', '=', entryId)
+      .executeTakeFirst();
+    if (embedded) {
+      // the nearest embeddings first (uses the hnsw index), then their papers
+      const own = sql`(SELECT content FROM embedding WHERE belonging_paper_entry_id = ${entryId})`;
+      const { rows } = await sql<Similar>`
+        SELECT ${columns}, n.distance
+        FROM (
+          SELECT e.belonging_paper_entry_id AS entry_id, e.content <=> ${own} AS distance
+          FROM embedding e
+          WHERE e.belonging_paper_entry_id <> ${entryId}
+          ORDER BY e.content <=> ${own}
+          LIMIT ${limit}
+        ) n
+        JOIN paper p ON p.entry_id = n.entry_id
+        ORDER BY n.distance`.execute(this.db);
+      return { basis: 'embedding' as const, items: rows };
+    }
+
+    // The position is read first and passed as a value: the index can only
+    // serve a nearest neighbour search around a constant point.
+    const own = await sql<{ x: number | null; y: number | null }>`
+      SELECT (tsne->>'x')::float8 AS x, (tsne->>'y')::float8 AS y
+      FROM paper WHERE entry_id = ${entryId}`.execute(this.db);
+    const at = own.rows[0];
+    if (at?.x == null || at.y == null) return { basis: null, items: [] };
+
+    // same expression as the index paper_map_position_idx
+    const position = sql`point((p.tsne->>'x')::float8, (p.tsne->>'y')::float8)`;
+    const here = sql`point(${at.x}::float8, ${at.y}::float8)`;
+    const { rows } = await sql<Similar>`
+      SELECT ${columns}, ${position} <-> ${here} AS distance
+      FROM paper p
+      WHERE p.tsne IS NOT NULL AND p.entry_id <> ${entryId}
+      ORDER BY ${position} <-> ${here}
+      LIMIT ${limit}`.execute(this.db);
+    return { basis: rows.length ? ('map' as const) : null, items: rows };
   }
 
   /** Several papers by id. Unknown ids are left out. */

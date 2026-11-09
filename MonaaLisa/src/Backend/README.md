@@ -17,6 +17,7 @@ Originally written by Nico (2025), ported from Prisma to Kysely in November
 | `GET /papers` | a page of papers: `{ items, total, skip, take }` |
 | `GET /papers/count` | `{ total }` for the same filters as `GET /papers` |
 | `GET /papers/:entryId` | one paper with the ids of its citations and references |
+| `GET /papers/:entryId/similar` | the papers nearest to a paper: `{ basis, items }` |
 | `POST /papers/batch` | several papers by id, body `{ entryIds: [...] }` |
 | `GET /paper-citations/paper/:entryId` | the papers citing a paper: `{ total, items }` |
 | `GET /paper-references/paper/:entryId` | the papers a paper cites: `{ total, items }` |
@@ -50,6 +51,12 @@ The two citation routes return the most cited papers first, 500 by default
 edge tables in both directions: Semantic Scholar caps the list of citing
 papers for popular ones, but every citing paper in the database lists the
 paper among its own references.
+
+`/papers/:entryId/similar` returns the nearest papers first, 20 by default
+(`take`, at most 40), each with its `distance`. `basis` says what was
+compared: `embedding` is the cosine distance of the 128-d embeddings (hnsw
+index), `map` the distance on the 2-d map for a paper whose embedding is not
+in the database, `null` when the paper has neither.
 
 ## Running
 

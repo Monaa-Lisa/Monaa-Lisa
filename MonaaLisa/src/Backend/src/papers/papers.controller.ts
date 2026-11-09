@@ -8,8 +8,17 @@
  * Der Controller ist schlank gehalten und delegiert alles an den Service.
  * Validierung/Transformation passiert über die DTOs (class-validator / class-transformer).
  */
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-import { PapersService } from './papers.service';
+import {
+  Body,
+  Controller,
+  DefaultValuePipe,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
+import { DEFAULT_SIMILAR, PapersService } from './papers.service';
 import { BatchPapersDto, QueryPaperDto } from './dto';
 
 @Controller('papers')
@@ -51,6 +60,19 @@ export class PapersController {
   @Get('count')
   async count(@Query() q: QueryPaperDto) {
     return { total: await this.papers.count(q) };
+  }
+
+  /**
+   * GET /papers/:entryId/similar
+   * The papers nearest to one paper: { basis, items }, see the service.
+   */
+  @Get(':entryId/similar')
+  similar(
+    @Param('entryId') entryId: string,
+    @Query('take', new DefaultValuePipe(DEFAULT_SIMILAR), ParseIntPipe)
+    take: number,
+  ) {
+    return this.papers.similarTo(entryId, take);
   }
 
   /**

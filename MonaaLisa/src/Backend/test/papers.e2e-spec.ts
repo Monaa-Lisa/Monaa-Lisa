@@ -227,6 +227,24 @@ describeWithTestDb('papers and citations (e2e)', () => {
     await request(app.getHttpServer()).get('/papers/9999.0000').expect(404);
   });
 
+  it('lists the nearest papers on the map for a paper without an embedding', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/papers/1000.0001/similar?take=2')
+      .expect(200);
+    const body = res.body as { basis: string; items: PaperRow[] };
+    expect(body.basis).toBe('map');
+    expect(body.items).toHaveLength(2);
+    expect(body.items.map((p) => p.entry_id)).not.toContain('1000.0001');
+    expect(body.items[0]).toHaveProperty('distance', 0);
+  });
+
+  it('has no similar papers for an unknown paper', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/papers/9999.0000/similar')
+      .expect(200);
+    expect(res.body).toEqual({ basis: null, items: [] });
+  });
+
   it('finds citing papers in both edge tables, most cited first', async () => {
     const page = await get('/paper-citations/paper/1000.0001');
     expect(ids(page)).toEqual(['1000.0002', '1000.0003']);
