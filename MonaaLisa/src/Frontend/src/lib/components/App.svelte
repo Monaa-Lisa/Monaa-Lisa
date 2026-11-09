@@ -17,7 +17,7 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { afterNavigate, replaceState } from "$app/navigation";
-    import { BookMarked, Info, Moon, Sun } from "@lucide/svelte";
+    import { BookMarked, Info, Menu, Moon, Sun } from "@lucide/svelte";
     import Sidebar from "$lib/components/Sidebar.svelte";
     import BubbleMap from "$lib/components/BubbleMap.svelte";
     import PaperMap, { type ColorBy } from "$lib/components/PaperMap.svelte";
@@ -97,6 +97,8 @@
     let notice = $state<string | null>(null);
 
     let libraryOpen = $state(false);
+    /** Small screens: the sidebar is a drawer over the map, closed until asked for */
+    let sidebarOpen = $state(false);
     let aboutOpen = $state(false);
     let favoriteCandidate = $state<Paper | null>(null);
     let theme = $state<Theme>("light");
@@ -184,6 +186,7 @@
 
     // ─── navigation ───────────────────────────────────────────────────
     function showMap(next: MapView, keepSelection = false) {
+        if (next.level === "papers") sidebarOpen = false;
         if (!keepSelection) {
             selected = null;
             trail = [];
@@ -211,6 +214,7 @@
 
     function openPaper(paper: Paper) {
         notice = null;
+        sidebarOpen = false;
         if (selected && selected.entry_id !== paper.entry_id) trail = [...trail, selected].slice(-20);
         if (selected?.entry_id === paper.entry_id) return;
         selected = paper;
@@ -282,9 +286,11 @@
         const typing = !!target?.closest("input, select, textarea, dialog");
         if (event.key === "/" && !typing) {
             event.preventDefault();
+            sidebarOpen = true;
             sidebar?.focus();
         } else if (event.key === "Escape" && !typing) {
-            if (libraryOpen) libraryOpen = false;
+            if (sidebarOpen) sidebarOpen = false;
+            else if (libraryOpen) libraryOpen = false;
             else if (selected) closePaper();
         }
     }
@@ -387,6 +393,18 @@
 
 <div class="app">
     <header class="topbar">
+        <span class="menu">
+            <Button
+                variant="ghost"
+                size="sm"
+                icon
+                label={sidebarOpen ? "Hide search and lists" : "Show search and lists"}
+                pressed={sidebarOpen}
+                onclick={() => (sidebarOpen = !sidebarOpen)}
+            >
+                <Menu />
+            </Button>
+        </span>
         <button class="brand" onclick={() => withFade(() => showMap({ level: "top" }))} title="Back to all subjects">
             <img src={logoMark} alt="" width="30" height="30" />
             <span class="brand-text">
@@ -398,10 +416,10 @@
         <Breadcrumbs {crumbs} />
         <div class="actions">
             <Button variant="ghost" size="sm" pressed={libraryOpen} onclick={() => (libraryOpen = !libraryOpen)}>
-                <BookMarked /> Library
+                <BookMarked /> <span class="wide-only">Library</span>
                 {#if library.favorites.length}<span class="badge">{library.favorites.length}</span>{/if}
             </Button>
-            <Button variant="ghost" size="sm" onclick={() => (aboutOpen = true)}><Info /> About &amp; method</Button>
+            <Button variant="ghost" size="sm" onclick={() => (aboutOpen = true)}><Info /> <span class="wide-only">About &amp; method</span></Button>
             <Button
                 variant="ghost"
                 size="sm"
@@ -414,7 +432,7 @@
         </div>
     </header>
 
-    <div class="columns" class:with-panel={selected !== null || libraryOpen}>
+    <div class="columns" class:with-panel={selected !== null || libraryOpen} class:sidebar-open={sidebarOpen}>
         <Sidebar
             bind:this={sidebar}
             scope={scope.id}
@@ -432,6 +450,10 @@
             onselect={openPaper}
             onresults={(found) => (searchResults = found)}
         />
+
+        {#if sidebarOpen}
+            <button class="scrim" aria-label="Hide search and lists" onclick={() => (sidebarOpen = false)}></button>
+        {/if}
 
         <main class="stage">
             <div class="stage-head">
@@ -677,7 +699,7 @@
         .columns.with-panel {
             grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
         }
-        .columns.with-panel > :global(aside:nth-child(3)) {
+        .columns.with-panel > :global(aside:not(.sidebar)) {
             position: absolute;
             top: 48px;
             right: 0;
@@ -695,6 +717,79 @@
         }
         .columns.with-panel .state {
             right: var(--overlay-width);
+        }
+    }
+
+    /* phones and narrow windows: one column, the sidebar is a drawer and the details cover the map */
+    .menu,
+    .scrim {
+        display: none;
+    }
+    @media (max-width: 900px) {
+        .menu {
+            display: block;
+            margin: 0 -8px 0 -6px;
+        }
+        .topbar {
+            gap: 10px;
+        }
+        .brand-text,
+        .divider,
+        .wide-only {
+            display: none;
+        }
+        .columns,
+        .columns.with-panel {
+            grid-template-columns: minmax(0, 1fr);
+            --overlay-width: 100%;
+        }
+        .columns > :global(aside.sidebar) {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 7;
+            width: min(340px, 88vw);
+            box-shadow: var(--shadow-pop);
+            transform: translateX(-105%);
+            visibility: hidden;
+            transition:
+                transform 160ms var(--ease),
+                visibility 160ms;
+        }
+        .columns.sidebar-open > :global(aside.sidebar) {
+            transform: none;
+            visibility: visible;
+        }
+        .scrim {
+            display: block;
+            position: absolute;
+            inset: 0;
+            z-index: 6;
+            border: 0;
+            background: rgba(10, 12, 24, 0.35);
+        }
+        .columns.with-panel > :global(aside:not(.sidebar)) {
+            top: 0;
+            width: 100%;
+        }
+        /* the details cover the whole map here, it keeps its size underneath */
+        .columns.with-panel .stage-body {
+            padding-right: 0;
+        }
+        .columns.with-panel .state {
+            right: 0;
+        }
+        .topbar :global(nav) {
+            min-width: 0;
+            overflow: hidden;
+        }
+        .stage-head {
+            padding: 0 10px;
+            overflow-x: auto;
+        }
+        .caption {
+            display: none;
         }
     }
 

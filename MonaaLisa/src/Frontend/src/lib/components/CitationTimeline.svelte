@@ -292,6 +292,8 @@
         const r = new Sigma(graph, el, {
             // titles are HTML elements placed by lib/labels.ts
             renderLabels: false,
+            // a stage without size (hidden, or a window dragged very small) is no error
+            allowInvalidContainer: true,
             renderEdgeLabels: false,
             defaultEdgeType: "arrow",
             zIndex: true,
