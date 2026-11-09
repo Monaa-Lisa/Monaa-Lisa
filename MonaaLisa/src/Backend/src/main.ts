@@ -37,15 +37,14 @@ async function bootstrap() {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
+  // Only the frontend's own origins get the CORS headers. A request from
+  // another origin is answered without them, so a browser there discards the
+  // answer; the API is public and read only, there is nothing to protect by
+  // failing the request itself. No cookies are used, hence no credentials.
   app.enableCors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-        return;
-      }
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
+      callback(null, !origin || allowedOrigins.includes(origin));
     },
-    credentials: true,
   });
 
   await app.listen(port);
