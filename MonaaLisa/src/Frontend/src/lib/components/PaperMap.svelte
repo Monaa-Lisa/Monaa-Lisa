@@ -43,6 +43,8 @@
         highlight: Paper[] | null;
         selected: Paper | null;
         colorBy: ColorBy;
+        /** Ids of the papers saved in the library, marked with a star on the map */
+        saved?: string[];
         /** Time-lapse: only papers published up to this year are shown, null = all */
         untilYear?: number | null;
         /** Name the regions of the map */
@@ -50,13 +52,16 @@
         onselect: (paper: Paper) => void;
     }
 
-    let { papers, highlight, selected, colorBy, showRegions, untilYear = null, onselect }: Props = $props();
+    let { papers, highlight, selected, colorBy, showRegions, untilYear = null, saved = [], onselect }: Props = $props();
 
     let container = $state<HTMLDivElement>();
     let width = $state(0);
     let hovered = $state<{ paper: Paper; x: number; y: number } | null>(null);
     let ring = $state<{ x: number; y: number; size: number } | null>(null);
     let labels = $state<PlacedLabel[]>([]);
+    let stars = $state<{ id: string; x: number; y: number }[]>([]);
+    /** Copy of `saved` for the renderer's callbacks, which must not be tracked */
+    let savedIds: string[] = [];
     let regionLabels = $state<{ id: string; label: string; x: number; y: number }[]>([]);
 
     const yearOf = (p: Paper) => Number(publishedYear(p.published)) || 0;
@@ -332,6 +337,8 @@
         });
         r.getCamera().on("updated", updateRing);
         r.on("afterRender", updateRing);
+        // not tracked, like the titles: placing stars must not rebuild the map
+        r.on("afterRender", () => untrack(updateStars));
 
         // titles are placed after a render and again whenever the camera moved
         let regionBoxes: Box[] = [];
@@ -391,6 +398,7 @@
             clearTimeout(rest);
             zoomRegions = null;
             labels = [];
+            stars = [];
             regionLabels = [];
             relabel = () => {};
         };
@@ -460,6 +468,28 @@
         updateRing();
     }
 
+    /** Places the stars of the saved papers that are on the map and in view */
+    function updateStars() {
+        const r = renderer;
+        const g = graph;
+        if (!r || !g || !savedIds.length) {
+            if (stars.length) stars = [];
+            return;
+        }
+        const { width: w, height: h } = r.getDimensions();
+        const next = [];
+        for (const id of savedIds) {
+            if (!g.hasNode(id)) continue;
+            const d = r.getNodeDisplayData(id);
+            if (!d || d.hidden) continue;
+            const v = r.framedGraphToViewport(d);
+            if (v.x < 0 || v.y < 0 || v.x > w || v.y > h) continue;
+            const size = r.scaleSize(d.size);
+            next.push({ id, x: v.x + size * 0.7, y: v.y - size * 0.7 });
+        }
+        stars = next;
+    }
+
     function updateRing() {
         if (!renderer || !graph || !selectedId || !graph.hasNode(selectedId)) {
             ring = null;
@@ -485,6 +515,10 @@
     $effect(() => {
         hideAfter = untilYear;
         relabel();
+    });
+    $effect(() => {
+        savedIds = saved;
+        renderer?.refresh({ skipIndexation: true });
     });
     // switching the colouring repaints the points and keeps the view
     $effect(() => {
@@ -561,6 +595,10 @@
         <span class="region-label" style:left="{item.x}px" style:top="{item.y}px">{item.label}</span>
     {/each}
 
+    {#each stars as star (star.id)}
+        <span class="star" aria-hidden="true" style:left="{star.x}px" style:top="{star.y}px">★</span>
+    {/each}
+
     {#if untilYear}
         <div class="year-now" aria-live="polite">up to {untilYear}</div>
     {/if}
@@ -588,7 +626,7 @@
                 <b>{item.count.toLocaleString("en")}</b>
             </span>
         {/each}
-        <span class="hint">near = similar · size = citations</span>
+        <span class="hint">near = similar · size = citations{stars.length ? " · ★ = in your library" : ""}</span>
     </div>
 
     <ZoomControls
@@ -649,6 +687,16 @@
         color: var(--text-3);
         font-variant-numeric: tabular-nums;
         font-weight: 400;
+    }
+    .star {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        color: var(--text);
+        font-size: 13px;
+        line-height: 1;
+        -webkit-text-stroke: 3px var(--map-label-halo);
+        paint-order: stroke fill;
+        pointer-events: none;
     }
     .year-now {
         position: absolute;

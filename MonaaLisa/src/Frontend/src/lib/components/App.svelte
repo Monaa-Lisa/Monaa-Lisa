@@ -730,6 +730,7 @@
                         {colorBy}
                         {showRegions}
                         untilYear={playYear}
+                        saved={library.favorites.map((f) => f.entry_id)}
                         onselect={openPaper}
                     />
                 {/if}
