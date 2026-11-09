@@ -89,7 +89,17 @@
     }
     let themeVersion = $state(0);
 
-    const maxCitations = $derived(Math.max(1, ...papers.map(citationCount)));
+    /** Smallest and largest citation count on the map, as log1p */
+    const citationRange = $derived.by((): [number, number] => {
+        let lo = Infinity;
+        let hi = 0;
+        for (const p of papers) {
+            const c = Math.log1p(citationCount(p));
+            if (c < lo) lo = c;
+            if (c > hi) hi = c;
+        }
+        return [Number.isFinite(lo) ? lo : 0, hi];
+    });
 
     interface Scheme {
         /** Colour of a paper as a CSS value */
@@ -176,25 +186,33 @@
     const nodeColor = (p: Paper, s: Scheme) => withAlpha(resolveColor(s.colorOf(p)), 0.8);
 
     /**
-     * Bounding box of the bulk of the papers: the initial view ignores a few
-     * far away points, which would otherwise squeeze the map into a corner.
+     * Bounding box of the bulk of the papers: the initial view leaves out
+     * the outermost 1.5 % on every side. A handful of far away points would
+     * otherwise shrink the map to the middle of the stage; they are still
+     * there when zooming out.
      */
     function robustBBox(list: Paper[]): { x: [number, number]; y: [number, number] } | null {
         if (list.length < 10) return null;
         const range = (values: number[]): [number, number] => {
             const sorted = [...values].sort((a, b) => a - b);
             const q = (p: number) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
-            const iqr = q(0.75) - q(0.25) || 1;
-            const lo = Math.max(sorted[0], q(0.25) - 2 * iqr);
-            const hi = Math.min(sorted[sorted.length - 1], q(0.75) + 2 * iqr);
-            const pad = (hi - lo) * 0.05 || 1;
+            const lo = q(0.015);
+            const hi = q(0.985);
+            const pad = (hi - lo) * 0.04 || 1;
             return [lo - pad, hi + pad];
         };
         return { x: range(list.map((p) => p.x)), y: range(list.map((p) => p.y)) };
     }
 
+    /**
+     * Point radius from 3.5 to 11 px over the citation range of the papers
+     * shown (log scale). The curve keeps most points small, so the few very
+     * often cited papers stand out.
+     */
     function nodeSize(p: Paper): number {
-        return 1.8 + 4.6 * (Math.log1p(citationCount(p)) / Math.log1p(maxCitations));
+        const [lo, hi] = citationRange;
+        const t = hi > lo ? Math.max(0, Math.min(1, (Math.log1p(citationCount(p)) - lo) / (hi - lo))) : 0;
+        return 3.5 + 7.5 * t ** 1.6;
     }
 
     function nodeAttributes(p: Paper) {
@@ -305,8 +323,8 @@
             if (!needsLabels) return;
             needsLabels = false;
             regionBoxes = placeRegions(r, overlayBoxes(el));
-            // fewer paper titles while the regions are named, so the names stand out
-            labels = placer.place(candidates(), regionBoxes.length ? 18 : 30);
+            // only a few titles, the others show when hovering a point or zooming in; fewer still under the region names
+            labels = placer.place(candidates(), regionBoxes.length ? 8 : 14);
         });
         relabel = () => {
             needsLabels = true;
@@ -471,9 +489,7 @@
                 <b>{item.count.toLocaleString("en")}</b>
             </span>
         {/each}
-        <span class="hint">close points = similar content · size = citations{showRegions
-                    ? " · names = typical title terms of a region"
-                    : ""} · zoom for more titles</span>
+        <span class="hint">near = similar · size = citations</span>
     </div>
 
     <ZoomControls
