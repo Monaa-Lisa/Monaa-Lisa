@@ -119,6 +119,19 @@ describeWithTestDb('papers and citations (e2e)', () => {
           belonging_paper_entry_id: '1000.0003',
           referenced_paper_entry_id: '0700.1234',
         },
+        // 0002 and 0003 share two references (0001 and 0700.1234), 0004 one
+        {
+          belonging_paper_entry_id: '1000.0002',
+          referenced_paper_entry_id: '0700.1234',
+        },
+        {
+          belonging_paper_entry_id: '1000.0002',
+          referenced_paper_entry_id: '1000.0004',
+        },
+        {
+          belonging_paper_entry_id: '1000.0004',
+          referenced_paper_entry_id: '0700.1234',
+        },
       ])
       .execute();
   });
@@ -278,6 +291,34 @@ describeWithTestDb('papers and citations (e2e)', () => {
     expect(page.items[0]).not.toHaveProperty('total');
   });
 
+  it('finds papers sharing references, at least two of them', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/papers/1000.0003/connected?by=references')
+      .expect(200);
+    const body = res.body as {
+      by: string;
+      items: (PaperRow & { shared: number; score: number })[];
+    };
+    expect(body.by).toBe('references');
+    // 0004 shares only one reference and is left out
+    expect(body.items.map((p) => p.entry_id)).toEqual(['1000.0002']);
+    expect(body.items[0].shared).toBe(2);
+    // 2 shared / sqrt(2 references * 3 references)
+    expect(body.items[0].score).toBeCloseTo(2 / Math.sqrt(6));
+  });
+
+  it('finds papers cited together', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/papers/1000.0001/connected?by=citations')
+      .expect(200);
+    const body = res.body as { items: PaperRow[] };
+    // 0001 is cited by 0002 and 0003, both also cite 0700.1234, which is not in the database
+    expect(body.items).toEqual([]);
+    await request(app.getHttpServer())
+      .get('/papers/1000.0001/connected?by=nonsense')
+      .expect(400);
+  });
+
   it('keeps the total when the list is cut', async () => {
     const page = await get('/paper-citations/paper/1000.0001?take=1');
     expect(ids(page)).toEqual(['1000.0002']);
@@ -289,9 +330,10 @@ describeWithTestDb('papers and citations (e2e)', () => {
     expect(ids(await get('/paper-references/paper/1000.0003'))).toEqual([
       '1000.0001',
     ]);
-    // known from the reference table alone
+    // known from the reference table alone, the more cited one first
     expect(ids(await get('/paper-references/paper/1000.0002'))).toEqual([
       '1000.0001',
+      '1000.0004',
     ]);
     expect(await get('/paper-references/paper/1000.0004')).toEqual({
       total: 0,

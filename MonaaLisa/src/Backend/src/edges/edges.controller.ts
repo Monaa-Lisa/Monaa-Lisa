@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   DefaultValuePipe,
   Get,
@@ -6,7 +7,11 @@ import {
   ParseIntPipe,
   Query,
 } from '@nestjs/common';
-import { DEFAULT_NEIGHBOURS, EdgesService } from './edges.service';
+import {
+  DEFAULT_CONNECTED,
+  DEFAULT_NEIGHBOURS,
+  EdgesService,
+} from './edges.service';
 
 /**
  * The citation neighbourhood of a paper. Both routes return
@@ -25,6 +30,25 @@ export class EdgesController {
     take: number,
   ) {
     return this.edges.citationsOf(entryId, take);
+  }
+
+  /**
+   * GET /papers/:entryId/connected?by=references|citations
+   * Papers citing the same papers (by=references, the default) or cited
+   * together with this one (by=citations): { by, items }, each item with
+   * `shared` and `score`, see the service.
+   */
+  @Get('papers/:entryId/connected')
+  connected(
+    @Param('entryId') entryId: string,
+    @Query('by') by: string | undefined,
+    @Query('take', new DefaultValuePipe(DEFAULT_CONNECTED), ParseIntPipe)
+    take: number,
+  ) {
+    if (by !== undefined && by !== 'references' && by !== 'citations') {
+      throw new BadRequestException('by must be "references" or "citations"');
+    }
+    return this.edges.connectedTo(entryId, by ?? 'references', take);
   }
 
   /** GET /paper-references/paper/:entryId  papers this paper cites */

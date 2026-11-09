@@ -19,6 +19,7 @@ Originally written by Nico (2025), ported from Prisma to Kysely in November
 | `GET /papers/years` | first and last year of publication in the dataset: `{ first, last }` |
 | `GET /papers/:entryId` | one paper with the ids of its citations and references |
 | `GET /papers/:entryId/similar` | the papers nearest to a paper: `{ basis, items }` |
+| `GET /papers/:entryId/connected` | papers connected through the citation graph: `{ by, items }` |
 | `POST /papers/batch` | several papers by id, body `{ entryIds: [...] }` |
 | `GET /categories` | papers of the dataset per arXiv category: `[{ id, papers, primary }]`, counted once an hour |
 | `GET /paper-citations/paper/:entryId` | the papers citing a paper: `{ total, items }` |
@@ -59,6 +60,14 @@ paper among its own references.
 compared: `embedding` is the cosine distance of the 128-d embeddings (hnsw
 index), `map` the distance on the 2-d map for a paper whose embedding is not
 in the database, `null` when the paper has neither.
+
+`/papers/:entryId/connected?by=references` returns the papers that cite the
+same papers as this one (bibliographic coupling), `by=citations` the papers
+that are cited together with it (co-citation). Every item has `shared` (the
+number of common references, or of papers citing both; at least two) and
+`score`, which is `shared` divided by the geometric mean of the two list
+lengths, so long lists do not win by size alone. 30 items by default (`take`,
+at most 100), best score first.
 
 ## Running
 
