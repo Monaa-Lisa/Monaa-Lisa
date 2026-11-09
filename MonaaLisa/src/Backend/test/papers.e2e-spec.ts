@@ -245,6 +245,17 @@ describeWithTestDb('papers and citations (e2e)', () => {
     expect(res.body).toEqual({ basis: null, items: [] });
   });
 
+  it('counts the papers per category, cross listed and primary', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/categories')
+      .expect(200);
+    expect(res.body).toEqual([
+      { id: 'cs.LG', papers: 3, primary: 2 },
+      { id: 'hep-th', papers: 1, primary: 1 },
+      { id: 'stat.ML', papers: 1, primary: 1 },
+    ]);
+  });
+
   it('finds citing papers in both edge tables, most cited first', async () => {
     const page = await get('/paper-citations/paper/1000.0001');
     expect(ids(page)).toEqual(['1000.0002', '1000.0003']);

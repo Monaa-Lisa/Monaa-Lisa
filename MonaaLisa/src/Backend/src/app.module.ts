@@ -8,6 +8,7 @@ import { AppController } from './app.controller';
 import { DatabaseModule } from './database/database.module';
 import { PapersModule } from './papers/papers.module';
 import { EdgesModule } from './edges/edges.module';
+import { CategoriesModule } from './categories/categories.module';
 
 // Request flow: Client -> Controller -> Service -> (DB) -> Service -> Controller -> Client
 @Module({
@@ -24,6 +25,7 @@ import { EdgesModule } from './edges/edges.module';
     DatabaseModule,
     PapersModule,
     EdgesModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

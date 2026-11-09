@@ -19,6 +19,7 @@ Originally written by Nico (2025), ported from Prisma to Kysely in November
 | `GET /papers/:entryId` | one paper with the ids of its citations and references |
 | `GET /papers/:entryId/similar` | the papers nearest to a paper: `{ basis, items }` |
 | `POST /papers/batch` | several papers by id, body `{ entryIds: [...] }` |
+| `GET /categories` | papers of the dataset per arXiv category: `[{ id, papers, primary }]`, counted once an hour |
 | `GET /paper-citations/paper/:entryId` | the papers citing a paper: `{ total, items }` |
 | `GET /paper-references/paper/:entryId` | the papers a paper cites: `{ total, items }` |
 
