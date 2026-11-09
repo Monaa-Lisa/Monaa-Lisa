@@ -72,6 +72,11 @@ export class QueryPaperDto {
   @IsIn(FIELD_SETS)
   fields?: PaperFields;
 
+  // 'none' leaves the total out of the answer (null), see GET /papers/count
+  @IsOptional()
+  @IsIn(['exact', 'none'])
+  count?: 'exact' | 'none';
+
   // Pagination
   @IsOptional()
   @Type(() => Number)

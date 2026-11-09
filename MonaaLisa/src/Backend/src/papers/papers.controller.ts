@@ -45,6 +45,15 @@ export class PapersController {
   }
 
   /**
+   * GET /papers/count
+   * How many papers match the same filters as GET /papers: { total }
+   */
+  @Get('count')
+  async count(@Query() q: QueryPaperDto) {
+    return { total: await this.papers.count(q) };
+  }
+
+  /**
    * GET /papers/:entryId
    * Holt ein einzelnes Paper anhand der externen `entryId`.
    * Achtung: Das ist die externe ID (z.B. aus dem Feed), nicht die DB-Primär-ID.

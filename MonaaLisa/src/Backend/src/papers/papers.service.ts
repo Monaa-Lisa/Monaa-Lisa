@@ -29,7 +29,56 @@ export class PapersService {
     // loading the whole table in one request.
     const take = Math.min(q.take ?? DEFAULT_TAKE, MAX_TAKE);
 
-    let query = this.db.selectFrom('paper').where((eb) => {
+    let query = this.filtered(q);
+    // Counting every match of a common word takes seconds while the first
+    // page is there at once, so a caller can leave the count out and ask
+    // GET /papers/count for it.
+    const total = q.count === 'none' ? Promise.resolve(null) : this.count(q);
+
+    if (q.sort === 'citations') {
+      // citations from arXiv papers plus the ones counted outside arXiv, id as
+      // tiebreaker so pages never overlap (the expression has an index)
+      query = query.orderBy(totalCitations, 'desc').orderBy('id', 'asc');
+    } else {
+      const direction = q.sort === 'published_asc' ? 'asc' : 'desc';
+      query = query
+        .orderBy('published', (ob) => ob[direction]().nullsLast())
+        .orderBy('id', 'asc');
+    }
+
+    if (q.fields === 'map') {
+      const [items, counted] = await Promise.all([
+        query.select(LIST_COLUMNS).offset(skip).limit(take).execute(),
+        total,
+      ]);
+      return { items, total: counted, skip, take };
+    }
+
+    const [items, counted] = await Promise.all([
+      query.selectAll().offset(skip).limit(take).execute(),
+      total,
+    ]);
+
+    // the citation lists are only attached to short lists
+    const enrich = take <= 40;
+    return {
+      items: enrich ? await this.withEdges(items) : items.map(withoutEdges),
+      total: counted,
+      skip,
+      take,
+    };
+  }
+
+  /** How many papers match the filters of `q` */
+  async count(q: QueryPaperDto): Promise<number> {
+    const counted = await this.filtered(q)
+      .select((eb) => eb.fn.countAll<string>().as('count'))
+      .executeTakeFirstOrThrow();
+    return Number(counted.count);
+  }
+
+  private filtered(q: QueryPaperDto) {
+    return this.db.selectFrom('paper').where((eb) => {
       const filters: Expression<SqlBool>[] = [];
       const search = q.search?.trim();
       if (search) {
@@ -56,43 +105,6 @@ export class PapersService {
       if (q.dateTo) filters.push(eb('published', '<=', new Date(q.dateTo)));
       return eb.and(filters);
     });
-
-    const countQuery = query.select((eb) =>
-      eb.fn.countAll<string>().as('count'),
-    );
-
-    if (q.sort === 'citations') {
-      // citations from arXiv papers plus the ones counted outside arXiv, id as
-      // tiebreaker so pages never overlap (the expression has an index)
-      query = query.orderBy(totalCitations, 'desc').orderBy('id', 'asc');
-    } else {
-      const direction = q.sort === 'published_asc' ? 'asc' : 'desc';
-      query = query
-        .orderBy('published', (ob) => ob[direction]().nullsLast())
-        .orderBy('id', 'asc');
-    }
-
-    if (q.fields === 'map') {
-      const [items, counted] = await Promise.all([
-        query.select(LIST_COLUMNS).offset(skip).limit(take).execute(),
-        countQuery.executeTakeFirstOrThrow(),
-      ]);
-      return { items, total: Number(counted.count), skip, take };
-    }
-
-    const [items, counted] = await Promise.all([
-      query.selectAll().offset(skip).limit(take).execute(),
-      countQuery.executeTakeFirstOrThrow(),
-    ]);
-
-    // the citation lists are only attached to short lists
-    const enrich = take <= 40;
-    return {
-      items: enrich ? await this.withEdges(items) : items.map(withoutEdges),
-      total: Number(counted.count),
-      skip,
-      take,
-    };
   }
 
   /** One paper with its citation and reference ids, 404 if it is unknown. */
