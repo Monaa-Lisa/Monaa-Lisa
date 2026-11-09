@@ -404,8 +404,8 @@
         <div class="legend">
             {#if mode === "citations"}
                 <span class="hint">
-                    {#if data.cites.length}<b>{groups.cites.length}</b> of {data.cites.length} references ·{/if}
-                    {#if data.citedBy.length}<b>{groups.citedBy.length}</b> of {data.citedBy.length} citations ·{/if}
+                    {#if data.citesTotal}<b>{groups.cites.length}</b> of {data.citesTotal.toLocaleString("en")} references ·{/if}
+                    {#if data.citedByTotal}<b>{groups.citedBy.length}</b> of {data.citedByTotal.toLocaleString("en")} citations ·{/if}
                     hover a point for its link
                 </span>
             {:else}

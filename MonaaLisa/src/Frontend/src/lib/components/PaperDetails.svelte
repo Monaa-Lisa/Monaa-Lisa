@@ -102,10 +102,13 @@
         );
     });
 
+    /** How many references and citations the dataset holds, the lists only have the most cited */
+    const shownOf = $derived({ cites: data?.citesTotal ?? 0, citedBy: data?.citedByTotal ?? 0 });
+
     const tabs = $derived([
         { id: "abstract" as const, label: "Abstract" },
-        { id: "cites" as const, label: "References", count: lists.cites.length },
-        { id: "citedBy" as const, label: "Citations", count: lists.citedBy.length },
+        { id: "cites" as const, label: "References", count: data?.citesTotal ?? 0 },
+        { id: "citedBy" as const, label: "Citations", count: data?.citedByTotal ?? 0 },
         { id: "related" as const, label: "Related", count: lists.related.length },
     ]);
 
@@ -202,7 +205,7 @@
         {#each tabs as t}
             <button role="tab" aria-selected={tab === t.id} class:active={tab === t.id} onclick={() => (tab = t.id)}>
                 {t.label}
-                {#if t.count !== undefined && data}<span class="count">{t.count}</span>{/if}
+                {#if t.count !== undefined && data}<span class="count">{t.count.toLocaleString("en")}</span>{/if}
             </button>
         {/each}
     </div>
@@ -223,7 +226,7 @@
                     <dt>References</dt>
                     <dd>
                         {#if data}
-                            {lists.cites.length} on arXiv
+                            {data.citesTotal.toLocaleString("en")} in the dataset
                             {#if data.externalCites}<small>+ {data.externalCites.toLocaleString("en")} elsewhere</small>{/if}
                         {:else}…{/if}
                     </dd>
@@ -232,8 +235,10 @@
                     <dt>Citations</dt>
                     <dd>
                         {#if data}
-                            {lists.citedBy.length} on arXiv
-                            {#if data.externalCitedBy}<small>+ {data.externalCitedBy.toLocaleString("en")} elsewhere</small>{/if}
+                            {data.citedByTotal.toLocaleString("en")} in the dataset
+                            {#if citationCount(full) > data.citedByTotal}
+                                <small>of {citationCount(full).toLocaleString("en")} known</small>
+                            {/if}
                         {:else}…{/if}
                     </dd>
                 </div>
@@ -274,6 +279,11 @@
                         </select>
                     {/if}
                 </div>
+            {/if}
+            {#if tab !== "related" && shownOf[tab] > lists[tab].length}
+                <p class="note">
+                    The {lists[tab].length} most cited of {shownOf[tab].toLocaleString("en")} in the dataset.
+                </p>
             {/if}
             <ul class="list">
                 {#each visible as item (item.entry_id)}

@@ -81,25 +81,19 @@ export async function getPapersByIds(entryIds: string[]): Promise<ApiPaper[]> {
     return results.flat();
 }
 
-export interface CitationEdge {
-    belonging_paper_entry_id: string;
-    cited_paper_entry_id: string;
+export interface PaperNeighbours {
+    /** The most cited ones, at most 500 */
+    items: ApiPaper[];
+    /** How many there are in the dataset */
+    total: number;
 }
 
-export interface ReferenceEdge {
-    belonging_paper_entry_id: string;
-    referenced_paper_entry_id: string;
+/** Papers in the dataset that cite this paper ("cited by" in the UI), most cited first. */
+export function getCitingPapers(entryId: string): Promise<PaperNeighbours> {
+    return request<PaperNeighbours>(`/paper-citations/paper/${encodeURIComponent(entryId)}`);
 }
 
-/**
- * Citation edges of a paper. Careful with the naming: cited_paper_entry_id
- * is a paper that CITES this paper (it is "cited by" in the UI).
- */
-export function getCitationEdges(entryId: string): Promise<CitationEdge[]> {
-    return request<CitationEdge[]>(`/paper-citations/paper/${encodeURIComponent(entryId)}`);
-}
-
-/** Papers this paper references ("cites" in the UI). */
-export function getReferenceEdges(entryId: string): Promise<ReferenceEdge[]> {
-    return request<ReferenceEdge[]>(`/paper-references/paper/${encodeURIComponent(entryId)}`);
+/** Papers in the dataset this paper references ("cites" in the UI), most cited first. */
+export function getReferencedPapers(entryId: string): Promise<PaperNeighbours> {
+    return request<PaperNeighbours>(`/paper-references/paper/${encodeURIComponent(entryId)}`);
 }

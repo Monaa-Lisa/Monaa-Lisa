@@ -322,7 +322,13 @@
             loadNeighbourhood(id)
                 .then((n) => {
                     if (request !== edgeRequest || !graph?.hasNode(id)) return;
-                    const edge = { type: "arrow", size: 1.2, color: token("--map-edge", "rgba(0,0,0,0.3)") };
+                    // many links are drawn as thin plain lines, arrow heads would only add clutter
+                    const many = n.cites.length + n.citedBy.length > 60;
+                    const edge = {
+                        type: many ? "line" : "arrow",
+                        size: many ? 0.6 : 1.2,
+                        color: token("--map-edge", "rgba(0,0,0,0.3)"),
+                    };
                     for (const p of n.cites) {
                         if (graph.hasNode(p.entry_id) && !graph.hasEdge(id, p.entry_id)) {
                             graph.addEdge(id, p.entry_id, edge);

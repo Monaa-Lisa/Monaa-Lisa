@@ -92,6 +92,8 @@
     let papersTotal = $state(0);
     let loading = $state(false);
     let error = $state<string | null>(null);
+    /** A paper from a link or the library that could not be opened, shown over the map */
+    let notice = $state<string | null>(null);
 
     let libraryOpen = $state(false);
     let aboutOpen = $state(false);
@@ -207,6 +209,7 @@
     }
 
     function openPaper(paper: Paper) {
+        notice = null;
         if (selected && selected.entry_id !== paper.entry_id) trail = [...trail, selected].slice(-20);
         if (selected?.entry_id === paper.entry_id) return;
         selected = paper;
@@ -237,7 +240,7 @@
             const paper = toPaper(await getPaper(entryId));
             if (paper) openPaper(paper);
         } catch {
-            error = "This paper could not be loaded.";
+            notice = `The paper ${entryId} is not in the dataset or could not be loaded.`;
         }
     }
 
@@ -491,6 +494,12 @@
             </div>
 
             <div class="stage-body" class:fading>
+                {#if notice}
+                    <p class="notice" role="status">
+                        {notice}
+                        <button onclick={() => (notice = null)} aria-label="Dismiss">×</button>
+                    </p>
+                {/if}
                 {#if selected && stageView !== "map"}
                     {#key selected.entry_id}
                         <CitationTimeline paper={selected} mode={stageView} {nodeLimit} {highlightedAuthor} onselect={openPaper} />
@@ -754,5 +763,33 @@
     }
     .state p {
         margin: 0;
+    }
+    .notice {
+        position: absolute;
+        top: 12px;
+        left: 50%;
+        z-index: 4;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        max-width: calc(100% - 32px);
+        margin: 0;
+        padding: 6px 8px 6px 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius);
+        background: var(--surface);
+        box-shadow: var(--shadow-pop);
+        color: var(--text);
+        font-size: var(--text-sm);
+        transform: translateX(-50%);
+    }
+    .notice button {
+        padding: 0 6px;
+        border: 0;
+        background: none;
+        color: var(--text-3);
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
     }
 </style>
