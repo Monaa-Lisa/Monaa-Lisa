@@ -10,12 +10,14 @@ NestJS backend (`PUBLIC_API_BASE_URL`, default `http://localhost:3000`).
   mirrored in the URL (`?category=cs.LG&paper=1206.5538`).
 - `Sidebar.svelte`: search with filters, and the list of categories or papers
   of the current level.
-- `Treemap.svelte` (+ `lib/treemap.ts`): the subject and category levels,
-  tile area = papers on arXiv.
+- `BubbleMap.svelte` (+ `lib/bubbles.ts`): the subject and category levels
+  as packed circles, circle area = papers on arXiv.
 - `PaperMap.svelte`: the paper map of one category on Sigma.js, points at
-  their UMAP position, size = citations, colour = subject.
-- `CitationTimeline.svelte`: references and citations of one paper on a year
-  axis, or its related papers at their map positions.
+  their UMAP position, size = citations, colour = primary category or year
+  of publication. Titles are placed by `lib/labels.ts`.
+- `CitationTimeline.svelte`: references and citations of one paper as a
+  chart (year against citations), or its related papers at their map
+  positions with the category map behind them.
 - `PaperDetails.svelte`: metadata, links (arXiv, PDF, DOI, Semantic Scholar),
   BibTeX, abstract, and the reference / citation / related lists.
 - `LibraryPanel.svelte` (+ `lib/library.svelte.ts`): saved and recently
@@ -23,7 +25,9 @@ NestJS backend (`PUBLIC_API_BASE_URL`, default `http://localhost:3000`).
 - `lib/api.ts`: the only place that calls the backend. `lib/neighbourhood.ts`
   loads and caches everything around one paper.
 - `lib/categories.ts`: the arXiv hierarchy and the subject colours.
-  `src/app.css`: design tokens (light and dark) and base styles.
+  `src/app.css`: design tokens (light and dark) and base styles. The data
+  colours (`--series-1` to `--series-8`, `--seq-1` to `--seq-5`) are checked
+  for colour blind readers, keep that in mind before changing them.
 
 ## Commands
 
