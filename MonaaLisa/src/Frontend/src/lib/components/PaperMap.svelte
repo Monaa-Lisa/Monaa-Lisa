@@ -25,6 +25,7 @@
     import HoverCard from "$lib/components/HoverCard.svelte";
     import ZoomControls from "$lib/components/ZoomControls.svelte";
     import { DEFAULT_CATEGORY_COLOR, subcategoryName } from "$lib/categories";
+    import { loadNeighbourhood } from "$lib/neighbourhood";
     import { createLabelPlacer, overlayBoxes, type PlacedLabel } from "$lib/labels";
     import { citationCount, primaryCategory, publishedYear, truncate } from "$lib/paper";
     import { onThemeChange, resolveColor, token, withAlpha } from "$lib/theme";
@@ -48,7 +49,6 @@
     let labels = $state<PlacedLabel[]>([]);
     let themeVersion = $state(0);
 
-    const byId = $derived(new Map(papers.map((p) => [p.entry_id, p])));
     const maxCitations = $derived(Math.max(1, ...papers.map(citationCount)));
 
     interface Scheme {
@@ -177,6 +177,8 @@
     /** Nodes added for a highlight (not part of the category map) */
     let injectedIds: string[] = [];
     let relabel = () => {};
+    /** Counts the selections, a late answer for an earlier one is dropped */
+    let edgeRequest = 0;
 
     /** Papers that may carry a title, most important first */
     function candidates() {
@@ -308,29 +310,34 @@
         neighbours = new Set();
         const paper = selected;
         selectedId = paper?.entry_id ?? null;
+        const request = ++edgeRequest;
         if (paper) {
-            // the map's own copy carries the citation lists, a search result does not
-            const full = byId.get(paper.entry_id) ?? paper;
-            if (!graph.hasNode(full.entry_id) && !(full.x === 0 && full.y === 0)) {
-                graph.addNode(full.entry_id, nodeAttributes(full));
-                nodes.set(full.entry_id, full);
-                injectedIds.push(full.entry_id);
+            const id = paper.entry_id;
+            if (!graph.hasNode(id) && !(paper.x === 0 && paper.y === 0)) {
+                graph.addNode(id, nodeAttributes(paper));
+                nodes.set(id, paper);
+                injectedIds.push(id);
             }
-            if (graph.hasNode(full.entry_id)) {
-                const edge = { type: "arrow", size: 1.2, color: token("--map-edge", "rgba(0,0,0,0.3)") };
-                for (const id of full.references) {
-                    if (graph.hasNode(id)) {
-                        graph.addEdge(full.entry_id, id, edge);
-                        neighbours.add(id);
+            // the points on the map carry no citation lists, they are loaded for the selected paper
+            loadNeighbourhood(id)
+                .then((n) => {
+                    if (request !== edgeRequest || !graph?.hasNode(id)) return;
+                    const edge = { type: "arrow", size: 1.2, color: token("--map-edge", "rgba(0,0,0,0.3)") };
+                    for (const p of n.cites) {
+                        if (graph.hasNode(p.entry_id) && !graph.hasEdge(id, p.entry_id)) {
+                            graph.addEdge(id, p.entry_id, edge);
+                            neighbours.add(p.entry_id);
+                        }
                     }
-                }
-                for (const id of full.citations) {
-                    if (graph.hasNode(id) && !graph.hasEdge(id, full.entry_id)) {
-                        graph.addEdge(id, full.entry_id, edge);
-                        neighbours.add(id);
+                    for (const p of n.citedBy) {
+                        if (graph.hasNode(p.entry_id) && !graph.hasEdge(p.entry_id, id)) {
+                            graph.addEdge(p.entry_id, id, edge);
+                            neighbours.add(p.entry_id);
+                        }
                     }
-                }
-            }
+                    relabel();
+                })
+                .catch(() => {});
         }
         relabel();
         updateRing();
@@ -362,7 +369,6 @@
     });
     $effect(() => {
         void selected;
-        void byId;
         applySelection();
     });
 

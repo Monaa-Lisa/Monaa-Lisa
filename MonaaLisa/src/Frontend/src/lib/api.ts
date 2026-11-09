@@ -36,6 +36,8 @@ export interface PaperQuery {
     dateFrom?: string;
     dateTo?: string;
     sort?: "published" | "published_asc" | "citations";
+    /** "map" leaves out the abstract and the citation lists, for the paper map */
+    fields?: "full" | "map";
     skip?: number;
     take?: number;
 }

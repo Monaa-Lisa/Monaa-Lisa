@@ -299,6 +299,7 @@
             const page = await getPapers({
                 categories: categoryId,
                 sort: "citations",
+                fields: "map",
                 take: paperLimit > 0 ? paperLimit : MAX_PAPERS_PER_REQUEST,
             });
             papers = toPapers(page.items);
