@@ -43,9 +43,15 @@
         </li>
         <li>
             <strong>Paper map:</strong> one point per paper at its UMAP position. Distances are meaningful locally
-            (close points are similar), the axes have no meaning. Point size follows the citation count, colour the
-            subject of the paper's primary category. A category map shows the most cited papers first; the number of
-            papers can be raised in the header.
+            (close points are similar), the axes have no meaning. Point size follows the citation count (on arXiv and
+            elsewhere), colour the paper's primary category or its year of publication. A category map shows the most
+            cited papers first; the number of papers can be raised in the header.
+        </li>
+        <li>
+            <strong>Topic names</strong> on the paper map are an aid for reading it, not part of the method. The papers
+            shown are grouped by their position (k-means), and each group is named after the word or phrase that is
+            frequent in its titles and rare in the rest of the map. The names change with the papers shown and can be
+            switched off in the header.
         </li>
         <li>
             <strong>Citations:</strong> a chart of the selected paper's references and the papers citing it: year of
@@ -55,7 +61,8 @@
             details.
         </li>
         <li>
-            <strong>Related:</strong> related papers from Semantic Scholar, drawn at their own map positions.
+            <strong>Related:</strong> related papers from Semantic Scholar, drawn at their own map positions, with the
+            papers of the open category in grey behind them.
         </li>
     </ul>
 

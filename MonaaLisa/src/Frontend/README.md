@@ -14,7 +14,9 @@ NestJS backend (`PUBLIC_API_BASE_URL`, default `http://localhost:3000`).
   as packed circles, circle area = papers on arXiv.
 - `PaperMap.svelte`: the paper map of one category on Sigma.js, points at
   their UMAP position, size = citations, colour = primary category or year
-  of publication. Titles are placed by `lib/labels.ts`.
+  of publication. Titles are placed by `lib/labels.ts`, the names of the
+  regions come from `lib/regions.ts` (k-means on the positions, each group
+  named after the term typical for its titles).
 - `CitationTimeline.svelte`: references and citations of one paper as a
   chart (year against citations), or its related papers at their map
   positions with the category map behind them.

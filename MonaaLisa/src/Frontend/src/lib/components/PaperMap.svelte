@@ -7,6 +7,9 @@
   primary category of the paper (the three most common ones on this map, the
   rest is grey) or its year of publication (`colorBy`).
 
+  The regions of the map are named after the terms typical for the titles of
+  their papers (lib/regions.ts, `showRegions`).
+
   Titles are HTML elements placed by lib/labels.ts: the most cited papers
   first, as many as fit without overlap, more when zooming in.
 
@@ -26,7 +29,8 @@
     import ZoomControls from "$lib/components/ZoomControls.svelte";
     import { DEFAULT_CATEGORY_COLOR, subcategoryName } from "$lib/categories";
     import { loadNeighbourhood } from "$lib/neighbourhood";
-    import { createLabelPlacer, overlayBoxes, type PlacedLabel } from "$lib/labels";
+    import { createLabelPlacer, overlayBoxes, type Box, type PlacedLabel } from "$lib/labels";
+    import { findRegions } from "$lib/regions";
     import { citationCount, primaryCategory, publishedYear, truncate } from "$lib/paper";
     import { onThemeChange, resolveColor, token, withAlpha } from "$lib/theme";
     import type { Paper } from "$lib/types/paper";
@@ -37,16 +41,52 @@
         highlight: Paper[] | null;
         selected: Paper | null;
         colorBy: ColorBy;
+        /** Name the regions of the map */
+        showRegions: boolean;
         onselect: (paper: Paper) => void;
     }
 
-    let { papers, highlight, selected, colorBy, onselect }: Props = $props();
+    let { papers, highlight, selected, colorBy, showRegions, onselect }: Props = $props();
 
     let container = $state<HTMLDivElement>();
     let width = $state(0);
     let hovered = $state<{ paper: Paper; x: number; y: number } | null>(null);
     let ring = $state<{ x: number; y: number; size: number } | null>(null);
     let labels = $state<PlacedLabel[]>([]);
+    let regionLabels = $state<{ id: string; label: string; x: number; y: number }[]>([]);
+
+    const regions = $derived(findRegions(papers));
+
+    /** Must match .region-label in app.css */
+    const REGION_FONT = '600 14px "IBM Plex Sans", system-ui, sans-serif';
+    const REGION_HEIGHT = 20;
+    const measure = typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d");
+
+    /**
+     * Puts the region names at the centres of their regions, the largest
+     * regions first, and leaves out a name that would touch another one or
+     * an overlay. Returns the boxes taken, the paper titles keep clear of them.
+     */
+    function placeRegions(r: Sigma, blocked: Box[]): Box[] {
+        const taken: Box[] = [];
+        const placed: typeof regionLabels = [];
+        if (showRegions && measure) {
+            measure.font = REGION_FONT;
+            const { width: stageWidth, height: stageHeight } = r.getDimensions();
+            for (const region of [...regions].sort((a, b) => b.size - a.size)) {
+                const p = r.graphToViewport(region);
+                const half = measure.measureText(region.label).width / 2 + 8;
+                const box: Box = [p.x - half, p.y - REGION_HEIGHT / 2, p.x + half, p.y + REGION_HEIGHT / 2];
+                if (box[0] < 0 || box[1] < 0 || box[2] > stageWidth || box[3] > stageHeight) continue;
+                const hits = (b: Box) => b[0] < box[2] && box[0] < b[2] && b[1] < box[3] && box[1] < b[3];
+                if (blocked.some(hits) || taken.some(hits)) continue;
+                taken.push(box);
+                placed.push({ id: region.id, label: region.label, x: p.x, y: p.y });
+            }
+        }
+        regionLabels = placed;
+        return taken;
+    }
     let themeVersion = $state(0);
 
     const maxCitations = $derived(Math.max(1, ...papers.map(citationCount)));
@@ -255,13 +295,16 @@
         r.on("afterRender", updateRing);
 
         // titles are placed after a render and again whenever the camera moved
-        const placer = createLabelPlacer(r, 30, () => overlayBoxes(el));
+        let regionBoxes: Box[] = [];
+        const placer = createLabelPlacer(r, 30, () => [...overlayBoxes(el), ...regionBoxes]);
         let needsLabels = true;
         r.getCamera().on("updated", () => (needsLabels = true));
         r.on("afterRender", () => {
             if (!needsLabels) return;
             needsLabels = false;
-            labels = placer.place(candidates());
+            regionBoxes = placeRegions(r, overlayBoxes(el));
+            // fewer paper titles while the regions are named, so the names stand out
+            labels = placer.place(candidates(), regionBoxes.length ? 18 : 30);
         });
         relabel = () => {
             needsLabels = true;
@@ -281,6 +324,7 @@
             hovered = null;
             ring = null;
             labels = [];
+            regionLabels = [];
             relabel = () => {};
         };
     });
@@ -367,6 +411,10 @@
         void highlight;
         applyHighlight();
     });
+    $effect(() => {
+        void showRegions;
+        relabel();
+    });
     // switching the colouring repaints the points and keeps the view
     $effect(() => {
         const s = scheme;
@@ -394,6 +442,10 @@
         >
     {/each}
 
+    {#each regionLabels as item (item.id)}
+        <span class="region-label" style:left="{item.x}px" style:top="{item.y}px">{item.label}</span>
+    {/each}
+
     {#if ring}
         <div
             class="ring"
@@ -417,7 +469,9 @@
                 <b>{item.count.toLocaleString("en")}</b>
             </span>
         {/each}
-        <span class="hint">close points = similar content · size = citations · zoom for more titles</span>
+        <span class="hint">close points = similar content · size = citations{showRegions
+                    ? " · names = typical title terms of a region"
+                    : ""} · zoom for more titles</span>
     </div>
 
     <ZoomControls

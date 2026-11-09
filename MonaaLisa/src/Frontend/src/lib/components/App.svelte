@@ -63,6 +63,7 @@
 
     let paperLimit = $state(1000);
     let colorBy = $state<ColorBy>("category");
+    let showRegions = $state(true);
     let nodeLimit = $state(40);
     let pendingLimit = $state<{ target: "paper" | "node"; value: number } | null>(null);
 
@@ -475,6 +476,10 @@
                         </select>
                     </label>
                 {:else if view.level === "papers"}
+                    <label class="limit" title="Name the regions of the map after the terms typical for their titles">
+                        <input type="checkbox" bind:checked={showRegions} />
+                        <span>Topics</span>
+                    </label>
                     <label class="limit">
                         <span>Colour</span>
                         <select class="field" bind:value={colorBy}>
@@ -526,7 +531,7 @@
                         <Button onclick={() => view.level === "papers" && loadPapers(view.categoryId)}>Try again</Button>
                     </div>
                 {:else}
-                    <PaperMap {papers} {highlight} {selected} {colorBy} onselect={openPaper} />
+                    <PaperMap {papers} {highlight} {selected} {colorBy} {showRegions} onselect={openPaper} />
                 {/if}
             </div>
         </main>

@@ -23,7 +23,8 @@ export interface PlacedLabel {
 }
 
 export interface LabelPlacer {
-    place(ranked: LabelCandidate[]): PlacedLabel[];
+    /** `limit` lowers the number of titles for this call */
+    place(ranked: LabelCandidate[], limit?: number): PlacedLabel[];
 }
 
 /** Must match .node-label in app.css */
@@ -63,7 +64,7 @@ export function createLabelPlacer(renderer: Sigma, maxLabels = 60, obstacles: ()
     };
 
     return {
-        place(ranked) {
+        place(ranked, limit = maxLabels) {
             const { width: stageWidth, height: stageHeight } = renderer.getDimensions();
             const blocked = obstacles();
             const taken: Box[] = [];
@@ -103,7 +104,7 @@ export function createLabelPlacer(renderer: Sigma, maxLabels = 60, obstacles: ()
                 !taken.some((b) => overlaps(b, box));
 
             for (const [rank, { id, label }] of ranked.entries()) {
-                if (placed.length >= maxLabels) break;
+                if (placed.length >= limit) break;
                 const data = renderer.getNodeDisplayData(id);
                 if (!data || data.hidden) continue;
                 const p = renderer.framedGraphToViewport(data);

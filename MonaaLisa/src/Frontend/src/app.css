@@ -38,7 +38,7 @@
 
   /* data layers on the maps */
   --map-dim: #d8dae1; /* nodes outside a highlight */
-  --map-edge: rgba(25, 28, 38, 0.3);
+  --map-edge: #b3b7c4; /* solid: the canvas does not blend transparent lines with the page */
   --map-grid: rgba(25, 28, 38, 0.07);
   --map-label: #191c26;
   --map-label-halo: #f6f7f9;
@@ -108,7 +108,7 @@
   --header-bg: #0c0e18;
   --header-border: rgba(255, 255, 255, 0.1);
   --map-dim: #343849;
-  --map-edge: rgba(233, 234, 240, 0.16);
+  --map-edge: #3b4058;
   --map-grid: rgba(233, 234, 240, 0.07);
   --map-label: #e9eaf0;
   --map-label-halo: #10121c;
@@ -151,7 +151,7 @@
     --header-bg: #0c0e18;
     --header-border: rgba(255, 255, 255, 0.1);
     --map-dim: #343849;
-    --map-edge: rgba(233, 234, 240, 0.16);
+    --map-edge: #3b4058;
     --map-grid: rgba(233, 234, 240, 0.07);
     --map-label: #e9eaf0;
     --map-label-halo: #10121c;
@@ -355,6 +355,18 @@ input[type="checkbox"] {
 }
 .node-label.primary {
   font-weight: 600;
+}
+
+/* Names of the regions of a paper map (lib/regions.ts) */
+.region-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: var(--text);
+  font: 600 14px/20px var(--font-sans);
+  white-space: nowrap;
+  -webkit-text-stroke: 4px var(--map-label-halo);
+  paint-order: stroke fill;
+  pointer-events: none;
 }
 
 /* Small pill group (Map / Citations / Related) */
