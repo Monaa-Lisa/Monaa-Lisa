@@ -15,20 +15,20 @@ Needs numpy and psycopg2. The sample is drawn with a fixed seed (`--seed`),
 so a run can be repeated.
 
 Result on the dataset of November 2026 (1,224,767 papers with a map
-position, 460,000 of them, from 2007 to 2013, with an embedding in the
-database; seed 7, 2,000 papers and 200,000 citing pairs sampled):
+position, published up to January 2020, all of them with an embedding in
+the database; seed 7, 2,000 papers and 200,000 citing pairs sampled):
 
 | Measurement | Map | Reference |
 |---|---|---|
-| 10 nearest in the embedding that are also among the 10 nearest on the map | 3.6 % | chance 0.002 % |
-| the same for 30 | 5.3 % | chance 0.007 % |
-| the same for 100 | 7.7 % | chance 0.022 % |
-| 10 nearest in the embedding that are among the 100 nearest on the map | 19.4 % | |
+| 10 nearest in the embedding that are also among the 10 nearest on the map | 2.7 % | chance 0.001 % |
+| the same for 30 | 4.0 % | chance 0.002 % |
+| the same for 100 | 5.9 % | chance 0.008 % |
+| 10 nearest in the embedding that are among the 100 nearest on the map | 15.1 % | |
 | a citing pair is closer than a random pair (AUC) | 0.966 | 0.5 = chance |
-| the same for pairs with embeddings (40,178 pairs) | 0.967 | 0.983 in the embedding |
+| the same pairs in the embedding | 0.966 | 0.985 in the embedding |
 | median map distance of a citing pair | 0.41 | 7.81 for a random pair |
-| 10 nearest on the map with the same primary category | 39.6 % | chance 1.7 % |
-| 10 nearest on the map with the same subject | 86.0 % | chance 38.5 % |
+| 10 nearest on the map with the same primary category | 40.9 % | chance 1.7 % |
+| 10 nearest on the map with the same subject | 85.8 % | chance 38.5 % |
 
 Reading: the map keeps the coarse structure well. Papers that cite each
 other are close, nearly as reliably as in the embedding itself, and a paper's
@@ -40,6 +40,5 @@ the neighbourhoods of 128, so "close on the map" means "same topic area", not
 embedding where it has one.
 
 Limits: the 768-d SPECTER2 vectors are not stored, so the reference is the
-PCA reduced embedding the map was projected from. The neighbourhood numbers
-only cover the papers that have an embedding in the database. Map positions
-are stored with three decimals.
+PCA reduced embedding the map was projected from. Map positions are stored
+with three decimals.
