@@ -8,7 +8,6 @@ from unittest.mock import Mock, MagicMock, patch
 sys.modules.setdefault("Database.db", MagicMock())
 
 from MonaaLisa.src.SemanticPaper.pipeline.incremental import (
-    _categories_of,
     _fetch_new_arxiv_papers,
     _normalize_entry_id,
     run_incremental_update,
@@ -31,7 +30,6 @@ def _make_arxiv_result(entry_id="http://arxiv.org/abs/2401.00001v1",
     r.authors = authors or [Mock(__str__=lambda s: "Author A")]
     r.summary = summary
     r.primary_category = primary_category
-    r.categories = [primary_category]
     r.published = published or datetime(2024, 1, 1)
     r.updated = datetime(2024, 1, 2)
     r.doi = "10.1234/test"
@@ -86,20 +84,6 @@ class TestNormalizeEntryId:
         result = _normalize_entry_id("2401.00001")
 
         assert result == "2401.00001"
-
-
-class TestCategoriesOf:
-    def test_keeps_cross_listed_categories(self):
-        result = _make_arxiv_result(primary_category="cs.AI")
-        result.categories = ["cs.LG", "cs.AI", "stat.ML"]
-
-        assert _categories_of(result) == "cs.AI cs.LG stat.ML"
-
-    def test_works_without_category_list(self):
-        result = _make_arxiv_result(primary_category="cs.CV")
-        result.categories = []
-
-        assert _categories_of(result) == "cs.CV"
 
 
 class TestFetchNewArxivPapers:
@@ -211,9 +195,9 @@ class TestRunIncrementalUpdate:
         # SemanticScholar should never be called when there's nothing to process
         s2_client.fetch_batch.assert_not_called()
 
-    # arXiv returns papers, but all of them are already in the DB → all are duplicates.
+    # arXiv returns papers, but paper_exists_by_id always returns True → all are duplicates.
     # This covers the case where arXiv returns results, but after deduplication nothing is left.
-    @patch(f"{MODULE}.get_existing_entry_ids", side_effect=set)
+    @patch(f"{MODULE}.paper_exists_by_id", return_value=True)
     @patch(f"{MODULE}._fetch_new_arxiv_papers")
     @patch(f"{MODULE}.get_paper_count", return_value=100)
     @patch(f"{MODULE}.get_newest_paper_date", return_value=datetime(2024, 1, 1))
@@ -241,7 +225,7 @@ class TestRunIncrementalUpdate:
     # save_processed_paper returns True → paper saved successfully
     @patch(f"{MODULE}.save_processed_paper", return_value=True)
     @patch(f"{MODULE}.cfg")
-    @patch(f"{MODULE}.get_existing_entry_ids", return_value=set())
+    @patch(f"{MODULE}.paper_exists_by_id", return_value=False)
     @patch(f"{MODULE}._fetch_new_arxiv_papers")
     @patch(f"{MODULE}.get_paper_count", return_value=100)
     @patch(f"{MODULE}.get_newest_paper_date", return_value=datetime(2024, 1, 1))
@@ -283,7 +267,7 @@ class TestRunIncrementalUpdate:
     # save_processed_paper returns False → simulates a DB write failure
     @patch(f"{MODULE}.save_processed_paper", return_value=False)
     @patch(f"{MODULE}.cfg")
-    @patch(f"{MODULE}.get_existing_entry_ids", return_value=set())
+    @patch(f"{MODULE}.paper_exists_by_id", return_value=False)
     @patch(f"{MODULE}._fetch_new_arxiv_papers")
     @patch(f"{MODULE}.get_paper_count", return_value=100)
     @patch(f"{MODULE}.get_newest_paper_date", return_value=datetime(2024, 1, 1))
@@ -321,7 +305,7 @@ class TestRunIncrementalUpdate:
 
     @patch(f"{MODULE}.save_uncaught_paper")
     @patch(f"{MODULE}.cfg")
-    @patch(f"{MODULE}.get_existing_entry_ids", return_value=set())
+    @patch(f"{MODULE}.paper_exists_by_id", return_value=False)
     @patch(f"{MODULE}._fetch_new_arxiv_papers")
     @patch(f"{MODULE}.get_paper_count", return_value=100)
     @patch(f"{MODULE}.get_newest_paper_date", return_value=datetime(2024, 1, 1))
@@ -357,9 +341,10 @@ class TestRunIncrementalUpdate:
         # Pipeline should NOT have been called – there are no embeddings to process
         pipeline.batch_process.assert_not_called()
 
-   # This test covers the dedup filter against get_existing_entry_ids()
+   # This test covers the dedup filter: if not paper_exists_by_id(eid)
 
-    @patch(f"{MODULE}.get_existing_entry_ids")
+    # paper_exists_by_id is given a side_effect so we can control per-paper results
+    @patch(f"{MODULE}.paper_exists_by_id")
     @patch(f"{MODULE}._fetch_new_arxiv_papers")
     @patch(f"{MODULE}.get_paper_count", return_value=100)
     @patch(f"{MODULE}.get_newest_paper_date", return_value=datetime(2024, 1, 1))
@@ -368,7 +353,7 @@ class TestRunIncrementalUpdate:
                                             mock_count, mock_fetch,
                                             mock_exists):
         """
-        Tests: papers whose id is already in the DB are dropped before S2.
+        Tests: if not paper_exists_by_id(eid): new_papers.append(...)
 
         The dedup loop must skip papers that already exist in the DB.
         Without this filter we'd create duplicates.
@@ -378,8 +363,8 @@ class TestRunIncrementalUpdate:
         r3 = _make_arxiv_result(entry_id="http://arxiv.org/abs/2401.00003v1")
         mock_fetch.return_value = [r1, r2, r3]
 
-        # Paper 2 already exists, papers 1 and 3 are new
-        mock_exists.return_value = {"2401.00002"}
+        # Paper 1: new, Paper 2: already exists, Paper 3: new
+        mock_exists.side_effect = [False, True, False]
 
         s2_client = Mock()
         s2_client.fetch_batch.return_value = ([], [])

@@ -1,0 +1,823 @@
+[
+  {
+    "name": "Physics",
+    "id": "physics",
+    "total_count": 2200822,
+    "children": [
+      {
+        "name": "High Energy Physics - Phenomenology",
+        "id": "hep-ph",
+        "value": 193618
+      },
+      {
+        "name": "High Energy Physics - Theory",
+        "id": "hep-th",
+        "value": 179825
+      },
+      {
+        "name": "Quantum Physics",
+        "id": "quant-ph",
+        "value": 174001
+      },
+      {
+        "name": "General Relativity and Quantum Cosmology",
+        "id": "gr-qc",
+        "value": 119368
+      },
+      {
+        "name": "Materials Science",
+        "id": "cond-mat.mtrl-sci",
+        "value": 106157
+      },
+      {
+        "name": "Mesoscale and Nanoscale Physics",
+        "id": "cond-mat.mes-hall",
+        "value": 99488
+      },
+      {
+        "name": "Mathematical Physics",
+        "id": "math-ph",
+        "value": 88101
+      },
+      {
+        "name": "Strongly Correlated Electrons",
+        "id": "cond-mat.str-el",
+        "value": 81312
+      },
+      {
+        "name": "Statistical Mechanics",
+        "id": "cond-mat.stat-mech",
+        "value": 79967
+      },
+      {
+        "name": "Cosmology and Nongalactic Astrophysics",
+        "id": "astro-ph.CO",
+        "value": 75483
+      },
+      {
+        "name": "Astrophysics of Galaxies",
+        "id": "astro-ph.GA",
+        "value": 75255
+      },
+      {
+        "name": "Solar and Stellar Astrophysics",
+        "id": "astro-ph.SR",
+        "value": 67942
+      },
+      {
+        "name": "High Energy Astrophysical Phenomena",
+        "id": "astro-ph.HE",
+        "value": 67082
+      },
+      {
+        "name": "Nuclear Theory",
+        "id": "nucl-th",
+        "value": 61605
+      },
+      {
+        "name": "High Energy Physics - Experiment",
+        "id": "hep-ex",
+        "value": 59114
+      },
+      {
+        "name": "Optics",
+        "id": "physics.optics",
+        "value": 54563
+      },
+      {
+        "name": "Superconductivity",
+        "id": "cond-mat.supr-con",
+        "value": 46591
+      },
+      {
+        "name": "Soft Condensed Matter",
+        "id": "cond-mat.soft",
+        "value": 44230
+      },
+      {
+        "name": "Instrumentation and Methods for Astrophysics",
+        "id": "astro-ph.IM",
+        "value": 34622
+      },
+      {
+        "name": "Earth and Planetary Astrophysics",
+        "id": "astro-ph.EP",
+        "value": 33954
+      },
+      {
+        "name": "Fluid Dynamics",
+        "id": "physics.flu-dyn",
+        "value": 32999
+      },
+      {
+        "name": "High Energy Physics - Lattice",
+        "id": "hep-lat",
+        "value": 29916
+      },
+      {
+        "name": "Nuclear Experiment",
+        "id": "nucl-ex",
+        "value": 28036
+      },
+      {
+        "name": "Computational Physics",
+        "id": "physics.comp-ph",
+        "value": 27418
+      },
+      {
+        "name": "Chemical Physics",
+        "id": "physics.chem-ph",
+        "value": 26309
+      },
+      {
+        "name": "Disordered Systems and Neural Networks",
+        "id": "cond-mat.dis-nn",
+        "value": 25950
+      },
+      {
+        "name": "Physics and Society",
+        "id": "physics.soc-ph",
+        "value": 24604
+      },
+      {
+        "name": "Instrumentation and Detectors",
+        "id": "physics.ins-det",
+        "value": 23835
+      },
+      {
+        "name": "Quantum Gases",
+        "id": "cond-mat.quant-gas",
+        "value": 23630
+      },
+      {
+        "name": "Atomic Physics",
+        "id": "physics.atom-ph",
+        "value": 23440
+      },
+      {
+        "name": "Applied Physics",
+        "id": "physics.app-ph",
+        "value": 22744
+      },
+      {
+        "name": "Biological Physics",
+        "id": "physics.bio-ph",
+        "value": 17343
+      },
+      {
+        "name": "Other Condensed Matter",
+        "id": "cond-mat.other",
+        "value": 16909
+      },
+      {
+        "name": "Chaotic Dynamics",
+        "id": "nlin.CD",
+        "value": 16908
+      },
+      {
+        "name": "Exactly Solvable and Integrable Systems",
+        "id": "nlin.SI",
+        "value": 12696
+      },
+      {
+        "name": "Data Analysis, Statistics and Probability",
+        "id": "physics.data-an",
+        "value": 11627
+      },
+      {
+        "name": "General Physics",
+        "id": "physics.gen-ph",
+        "value": 10750
+      },
+      {
+        "name": "Pattern Formation and Solitons",
+        "id": "nlin.PS",
+        "value": 10580
+      },
+      {
+        "name": "Classical Physics",
+        "id": "physics.class-ph",
+        "value": 9268
+      },
+      {
+        "name": "Medical Physics",
+        "id": "physics.med-ph",
+        "value": 8658
+      },
+      {
+        "name": "Accelerator Physics",
+        "id": "physics.acc-ph",
+        "value": 8639
+      },
+      {
+        "name": "Geophysics",
+        "id": "physics.geo-ph",
+        "value": 8393
+      },
+      {
+        "name": "Atmospheric and Oceanic Physics",
+        "id": "physics.ao-ph",
+        "value": 7985
+      },
+      {
+        "name": "Adaptation and Self-Organizing Systems",
+        "id": "nlin.AO",
+        "value": 7971
+      },
+      {
+        "name": "Space Physics",
+        "id": "physics.space-ph",
+        "value": 7378
+      },
+      {
+        "name": "History and Philosophy of Physics",
+        "id": "physics.hist-ph",
+        "value": 5486
+      },
+      {
+        "name": "Physics Education",
+        "id": "physics.ed-ph",
+        "value": 4464
+      },
+      {
+        "name": "Atomic and Molecular Clusters",
+        "id": "physics.atm-clus",
+        "value": 2969
+      },
+      {
+        "name": "Cellular Automata and Lattice Gases",
+        "id": "nlin.CG",
+        "value": 1639
+      }
+    ]
+  },
+  {
+    "name": "Computer Science",
+    "id": "computer_science",
+    "total_count": 1332147,
+    "children": [
+      {
+        "name": "Machine Learning",
+        "id": "cs.LG",
+        "value": 251943
+      },
+      {
+        "name": "Computer Vision and Pattern Recognition",
+        "id": "cs.CV",
+        "value": 181028
+      },
+      {
+        "name": "Artificial Intelligence",
+        "id": "cs.AI",
+        "value": 161695
+      },
+      {
+        "name": "Computation and Language",
+        "id": "cs.CL",
+        "value": 101840
+      },
+      {
+        "name": "Information Theory",
+        "id": "cs.IT",
+        "value": 53017
+      },
+      {
+        "name": "Robotics",
+        "id": "cs.RO",
+        "value": 49013
+      },
+      {
+        "name": "Cryptography and Security",
+        "id": "cs.CR",
+        "value": 45525
+      },
+      {
+        "name": "Systems and Control",
+        "id": "cs.SY",
+        "value": 43137
+      },
+      {
+        "name": "Numerical Analysis",
+        "id": "cs.NA",
+        "value": 32699
+      },
+      {
+        "name": "Human-Computer Interaction",
+        "id": "cs.HC",
+        "value": 28040
+      },
+      {
+        "name": "Data Structures and Algorithms",
+        "id": "cs.DS",
+        "value": 27881
+      },
+      {
+        "name": "Distributed, Parallel, and Cluster Computing",
+        "id": "cs.DC",
+        "value": 27287
+      },
+      {
+        "name": "Computers and Society",
+        "id": "cs.CY",
+        "value": 26741
+      },
+      {
+        "name": "Networking and Internet Architecture",
+        "id": "cs.NI",
+        "value": 26422
+      },
+      {
+        "name": "Software Engineering",
+        "id": "cs.SE",
+        "value": 24601
+      },
+      {
+        "name": "Information Retrieval",
+        "id": "cs.IR",
+        "value": 23734
+      },
+      {
+        "name": "Social and Information Networks",
+        "id": "cs.SI",
+        "value": 22880
+      },
+      {
+        "name": "Sound",
+        "id": "cs.SD",
+        "value": 19808
+      },
+      {
+        "name": "Logic in Computer Science",
+        "id": "cs.LO",
+        "value": 18656
+      },
+      {
+        "name": "Neural and Evolutionary Computing",
+        "id": "cs.NE",
+        "value": 17139
+      },
+      {
+        "name": "Discrete Mathematics",
+        "id": "cs.DM",
+        "value": 15234
+      },
+      {
+        "name": "Computer Science and Game Theory",
+        "id": "cs.GT",
+        "value": 14052
+      },
+      {
+        "name": "Computational Complexity",
+        "id": "cs.CC",
+        "value": 12431
+      },
+      {
+        "name": "Multiagent Systems",
+        "id": "cs.MA",
+        "value": 11171
+      },
+      {
+        "name": "Databases",
+        "id": "cs.DB",
+        "value": 11082
+      },
+      {
+        "name": "Computational Engineering, Finance, and Science",
+        "id": "cs.CE",
+        "value": 9862
+      },
+      {
+        "name": "Programming Languages",
+        "id": "cs.PL",
+        "value": 9415
+      },
+      {
+        "name": "Multimedia",
+        "id": "cs.MM",
+        "value": 9074
+      },
+      {
+        "name": "Graphics",
+        "id": "cs.GR",
+        "value": 8678
+      },
+      {
+        "name": "Computational Geometry",
+        "id": "cs.CG",
+        "value": 7814
+      },
+      {
+        "name": "Hardware Architecture",
+        "id": "cs.AR",
+        "value": 7551
+      },
+      {
+        "name": "Emerging Technologies",
+        "id": "cs.ET",
+        "value": 6773
+      },
+      {
+        "name": "Digital Libraries",
+        "id": "cs.DL",
+        "value": 5809
+      },
+      {
+        "name": "Formal Languages and Automata Theory",
+        "id": "cs.FL",
+        "value": 5792
+      },
+      {
+        "name": "Performance",
+        "id": "cs.PF",
+        "value": 4995
+      },
+      {
+        "name": "Symbolic Computation",
+        "id": "cs.SC",
+        "value": 3006
+      },
+      {
+        "name": "Mathematical Software",
+        "id": "cs.MS",
+        "value": 2548
+      },
+      {
+        "name": "Other Computer Science",
+        "id": "cs.OH",
+        "value": 2299
+      },
+      {
+        "name": "Operating Systems",
+        "id": "cs.OS",
+        "value": 1249
+      },
+      {
+        "name": "General Literature",
+        "id": "cs.GL",
+        "value": 226
+      }
+    ]
+  },
+  {
+    "name": "Mathematics",
+    "id": "mathematics",
+    "total_count": 1003182,
+    "children": [
+      {
+        "name": "Mathematical Physics",
+        "id": "math.MP",
+        "value": 88101
+      },
+      {
+        "name": "Combinatorics",
+        "id": "math.CO",
+        "value": 76070
+      },
+      {
+        "name": "Analysis of PDEs",
+        "id": "math.AP",
+        "value": 71834
+      },
+      {
+        "name": "Probability",
+        "id": "math.PR",
+        "value": 63985
+      },
+      {
+        "name": "Optimization and Control",
+        "id": "math.OC",
+        "value": 59081
+      },
+      {
+        "name": "Algebraic Geometry",
+        "id": "math.AG",
+        "value": 58272
+      },
+      {
+        "name": "Information Theory",
+        "id": "math.IT",
+        "value": 53017
+      },
+      {
+        "name": "Number Theory",
+        "id": "math.NT",
+        "value": 47687
+      },
+      {
+        "name": "Differential Geometry",
+        "id": "math.DG",
+        "value": 46784
+      },
+      {
+        "name": "Numerical Analysis",
+        "id": "math.NA",
+        "value": 46151
+      },
+      {
+        "name": "Dynamical Systems",
+        "id": "math.DS",
+        "value": 41762
+      },
+      {
+        "name": "Functional Analysis",
+        "id": "math.FA",
+        "value": 35114
+      },
+      {
+        "name": "Representation Theory",
+        "id": "math.RT",
+        "value": 29400
+      },
+      {
+        "name": "Statistics Theory",
+        "id": "math.ST",
+        "value": 26882
+      },
+      {
+        "name": "Geometric Topology",
+        "id": "math.GT",
+        "value": 25235
+      },
+      {
+        "name": "Group Theory",
+        "id": "math.GR",
+        "value": 24989
+      },
+      {
+        "name": "Classical Analysis and ODEs",
+        "id": "math.CA",
+        "value": 24521
+      },
+      {
+        "name": "Quantum Algebra",
+        "id": "math.QA",
+        "value": 20542
+      },
+      {
+        "name": "Rings and Algebras",
+        "id": "math.RA",
+        "value": 19565
+      },
+      {
+        "name": "Complex Variables",
+        "id": "math.CV",
+        "value": 18942
+      },
+      {
+        "name": "Algebraic Topology",
+        "id": "math.AT",
+        "value": 17494
+      },
+      {
+        "name": "Logic",
+        "id": "math.LO",
+        "value": 15098
+      },
+      {
+        "name": "Commutative Algebra",
+        "id": "math.AC",
+        "value": 14439
+      },
+      {
+        "name": "Operator Algebras",
+        "id": "math.OA",
+        "value": 13887
+      },
+      {
+        "name": "Metric Geometry",
+        "id": "math.MG",
+        "value": 12630
+      },
+      {
+        "name": "Spectral Theory",
+        "id": "math.SP",
+        "value": 10887
+      },
+      {
+        "name": "Symplectic Geometry",
+        "id": "math.SG",
+        "value": 9974
+      },
+      {
+        "name": "Category Theory",
+        "id": "math.CT",
+        "value": 9873
+      },
+      {
+        "name": "K-Theory and Homology",
+        "id": "math.KT",
+        "value": 6475
+      },
+      {
+        "name": "General Topology",
+        "id": "math.GN",
+        "value": 5762
+      },
+      {
+        "name": "General Mathematics",
+        "id": "math.GM",
+        "value": 4607
+      },
+      {
+        "name": "History and Overview",
+        "id": "math.HO",
+        "value": 4122
+      }
+    ]
+  },
+  {
+    "name": "Statistics",
+    "id": "statistics",
+    "total_count": 170342,
+    "children": [
+      {
+        "name": "Machine Learning",
+        "id": "stat.ML",
+        "value": 75564
+      },
+      {
+        "name": "Methodology",
+        "id": "stat.ME",
+        "value": 33984
+      },
+      {
+        "name": "Statistics Theory",
+        "id": "stat.TH",
+        "value": 26883
+      },
+      {
+        "name": "Applications",
+        "id": "stat.AP",
+        "value": 22474
+      },
+      {
+        "name": "Computation",
+        "id": "stat.CO",
+        "value": 9841
+      },
+      {
+        "name": "Other Statistics",
+        "id": "stat.OT",
+        "value": 1596
+      }
+    ]
+  },
+  {
+    "name": "Electrical Engineering",
+    "id": "electrical_engineering",
+    "total_count": 123820,
+    "children": [
+      {
+        "name": "Signal Processing",
+        "id": "eess.SP",
+        "value": 38023
+      },
+      {
+        "name": "Systems and Control",
+        "id": "eess.SY",
+        "value": 34932
+      },
+      {
+        "name": "Image and Video Processing",
+        "id": "eess.IV",
+        "value": 30040
+      },
+      {
+        "name": "Audio and Speech Processing",
+        "id": "eess.AS",
+        "value": 20825
+      }
+    ]
+  },
+  {
+    "name": "Quantitative Biology",
+    "id": "quantitative_biology",
+    "total_count": 59775,
+    "children": [
+      {
+        "name": "Quantitative Methods",
+        "id": "q-bio.QM",
+        "value": 12720
+      },
+      {
+        "name": "Populations and Evolution",
+        "id": "q-bio.PE",
+        "value": 12709
+      },
+      {
+        "name": "Neurons and Cognition",
+        "id": "q-bio.NC",
+        "value": 11660
+      },
+      {
+        "name": "Biomolecules",
+        "id": "q-bio.BM",
+        "value": 6595
+      },
+      {
+        "name": "Molecular Networks",
+        "id": "q-bio.MN",
+        "value": 4086
+      },
+      {
+        "name": "Genomics",
+        "id": "q-bio.GN",
+        "value": 3692
+      },
+      {
+        "name": "Tissues and Organs",
+        "id": "q-bio.TO",
+        "value": 2578
+      },
+      {
+        "name": "Cell Behavior",
+        "id": "q-bio.CB",
+        "value": 2408
+      },
+      {
+        "name": "Subcellular Processes",
+        "id": "q-bio.SC",
+        "value": 1791
+      },
+      {
+        "name": "Other Quantitative Biology",
+        "id": "q-bio.OT",
+        "value": 1536
+      }
+    ]
+  },
+  {
+    "name": "Quantitative Finance",
+    "id": "quantitative_finance",
+    "total_count": 29236,
+    "children": [
+      {
+        "name": "Economics",
+        "id": "q-fin.EC",
+        "value": 6718
+      },
+      {
+        "name": "Statistical Finance",
+        "id": "q-fin.ST",
+        "value": 4105
+      },
+      {
+        "name": "Mathematical Finance",
+        "id": "q-fin.MF",
+        "value": 3085
+      },
+      {
+        "name": "Computational Finance",
+        "id": "q-fin.CP",
+        "value": 3077
+      },
+      {
+        "name": "General Finance",
+        "id": "q-fin.GN",
+        "value": 2935
+      },
+      {
+        "name": "Risk Management",
+        "id": "q-fin.RM",
+        "value": 2767
+      },
+      {
+        "name": "Portfolio Management",
+        "id": "q-fin.PM",
+        "value": 2254
+      },
+      {
+        "name": "Pricing of Securities",
+        "id": "q-fin.PR",
+        "value": 2158
+      },
+      {
+        "name": "Trading and Market Microstructure",
+        "id": "q-fin.TR",
+        "value": 2137
+      }
+    ]
+  },
+  {
+    "name": "Economics",
+    "id": "economics",
+    "total_count": 14910,
+    "children": [
+      {
+        "name": "General Economics",
+        "id": "econ.GN",
+        "value": 6154
+      },
+      {
+        "name": "Econometrics",
+        "id": "econ.EM",
+        "value": 5057
+      },
+      {
+        "name": "Theoretical Economics",
+        "id": "econ.TH",
+        "value": 3699
+      }
+    ]
+  }
+]

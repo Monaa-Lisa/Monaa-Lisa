@@ -1,23 +1,27 @@
+/**
+ * Nico & Nick August 2025
+ *
+ * Ziel dieses Specs:
+ * - "Smoke Test": Lädt das TestingModule und stellt sicher, dass der Service existiert.
+ * - Hinweis: PapersService injiziert PrismaService
+ */
 import { Test, TestingModule } from '@nestjs/testing';
-import { DatabaseService } from '../database/database.service';
 import { PapersService } from './papers.service';
 
-describe('PapersService', () => {
-  it('can be created with a database', async () => {
+describe('PaperService', () => {
+  let service: PapersService;
+
+  beforeEach(async () => {
+    // Minimal-Variante (ohne Mock) – Provoziert DI-Fehler bewusst.
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PapersService, { provide: DatabaseService, useValue: {} }],
+      providers: [PapersService],
     }).compile();
 
-    expect(module.get(PapersService)).toBeDefined();
+    service = module.get<PapersService>(PapersService);
   });
 
-  it('returns no papers for an empty id list without asking the database', async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [PapersService, { provide: DatabaseService, useValue: {} }],
-    }).compile();
-
-    await expect(module.get(PapersService).findByEntryIds([])).resolves.toEqual(
-      [],
-    );
+  it('should be defined', () => {
+    // bestätigt, dass DI/Module grundsätzlich passt
+    expect(service).toBeDefined();
   });
 });

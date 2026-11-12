@@ -21,14 +21,10 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  afterEach(async () => {
-    await app.close();
-  });
-
-  it('/health (GET)', () => {
+  it('/ (GET)', () => {
     return request(app.getHttpServer())
-      .get('/health')
+      .get('/')
       .expect(200)
-      .expect({ status: 'ok' });
+      .expect('Hello from MonaaLisa!');
   });
 });
