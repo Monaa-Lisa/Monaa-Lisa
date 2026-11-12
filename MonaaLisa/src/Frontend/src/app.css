@@ -1,76 +1,396 @@
-@import "tailwindcss";
-
-/* ─── Monaa-Lisa Design System ─────────────────────────────────────── */
+/*
+ * Monaa-Lisa design tokens and base styles.
+ *
+ * Quiet surfaces with 1px borders, an indigo header and accent taken from
+ * the logo, and colour for data: the eight arXiv subjects share one fixed
+ * palette everywhere (see lib/categories.ts). Light is the default, dark
+ * follows the system setting or the switch in the header (data-theme on
+ * <html>).
+ */
 :root {
-  /* Background */
-  --bg-primary: #0F1020;
-  --bg-secondary: #141530;
-  --bg-surface: rgba(20, 22, 50, 0.65);
-  --bg-surface-solid: #181a3a;
-  --bg-card: rgba(25, 27, 60, 0.55);
+  color-scheme: light;
 
-  /* Accent gradients */
-  --accent-purple: #9333ea;
-  --accent-magenta: #e839a0;
-  --accent-cyan: #22d3ee;
-  --accent-blue: #4a6cf7;
+  --bg: #f6f7f9; /* map canvas */
+  --surface: #ffffff; /* panels */
+  --surface-2: #f2f3f6; /* hover rows, quiet fills */
+  --surface-3: #e6e8ee; /* pressed and active states */
+  --border: #dfe1e7;
+  --border-strong: #b9bdc9;
 
-  /* Gradient presets */
-  --gradient-accent: linear-gradient(135deg, #9333ea, #e839a0, #22d3ee);
-  --gradient-header: linear-gradient(90deg, #9333ea 0%, #e839a0 50%, #22d3ee 100%);
-  --gradient-card: linear-gradient(135deg, rgba(147,51,234,0.15), rgba(232,57,160,0.10));
-  --gradient-glow: linear-gradient(135deg, rgba(147,51,234,0.35), rgba(34,211,238,0.25));
+  --text: #191c26;
+  --text-2: #464b5a;
+  --text-3: #737888;
 
-  /* Text */
-  --text-primary: #f0f0f8;
-  --text-secondary: #a8a8c8;
-  --text-muted: #6b6b8d;
+  --accent: #3949a8;
+  --accent-hover: #2c3a8c;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(57, 73, 168, 0.1);
 
-  /* Borders */
-  --border-subtle: rgba(147, 51, 234, 0.18);
-  --border-glow: rgba(147, 51, 234, 0.4);
+  --danger: #b42318;
+  --danger-soft: rgba(180, 35, 24, 0.1);
 
-  /* Glass */
-  --glass-bg: rgba(20, 22, 50, 0.55);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-blur: 16px;
+  /* header bar */
+  --header-bg: #1d2240;
+  --header-fg: #eef0fa;
+  --header-fg-2: #a9b0d4;
+  --header-hover: rgba(255, 255, 255, 0.09);
+  --header-border: rgba(255, 255, 255, 0.14);
 
-  /* Shadows */
-  --shadow-glow-sm: 0 0 15px rgba(147, 51, 234, 0.2), 0 0 30px rgba(34, 211, 238, 0.1);
-  --shadow-glow-md: 0 0 20px rgba(147, 51, 234, 0.3), 0 0 60px rgba(34, 211, 238, 0.15);
-  --shadow-glow-lg: 0 4px 30px rgba(147, 51, 234, 0.4), 0 0 80px rgba(34, 211, 238, 0.2);
+  /* data layers on the maps */
+  --map-dim: #d8dae1; /* nodes outside a highlight */
+  --map-edge: #b3b7c4; /* solid: the canvas does not blend transparent lines with the page */
+  --map-grid: rgba(25, 28, 38, 0.07);
+  --map-label: #191c26;
+  --map-label-halo: #f6f7f9;
 
-  /* Transitions */
-  --transition-fast: 0.15s ease;
-  --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* categorical palette for data, validated for colour blind readers (see lib/categories.ts) */
+  --series-1: #2a78d6; /* blue */
+  --series-2: #eb6834; /* orange */
+  --series-3: #1baf7a; /* aqua */
+  --series-4: #eda100; /* yellow */
+  --series-5: #e87ba4; /* magenta */
+  --series-6: #008300; /* green */
+  --series-7: #6250d6; /* violet */
+  --series-8: #e34948; /* red */
+  /* one hue for ordered values (publication year), old to recent */
+  --seq-1: #86b6ef;
+  --seq-2: #5598e7;
+  --seq-3: #2a78d6;
+  --seq-4: #1c5cab;
+  --seq-5: #0d366b;
+  --map-other: #8b90a0;
 
-  /* Radius */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --text-xs: 0.8125rem; /* 13px */
+  --text-sm: 0.875rem; /* 14px */
+  --text-base: 0.9375rem; /* 15px */
+  --text-md: 1rem; /* 16px */
+  --text-lg: 1.125rem; /* 18px */
+  --text-xl: 1.375rem; /* 22px */
+
+  --radius-sm: 3px;
+  --radius: 5px;
+  --shadow-card: 0 1px 2px rgba(25, 28, 38, 0.06), 0 1px 1px rgba(25, 28, 38, 0.04);
+  --shadow-pop: 0 6px 24px rgba(20, 24, 50, 0.16);
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --duration: 120ms;
+
+  --header-height: 52px;
+  --sidebar-width: 340px;
+  --panel-width: 420px;
 }
 
-/* ─── Unified scrollbars ────────────────────────────────────────────── */
+/* laptops: give the map more of the width */
+@media (max-width: 1400px) {
+  :root {
+    --sidebar-width: 300px;
+    --panel-width: 370px;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #10121c;
+  --surface: #171a26;
+  --surface-2: #1f2231;
+  --surface-3: #2a2e40;
+  --border: #2b2f42;
+  --border-strong: #444a62;
+  --text: #e9eaf0;
+  --text-2: #b2b5c3;
+  --text-3: #848899;
+  --accent: #9eb0f4;
+  --accent-hover: #b9c7f7;
+  --accent-fg: #131830;
+  --accent-soft: rgba(158, 176, 244, 0.15);
+  --danger: #f08a80;
+  --danger-soft: rgba(240, 138, 128, 0.14);
+  --header-bg: #0c0e18;
+  --header-border: rgba(255, 255, 255, 0.1);
+  --map-dim: #343849;
+  --map-edge: #3b4058;
+  --map-grid: rgba(233, 234, 240, 0.07);
+  --map-label: #e9eaf0;
+  --map-label-halo: #10121c;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --seq-1: #184f95;
+  --seq-2: #256abf;
+  --seq-3: #3987e5;
+  --seq-4: #6da7ec;
+  --seq-5: #b7d3f6;
+  --map-other: #6b7088;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #10121c;
+    --surface: #171a26;
+    --surface-2: #1f2231;
+    --surface-3: #2a2e40;
+    --border: #2b2f42;
+    --border-strong: #444a62;
+    --text: #e9eaf0;
+    --text-2: #b2b5c3;
+    --text-3: #848899;
+    --accent: #9eb0f4;
+    --accent-hover: #b9c7f7;
+    --accent-fg: #131830;
+    --accent-soft: rgba(158, 176, 244, 0.15);
+    --danger: #f08a80;
+    --danger-soft: rgba(240, 138, 128, 0.14);
+    --header-bg: #0c0e18;
+    --header-border: rgba(255, 255, 255, 0.1);
+    --map-dim: #343849;
+    --map-edge: #3b4058;
+    --map-grid: rgba(233, 234, 240, 0.07);
+    --map-label: #e9eaf0;
+    --map-label-halo: #10121c;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+    --seq-1: #184f95;
+    --seq-2: #256abf;
+    --seq-3: #3987e5;
+    --seq-4: #6da7ec;
+    --seq-5: #b7d3f6;
+    --map-other: #6b7088;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.5);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(147, 51, 234, 0.35) transparent;
+  scrollbar-color: var(--border-strong) transparent;
 }
-
 *::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 8px;
+  height: 8px;
 }
-
 *::-webkit-scrollbar-thumb {
-  background: rgba(147, 51, 234, 0.35);
-  border-radius: 3px;
+  background: var(--border-strong);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 8px;
 }
-
-*::-webkit-scrollbar-thumb:hover {
-  background: rgba(147, 51, 234, 0.55);
-}
-
 *::-webkit-scrollbar-track {
   background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Text inputs and selects share one look: add class="field" */
+.field {
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--text-sm);
+  transition: border-color var(--duration) var(--ease);
+}
+.field::placeholder {
+  color: var(--text-3);
+}
+.field:hover {
+  border-color: var(--text-3);
+}
+.field:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+select.field {
+  padding-right: 26px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a7a76' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+  cursor: pointer;
+}
+input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+/* Section label above a block of controls or a list */
+.label {
+  color: var(--text-3);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* Short heading of a list or panel section, e.g. "Subjects" */
+.eyebrow {
+  color: var(--text-3);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Identifiers (arXiv ids, category codes) */
+.mono {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.92em;
+}
+
+/* Underlined tab strip used by the details panel and the library */
+.tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--border);
+}
+.tabs button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 9px 9px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  margin-bottom: -1px;
+  background: none;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+.tabs button:hover {
+  color: var(--text);
+}
+.tabs button.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.tabs .count {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+/* Paper titles drawn over the maps, placed by lib/labels.ts */
+.node-label {
+  position: absolute;
+  transform: translateY(-50%);
+  padding: 0 2px;
+  color: var(--map-label);
+  font: 500 11px/1.4 var(--font-sans);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* halo in the canvas colour, so a title stays readable next to points */
+  -webkit-text-stroke: 3px var(--map-label-halo);
+  paint-order: stroke fill;
+  pointer-events: none;
+}
+.node-label.primary {
+  font-weight: 600;
+}
+
+/* Names of the regions of a paper map (lib/regions.ts) */
+.region-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: var(--text);
+  font: 600 14px/20px var(--font-sans);
+  white-space: nowrap;
+  -webkit-text-stroke: 4px var(--map-label-halo);
+  paint-order: stroke fill;
+  pointer-events: none;
+}
+
+/* Small pill group (Map / Citations / Related) */
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.segmented button {
+  padding: 4px 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+.segmented button:hover {
+  color: var(--text);
+}
+.segmented button.active {
+  background: var(--accent);
+  color: var(--accent-fg);
 }

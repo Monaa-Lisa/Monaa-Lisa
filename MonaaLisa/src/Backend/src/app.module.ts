@@ -2,32 +2,32 @@
  * Nico August 2025
  */
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { PrismaService } from './prisma/prisma.service';
-import { PrismaModule } from './prisma/prisma.module';
+import { DatabaseModule } from './database/database.module';
 import { PapersModule } from './papers/papers.module';
-import { PapersService } from './papers/papers.service';
-import { EmbeddingsService } from './embeddings/embeddings.service';
-import { ReferencesModule } from './references/references.module';
-import { CitationsModule } from './citations/citations.module';
-import { PaperCitationsModule } from './paper-citations/paper-citations.module';
-import { PaperReferencesModule } from './paper-references/paper-references.module';
-import { RelationsModule } from './relations/relations.module';
+import { EdgesModule } from './edges/edges.module';
+import { CategoriesModule } from './categories/categories.module';
 
-// Das ist unser Modul. Module enthalten Struktur aber keinen Code selbst.
-// Der typische ablauf ist Client->Controller->Service->(DB)->Service->Controller->Client
+// Request flow: Client -> Controller -> Service -> (DB) -> Service -> Controller -> Client
 @Module({
   imports: [
-    PrismaModule,
+    // Per-IP rate limit for the whole API. Opening a paper triggers a few
+    // requests, so the default leaves room for normal browsing.
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60_000,
+        limit: Number(process.env.RATE_LIMIT_PER_MINUTE ?? 300),
+      },
+    ]),
+    // global, every service can inject DatabaseService
+    DatabaseModule,
     PapersModule,
-    ReferencesModule,
-    CitationsModule,
-    PaperCitationsModule,
-    PaperReferencesModule,
-    RelationsModule
-  ], // andere @Module die intern benötigt werdfen
-  controllers: [AppController], // Alle Controller die dem Modul zugeordnet sind. Nimmt Requests an
-  providers: [AppService, PrismaService, PapersService, EmbeddingsService], // Logik. Verwendet Datenbanken, Validierung usw. Wird vom Controller aufgerufen
+    EdgesModule,
+    CategoriesModule,
+  ],
+  controllers: [AppController],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

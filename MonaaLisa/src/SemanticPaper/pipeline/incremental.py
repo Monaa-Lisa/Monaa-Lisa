@@ -35,7 +35,7 @@ from SemanticPaper.api.arxiv import ArxivAPI
 from SemanticPaper.pipeline.embedding_pipeline import EmbeddingPipeline
 from Database.db import (
     get_newest_paper_date,
-    paper_exists_by_id,
+    get_existing_entry_ids,
     save_processed_paper,
     save_uncaught_paper,
     get_uncaught_papers_due,
@@ -105,6 +105,18 @@ def _normalize_entry_id(entry_id_or_url: str) -> str:
     return eid
 
 
+def _categories_of(result) -> str:
+    """
+    Returns all arXiv categories of a result as one space separated string,
+    primary category first. This is the same format the dataset import uses,
+    so category filters work the same for imported and newly fetched papers.
+    """
+    categories = [result.primary_category]
+    for category in result.categories or []:
+        if category not in categories:
+            categories.append(category)
+    return " ".join(categories)
+
 
 def run_incremental_update(
     arxiv_client: ArxivAPI,
@@ -139,12 +151,9 @@ def run_incremental_update(
         return
 
     # 2. Filtere Paper heraus, die bereits in der DB existieren
-    new_papers = []
-    for result in raw_results:
-        eid = _normalize_entry_id(result.entry_id)
-        # Prüfe, ob die normalisierte ID bereits in der Datenbank vorhanden ist
-        if not paper_exists_by_id(eid):
-            new_papers.append((eid, result))
+    fetched = [(_normalize_entry_id(result.entry_id), result) for result in raw_results]
+    existing_ids = get_existing_entry_ids([eid for eid, _ in fetched])
+    new_papers = [(eid, result) for eid, result in fetched if eid not in existing_ids]
 
     logger.info(f"{len(new_papers)} genuinely new papers after dedup (out of {len(raw_results)} fetched)")
     if not new_papers:
@@ -179,7 +188,7 @@ def run_incremental_update(
             title = result.title if result else "[Unknown]"
             authors = ", ".join(str(a) for a in result.authors) if result else None
             abstract = result.summary if result else None
-            categories = result.primary_category if result else None
+            categories = _categories_of(result) if result else None
             published = result.published if result else None
             updated = getattr(result, "updated", None)
             doi = getattr(result, "doi", None)
@@ -221,7 +230,7 @@ def run_incremental_update(
         title = result.title if result else "[Unknown]"
         authors = ", ".join(str(a) for a in result.authors) if result else None
         abstract = result.summary if result else None
-        categories = result.primary_category if result else None
+        categories = _categories_of(result) if result else None
         published = result.published if result else None
         pdf_url = result.pdf_url if result else None
 

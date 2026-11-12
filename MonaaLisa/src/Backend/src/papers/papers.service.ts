@@ -1,437 +1,352 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
-import { CreatePaperDto } from './dto/create-paper.dto';
-import { UpdatePaperDto } from './dto/update-paper.dto';
-import { QueryPaperDto } from './dto/query-paper.dto';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { sql } from 'kysely';
+import type { Expression, Selectable, SqlBool } from 'kysely';
+import type { Paper } from '../database/schema';
+import { DatabaseService } from '../database/database.service';
+import { containsPattern } from '../database/sql';
+import { ALL_COLUMNS, LIST_COLUMNS, totalCitations } from './paper-columns';
+import { arxivId, searchWords } from './search-text';
+import { DEFAULT_TAKE, MAX_TAKE, QueryPaperDto } from './dto/query-paper.dto';
+
+/** Requests for more ids than this get no citation lists attached */
+const ENRICH_LIMIT = 50;
+/** Papers returned by GET /papers/:entryId/similar */
+export const DEFAULT_SIMILAR = 20;
+const MAX_SIMILAR = 40;
+/** Similar titles offered when a search finds nothing */
+const FUZZY_LIMIT = 10;
 
 /**
- * PapersService Nico
- * -------------------------------
- * Kümmert sich um alles rund um "Paper":
- * - Anlegen & Upserten (für idempotente Ingestion)
- * - Suchen & Paginieren
- * - Lesen, Updaten, Löschen
- *
- * Hinweis: Wir normalisieren Datumsfelder mit `new Date(...)`
- * und setzen serverseitig ein `added`-Timestamp.
+ * Read access to papers: search, pagination, single and batch lookups.
+ * Nico, ported from Prisma to Kysely in Nov 2026.
  */
 @Injectable()
 export class PapersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   /**
-   * Legt ein neues Paper an.
-   * - `published` ist optional → wenn nicht da, speichern wir `null`
-   * - `added` ist der Zeitpunkt, zu dem wir es in unser System aufnehmen
+   * Search and list papers.
+   * - search: an arXiv id, or words that all have to occur in the title, the
+   *   authors or the abstract (in any order, each word in any of the three)
+   * - title / author / abstract: every word must occur in that column
+   * - categories: substring of the space separated category list
+   * - dateFrom / dateTo: range on the published date
+   * - sort=relevance: see `byRelevance`
    */
-  async create(dto: CreatePaperDto) {
-    return this.prisma.paper.create({
-      data: {
-        entry_id: dto.entry_id,
-        title: dto.title,
-        authors: authorsToString(dto.authors) ?? null,
-        abstract: dto.abstract ?? null,
-        categories: dto.categories ?? null,
-        published: dto.published ? new Date(dto.published) : null,
-        updated: dto.updated ? new Date(dto.updated) : null,
-        doi: dto.doi ?? null,
-        journal_ref: dto.journal_ref ?? null,
-        license: dto.license ?? null,
-        url: dto.url ?? null,
-        s2_id: dto.s2_id ?? null,
-        non_arxiv_citation_count: dto.non_arxiv_citation_count ?? null,
-        non_arxiv_reference_count: dto.non_arxiv_reference_count ?? null,
-      },
-    });
-  }
-
-  /**
-   * Filtert eine Liste von bekannten entry_ids nach den Kriterien aus der UI.
-   * Das verhindert, dass wir zehntausende Paper ins Frontend laden müssen.
-   */
-  async findFilteredNeighbours(
-    entryIds: string[],
-    filter: {
-      dateFrom?: string;
-      dateTo?: string;
-      authorQuery?: string;
-      abstractQuery?: string;
-      minCitations?: number;
-      // onlyArxiv wird implizit behandelt, da non-arXiv Paper
-      // oft eh nicht in der Haupt-Tabelle liegen oder keine validen Daten haben.
-    },
-  ) {
-    if (!entryIds || entryIds.length === 0) return [];
-
-    const where: Prisma.PaperWhereInput = {
-      entry_id: { in: entryIds },
-    };
-
-    // 1. Datumsfilter
-    if (filter.dateFrom || filter.dateTo) {
-      const publishedFilter: Prisma.DateTimeNullableFilter = {};
-      if (filter.dateFrom) publishedFilter.gte = new Date(filter.dateFrom);
-      if (filter.dateTo) publishedFilter.lte = new Date(filter.dateTo);
-      where.published = publishedFilter;
-    }
-
-    // 2. Autorenfilter (Case-Insensitive Suche in Prisma)
-    if (filter.authorQuery && filter.authorQuery.trim() !== '') {
-      where.authors = {
-        contains: filter.authorQuery.trim(),
-        mode: 'insensitive',
-      };
-    }
-
-    // 3. Abstractfilter (Case-Insensitive Suche in Prisma)
-    if (filter.abstractQuery && filter.abstractQuery.trim() !== '') {
-      where.abstract = {
-        contains: filter.abstractQuery.trim(),
-        mode: 'insensitive',
-      };
-    }
-
-    // 4. Minimum Citations
-    if (filter.minCitations !== undefined && filter.minCitations >= 0) {
-      where.non_arxiv_citation_count = {
-        gte: filter.minCitations,
-      };
-    }
-
-    // Wir holen nur die Felder, die die Sidebar wirklich braucht,
-    // um Bandbreite und RAM zu sparen.
-    const papers = await this.prisma.paper.findMany({
-      where,
-      select: {
-        entry_id: true,
-        title: true,
-        authors: true,
-        abstract: true,
-        published: true,
-        categories: true,
-        non_arxiv_citation_count: true,
-        non_arxiv_reference_count: true,
-      },
-      // Ein Limit als Sicherheitsgurt, falls ein Filter zu "weich" ist
-      take: 1000,
-    });
-
-    return papers;
-  }
-
-  // Idempotente Ingestion: Upsert über entry_id
-  /**
-   * Upsert (Create ODER Update) anhand `entry_id`.
-   * Warum? Ingestion kann dasselbe Item mehrfach sehen – hiermit vermeiden wir Duplikate.
-   */
-  async upsertByEntryId(dto: CreatePaperDto) {
-    return this.prisma.paper.upsert({
-      where: { entry_id: dto.entry_id },
-      update: {
-        title: dto.title,
-        authors: authorsToString(dto.authors) ?? null,
-        abstract: dto.abstract ?? null,
-        categories: dto.categories ?? null,
-        published: dto.published ? new Date(dto.published) : null,
-        updated: dto.updated ? new Date(dto.updated) : null,
-        doi: dto.doi ?? null,
-        journal_ref: dto.journal_ref ?? null,
-        license: dto.license ?? null,
-        url: dto.url ?? null,
-        s2_id: dto.s2_id ?? null,
-        non_arxiv_citation_count: dto.non_arxiv_citation_count ?? null,
-        non_arxiv_reference_count: dto.non_arxiv_reference_count ?? null,
-      },
-      create: {
-        entry_id: dto.entry_id,
-        title: dto.title,
-        authors: authorsToString(dto.authors) ?? null,
-        abstract: dto.abstract ?? null,
-        categories: dto.categories ?? null,
-        published: dto.published ? new Date(dto.published) : null,
-        updated: dto.updated ? new Date(dto.updated) : null,
-        doi: dto.doi ?? null,
-        journal_ref: dto.journal_ref ?? null,
-        license: dto.license ?? null,
-        url: dto.url ?? null,
-        s2_id: dto.s2_id ?? null,
-        non_arxiv_citation_count: dto.non_arxiv_citation_count ?? null,
-        non_arxiv_reference_count: dto.non_arxiv_reference_count ?? null,
-      },
-    });
-  }
-
-  /**
-   * Sucht Papers mit Volltext-Like über `title`, `authors`, `summary`,
-   * plus optionaler Kategorie & Datumsbereich.
-   * Pagination via `skip`/`take`, dazu Gesamtanzahl für UI.
-   */
-  // `MonaaLisa/src/Backend/src/papers/papers.service.ts`
-
   async findMany(q: QueryPaperDto) {
-    const skip = toNumber(q.skip, 0);
-    const take = toNumber(q.take, Math.pow(2, 31) - 1);
+    const skip = q.skip ?? 0;
+    // The DTO already limits take, this second guard keeps any caller from
+    // loading the whole table in one request.
+    const take = Math.min(q.take ?? DEFAULT_TAKE, MAX_TAKE);
 
-    // ── sort=citations → raw SQL path (order by citation count DESC) ──
-    if (
-      q.sort === 'citations' &&
-      q.categories &&
-      !q.search &&
-      !q.dateFrom &&
-      !q.dateTo
-    ) {
-      return this.findManyByCitationCount(q.categories, skip, take);
-    }
+    // Counting every match of a common word takes seconds while the first
+    // page is there at once, so a caller can leave the count out and ask
+    // GET /papers/count for it.
+    const total = q.count === 'none' ? Promise.resolve(null) : this.count(q);
 
-    const where: Prisma.PaperWhereInput = {};
-
-    // Stub-Titel grundsätzlich ausschließen
-    where.NOT = [
-      { title: { equals: '[STUB] Pending Fetch', mode: 'insensitive' } },
-    ];
-
-    if (q.search && q.search.trim() !== '') {
-      const term = q.search.trim();
-      where.OR = [
-        { title: { contains: term, mode: 'insensitive' } },
-        { authors: { contains: term, mode: 'insensitive' } },
-        { abstract: { contains: term, mode: 'insensitive' } },
-      ];
-    }
-
-    if (q.categories) where.categories = { contains: q.categories };
-
-    if (q.dateFrom || q.dateTo) {
-      const publishedFilter: Prisma.DateTimeNullableFilter = {};
-      if (q.dateFrom) publishedFilter.gte = new Date(q.dateFrom);
-      if (q.dateTo) publishedFilter.lte = new Date(q.dateTo);
-      where.published = publishedFilter;
-    }
-
-    const [items, total] = await Promise.all([
-      this.prisma.paper.findMany({
-        where,
-        orderBy: [{ published: 'desc' }],
+    if (q.sort === 'relevance' && q.search?.trim() && skip === 0) {
+      const [found, counted] = await Promise.all([
+        this.byRelevance(q, take),
+        total,
+      ]);
+      return {
+        items: await this.shaped(found.items, q, take),
+        total: found.fuzzy ? found.items.length : counted,
         skip,
         take,
-      }),
-      this.prisma.paper.count({ where }),
-    ]);
+        fuzzy: found.fuzzy,
+      };
+    }
 
-    const shouldEnrich = take <= 40;
-
-    const enrichedItems = shouldEnrich
-      ? await this.enrichWithCitations(items)
-      : items.map((p) => ({ ...p, citations: [], references: [] }));
-
-    return { items: enrichedItems, total, skip, take };
-  }
-
-  /**
-   * Optimised path: fetches papers for a category ordered by citation count.
-   * Uses raw SQL because Prisma cannot ORDER BY a count from a joined table.
-   */
-  private async findManyByCitationCount(
-    category: string,
-    skip: number,
-    take: number,
-  ) {
-    const papers: any[] = await this.prisma.$queryRaw`
-      SELECT p.*,
-             COALESCE(cc.cnt, 0) AS cit_count
-        FROM paper p
-        LEFT JOIN (
-          SELECT belonging_paper_entry_id, COUNT(*) AS cnt
-            FROM paper_citation
-           GROUP BY belonging_paper_entry_id
-        ) cc ON cc.belonging_paper_entry_id = p.entry_id
-       WHERE p.categories LIKE ${'%' + category + '%'}
-         AND LOWER(p.title) != '[stub] pending fetch'
-       ORDER BY cit_count DESC
-       OFFSET ${skip}
-        LIMIT ${take}
-    `;
-
-    const total: [{ count: bigint }] = await this.prisma.$queryRaw`
-      SELECT COUNT(*) as count FROM paper
-       WHERE categories LIKE ${'%' + category + '%'}
-         AND LOWER(title) != '[stub] pending fetch'
-    `;
-
-    // Raw query returns BigInt for count columns – convert to number
-    const items = papers.map(({ cit_count, ...rest }) => ({
-      ...rest,
-      id: Number(rest.id),
-      non_arxiv_citation_count:
-        rest.non_arxiv_citation_count != null
-          ? Number(rest.non_arxiv_citation_count)
-          : null,
-      non_arxiv_reference_count:
-        rest.non_arxiv_reference_count != null
-          ? Number(rest.non_arxiv_reference_count)
-          : null,
-    }));
-
-    const enrichedItems = await this.enrichWithCitations(items as any);
-    return { items: enrichedItems, total: Number(total[0].count), skip, take };
-  }
-
-  /**
-   * Holt ein Paper per `entry_id`.
-   * Wirft, wenn es die ID nicht gibt → bewusst, damit der Caller entscheiden kann.
-   */
-  async findByEntryId(entry_id: string) {
-    const paper = await this.prisma.paper.findUniqueOrThrow({
-      where: { entry_id },
-    });
-    const [citations, references] = await Promise.all([
-      this.prisma.paperCitation.findMany({
-        where: { belonging_paper_entry_id: entry_id },
-        select: { cited_paper_entry_id: true },
-      }),
-      this.prisma.paperReference.findMany({
-        where: { belonging_paper_entry_id: entry_id },
-        select: { referenced_paper_entry_id: true },
-      }),
+    const [items, counted] = await Promise.all([
+      this.sorted(this.filtered(q), q)
+        .select(this.columns(q))
+        .offset(skip)
+        .limit(take)
+        .execute(),
+      total,
     ]);
     return {
-      ...paper,
-      citations: citations.map((c) => c.cited_paper_entry_id),
-      references: references.map((r) => r.referenced_paper_entry_id),
+      items: await this.shaped(items, q, take),
+      total: counted,
+      skip,
+      take,
     };
   }
 
-  /**
-   * Aktualisiert ein Paper per `entry_id`.
-   * - Nur Felder überschreiben, die explizit kommen.
-   * - `published`: wenn nicht gesetzt, bleibt der vorhandene Wert (via `undefined`)
-   */
-  async updateByEntryId(entry_id: string, dto: UpdatePaperDto) {
-    return this.prisma.paper.update({
-      where: { entry_id },
-      data: {
-        title: dto.title,
-        authors:
-          dto.authors === undefined ? undefined : authorsToString(dto.authors),
-        abstract: dto.abstract,
-        categories: dto.categories,
-        published: dto.published ? new Date(dto.published) : undefined,
-        updated: dto.updated ? new Date(dto.updated) : undefined,
-        doi: dto.doi,
-        journal_ref: dto.journal_ref,
-        license: dto.license,
-        url: dto.url,
-        s2_id: dto.s2_id,
-        non_arxiv_citation_count: dto.non_arxiv_citation_count,
-        non_arxiv_reference_count: dto.non_arxiv_reference_count,
-      },
-    });
+  /** First and last year of publication in the dataset (uses the index on published) */
+  async years() {
+    const { rows } = await sql<{ first: number | null; last: number | null }>`
+      SELECT EXTRACT(YEAR FROM MIN(published))::int AS first,
+             EXTRACT(YEAR FROM MAX(published))::int AS last
+      FROM paper`.execute(this.db);
+    return rows[0];
+  }
+
+  /** How many papers match the filters of `q` */
+  async count(q: QueryPaperDto): Promise<number> {
+    const counted = await this.filtered(q)
+      .select((eb) => eb.fn.countAll<string>().as('count'))
+      .executeTakeFirstOrThrow();
+    return Number(counted.count);
   }
 
   /**
-   * Batch-Fetch: holt mehrere Papers anhand einer Liste von `entry_id`s.
-   * Maximal 5000 Ergebnisse.
+   * The best matches for a search text first:
+   * 1. papers with all words in the title or the authors, most cited first
+   * 2. then papers where some words are only in the abstract
+   * 3. nothing found at all: titles that are similar to the text, which
+   *    catches typing mistakes (`fuzzy` is true then)
    */
-  async findByEntryIds(entryIds: string[], take = 5000) {
-    const papers = await this.prisma.paper.findMany({
-      where: { entry_id: { in: entryIds } },
-      take,
-    });
+  private async byRelevance(q: QueryPaperDto, take: number) {
+    const columns = this.columns(q);
+    const mostCited = { ...q, sort: 'citations' as const };
+    const items = await this.sorted(this.filtered(q, false), mostCited)
+      .select(columns)
+      .limit(take)
+      .execute();
 
-    // Falls jemand 5000 IDs anfragt, NIEMALS enrichWithCitations machen
-    if (entryIds.length > 50) {
-      return papers.map((p) => ({ ...p, citations: [], references: [] }));
+    if (items.length < take && !arxivId(q.search ?? '')) {
+      let rest = this.filtered(q);
+      if (items.length) {
+        rest = rest.where(
+          'entry_id',
+          'not in',
+          items.map((p) => p.entry_id),
+        );
+      }
+      items.push(
+        ...(await this.sorted(rest, mostCited)
+          .select(columns)
+          .limit(take - items.length)
+          .execute()),
+      );
+    }
+    if (items.length) return { items, fuzzy: false };
+
+    const text = q.search!.trim();
+    const similar = await this.filtered({ ...q, search: undefined })
+      .where(sql<boolean>`${text} <% title`)
+      .select(columns)
+      .orderBy(sql`word_similarity(${text}, title)`, 'desc')
+      .orderBy(totalCitations, 'desc')
+      .limit(Math.min(take, FUZZY_LIMIT))
+      .execute();
+    return { items: similar, fuzzy: similar.length > 0 };
+  }
+
+  /** Slim columns for fields=map, everything otherwise */
+  private columns(q: QueryPaperDto) {
+    return q.fields === 'map' ? LIST_COLUMNS : ALL_COLUMNS;
+  }
+
+  /** Short full lists get their citation lists attached */
+  private async shaped<T extends { entry_id: string }>(
+    items: T[],
+    q: QueryPaperDto,
+    take: number,
+  ) {
+    if (q.fields === 'map') return items;
+    return take <= 40 ? this.withEdges(items) : items.map(withoutEdges);
+  }
+
+  private sorted<Q extends ReturnType<PapersService['filtered']>>(
+    query: Q,
+    q: QueryPaperDto,
+  ) {
+    if (q.sort === 'citations' || q.sort === 'relevance') {
+      // citations from arXiv papers plus the ones counted outside arXiv, id as
+      // tiebreaker so pages never overlap (the expression has an index)
+      return query.orderBy(totalCitations, 'desc').orderBy('id', 'asc');
+    }
+    const direction = q.sort === 'published_asc' ? 'asc' : 'desc';
+    return query
+      .orderBy('published', (ob) => ob[direction]().nullsLast())
+      .orderBy('id', 'asc');
+  }
+
+  /**
+   * The papers matching the filters of `q`. With `inAbstract` false the
+   * search words have to be in the title or the authors.
+   */
+  private filtered(q: QueryPaperDto, inAbstract = true) {
+    return this.db.selectFrom('paper').where((eb) => {
+      const filters: Expression<SqlBool>[] = [];
+      const search = q.search?.trim();
+      const id = search ? arxivId(search) : null;
+      if (id) {
+        filters.push(eb('entry_id', '=', id));
+      } else if (search) {
+        for (const word of searchWords(search)) {
+          // a short word has to stand alone ("AI" is not part of "training"),
+          // a longer one may be part of a word ("network" finds "networks")
+          const whole = /^[a-z0-9]{1,3}$/.test(word);
+          const pattern = whole ? `\\m${word}\\M` : containsPattern(word);
+          const op = whole ? '~*' : 'ilike';
+          const anywhere = [
+            eb('title', op, pattern),
+            eb('authors', op, pattern),
+          ];
+          if (inAbstract) anywhere.push(eb('abstract', op, pattern));
+          filters.push(eb.or(anywhere));
+        }
+      }
+      const columns = {
+        title: q.title,
+        authors: q.author,
+        abstract: q.abstract,
+      };
+      for (const [column, text] of Object.entries(columns)) {
+        for (const word of searchWords(text ?? '')) {
+          filters.push(
+            eb(column as keyof typeof columns, 'ilike', containsPattern(word)),
+          );
+        }
+      }
+      if (q.categories)
+        filters.push(eb('categories', 'like', containsPattern(q.categories)));
+      if (q.dateFrom) filters.push(eb('published', '>=', new Date(q.dateFrom)));
+      if (q.dateTo) filters.push(eb('published', '<=', new Date(q.dateTo)));
+      return eb.and(filters);
+    });
+  }
+
+  /** One paper with its citation and reference ids, 404 if it is unknown. */
+  async findByEntryId(entryId: string) {
+    const paper = await this.db
+      .selectFrom('paper')
+      .selectAll()
+      .where('entry_id', '=', entryId)
+      .executeTakeFirst();
+    if (!paper) throw new NotFoundException(`Paper ${entryId} not found`);
+    const [withEdges] = await this.withEdges([paper]);
+    return withEdges;
+  }
+
+  /**
+   * The papers most similar to one paper, nearest first, each with its
+   * `distance`. `basis` says what the distance is:
+   * - 'embedding': cosine distance of the 128-d embeddings
+   * - 'map': distance on the 2-d map, for a paper whose embedding is not in
+   *   the database (the map position is a projection of it, so this is a
+   *   coarser version of the same thing)
+   * - null: the paper has neither, `items` is empty
+   */
+  async similarTo(entryId: string, take = DEFAULT_SIMILAR) {
+    const limit = Math.max(1, Math.min(take, MAX_SIMILAR));
+    const columns = sql.join(LIST_COLUMNS.map((c) => sql.ref(`p.${c}`)));
+    type Similar = Pick<Selectable<Paper>, (typeof LIST_COLUMNS)[number]> & {
+      distance: number;
+    };
+
+    const embedded = await this.db
+      .selectFrom('embedding')
+      .select('id')
+      .where('belonging_paper_entry_id', '=', entryId)
+      .executeTakeFirst();
+    if (embedded) {
+      // the nearest embeddings first (uses the hnsw index), then their papers
+      const own = sql`(SELECT content FROM embedding WHERE belonging_paper_entry_id = ${entryId})`;
+      const { rows } = await sql<Similar>`
+        SELECT ${columns}, n.distance
+        FROM (
+          SELECT e.belonging_paper_entry_id AS entry_id, e.content <=> ${own} AS distance
+          FROM embedding e
+          WHERE e.belonging_paper_entry_id <> ${entryId}
+          ORDER BY e.content <=> ${own}
+          LIMIT ${limit}
+        ) n
+        JOIN paper p ON p.entry_id = n.entry_id
+        ORDER BY n.distance`.execute(this.db);
+      return { basis: 'embedding' as const, items: rows };
     }
 
-    return this.enrichWithCitations(papers);
+    // The position is read first and passed as a value: the index can only
+    // serve a nearest neighbour search around a constant point.
+    const own = await sql<{ x: number | null; y: number | null }>`
+      SELECT (tsne->>'x')::float8 AS x, (tsne->>'y')::float8 AS y
+      FROM paper WHERE entry_id = ${entryId}`.execute(this.db);
+    const at = own.rows[0];
+    if (at?.x == null || at.y == null) return { basis: null, items: [] };
+
+    // same expression as the index paper_map_position_idx
+    const position = sql`point((p.tsne->>'x')::float8, (p.tsne->>'y')::float8)`;
+    const here = sql`point(${at.x}::float8, ${at.y}::float8)`;
+    const { rows } = await sql<Similar>`
+      SELECT ${columns}, ${position} <-> ${here} AS distance
+      FROM paper p
+      WHERE p.tsne IS NOT NULL AND p.entry_id <> ${entryId}
+      ORDER BY ${position} <-> ${here}
+      LIMIT ${limit}`.execute(this.db);
+    return { basis: rows.length ? ('map' as const) : null, items: rows };
+  }
+
+  /** Several papers by id. Unknown ids are left out. */
+  async findByEntryIds(entryIds: string[]) {
+    if (!entryIds.length) return [];
+    const papers = await this.db
+      .selectFrom('paper')
+      .selectAll()
+      .where('entry_id', 'in', entryIds)
+      .execute();
+    return entryIds.length > ENRICH_LIMIT
+      ? papers.map(withoutEdges)
+      : this.withEdges(papers);
   }
 
   /**
-   * Holt aus der paper_citation- und paper_reference-Tabelle die IDs für
-   * jedes übergebene Paper und hängt sie als `citations` / `references` an.
+   * Attaches the ids of citing papers (`citations`) and referenced papers
+   * (`references`) from the two edge tables.
    */
-  private async enrichWithCitations<T extends { entry_id: string }>(
+  private async withEdges<T extends { entry_id: string }>(
     papers: T[],
   ): Promise<(T & { citations: string[]; references: string[] })[]> {
     if (!papers.length) return [];
+    const ids = papers.map((p) => p.entry_id);
 
-    const entryIds = papers.map((p) => p.entry_id);
-
-    const [citRows, refRows] = await Promise.all([
-      this.prisma.paperCitation.findMany({
-        where: { belonging_paper_entry_id: { in: entryIds } },
-        select: { belonging_paper_entry_id: true, cited_paper_entry_id: true },
-      }),
-      this.prisma.paperReference.findMany({
-        where: { belonging_paper_entry_id: { in: entryIds } },
-        select: {
-          belonging_paper_entry_id: true,
-          referenced_paper_entry_id: true,
-        },
-      }),
+    const [citationRows, referenceRows] = await Promise.all([
+      this.db
+        .selectFrom('paper_citation')
+        .select([
+          'belonging_paper_entry_id as paper',
+          'cited_paper_entry_id as other',
+        ])
+        .where('belonging_paper_entry_id', 'in', ids)
+        .execute(),
+      this.db
+        .selectFrom('paper_reference')
+        .select([
+          'belonging_paper_entry_id as paper',
+          'referenced_paper_entry_id as other',
+        ])
+        .where('belonging_paper_entry_id', 'in', ids)
+        .execute(),
     ]);
 
-    const citationMap = new Map<string, string[]>();
-    for (const r of citRows) {
-      const arr = citationMap.get(r.belonging_paper_entry_id);
-      if (arr) arr.push(r.cited_paper_entry_id);
-      else
-        citationMap.set(r.belonging_paper_entry_id, [r.cited_paper_entry_id]);
-    }
-
-    const referenceMap = new Map<string, string[]>();
-    for (const r of refRows) {
-      const arr = referenceMap.get(r.belonging_paper_entry_id);
-      if (arr) arr.push(r.referenced_paper_entry_id);
-      else
-        referenceMap.set(r.belonging_paper_entry_id, [
-          r.referenced_paper_entry_id,
-        ]);
-    }
-
+    const citations = groupIds(citationRows);
+    const references = groupIds(referenceRows);
     return papers.map((p) => ({
       ...p,
-      citations: citationMap.get(p.entry_id) ?? [],
-      references: referenceMap.get(p.entry_id) ?? [],
+      citations: citations.get(p.entry_id) ?? [],
+      references: references.get(p.entry_id) ?? [],
     }));
   }
-
-  /**
-   * Löscht ein Paper per `entry_id`.
-   * Keine Magie – weg ist weg.
-   */
-  async deleteByEntryId(entry_id: string) {
-    return this.prisma.paper.delete({ where: { entry_id } });
-  }
 }
 
-/**
- *
- * Konvertiert einen unbekannten Wert in eine endliche Zahl, wobei der angegebene Fallback zurückgegeben wird, wenn die Konvertierung nicht möglich ist.
- */
-function toNumber(value: unknown, fallback: number): number {
-  const parsed =
-    typeof value === 'string' && value.trim() !== ''
-      ? Number(value)
-      : typeof value === 'number'
-        ? value
-        : NaN;
-
-  if (Number.isFinite(parsed)) {
-    return parsed;
-  }
-  return fallback;
+function withoutEdges<T>(
+  paper: T,
+): T & { citations: string[]; references: string[] } {
+  return { ...paper, citations: [], references: [] };
 }
 
-/**
- * Wandelt ein array von authors (string[]) in einen einzelnen String um, welcher im Frontend dann angezeigt werden kann
- * @param authors Array von Autoren
- * @returns Autoren konkateniert
- */
-function authorsToString(
-  authors: string[] | string | null | undefined,
-): string {
-  if (authors == null) return '';
-  return Array.isArray(authors) ? authors.join(', ') : authors;
+function groupIds(
+  rows: { paper: string; other: string }[],
+): Map<string, string[]> {
+  const grouped = new Map<string, string[]>();
+  for (const { paper, other } of rows) {
+    const list = grouped.get(paper);
+    if (list) list.push(other);
+    else grouped.set(paper, [other]);
+  }
+  return grouped;
 }

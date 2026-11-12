@@ -76,7 +76,7 @@ def get_connection():
         host=os.environ.get("POSTGRES_HOST", "localhost"),
         port=int(os.environ.get("POSTGRES_PORT", "5432")),
         user=os.environ.get("POSTGRES_USER", "monaa"),
-        password=os.environ.get("POSTGRES_PASSWORD", "monaa"),
+        password=os.environ["POSTGRES_PASSWORD"],
         dbname=os.environ.get("POSTGRES_DB", "monaa"),
     )
 
@@ -101,6 +101,7 @@ def ensure_tables(conn):
                 s2_id VARCHAR UNIQUE,
                 non_arxiv_citation_count INTEGER,
                 non_arxiv_reference_count INTEGER,
+                arxiv_citation_count INTEGER NOT NULL DEFAULT 0,
                 related_arxiv_ids JSON,
                 tsne JSON
             );
@@ -303,6 +304,23 @@ def flush_links(conn, table: str, cols: list[str], rows: list[tuple]):
     conn.commit()
 
 
+def update_arxiv_citation_counts(conn):
+    """Recomputes paper.arxiv_citation_count from paper_citation in one statement."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            UPDATE paper p
+            SET arxiv_citation_count = c.cnt
+            FROM (
+                SELECT belonging_paper_entry_id, COUNT(*)::int AS cnt
+                FROM paper_citation
+                GROUP BY belonging_paper_entry_id
+            ) c
+            WHERE c.belonging_paper_entry_id = p.entry_id
+              AND p.arxiv_citation_count IS DISTINCT FROM c.cnt;
+        """)
+    conn.commit()
+
+
 # ---------------------------------------------------------------------------
 # Main import loop
 # ---------------------------------------------------------------------------
@@ -434,6 +452,9 @@ def import_dataset(filepath: str, batch_size: int = 20000):
     flush_embeddings(conn, embedding_batch)
     flush_links(conn, "paper_citation", PAPER_CITATION_COLS, citation_batch)
     flush_links(conn, "paper_reference", PAPER_REFERENCE_COLS, reference_batch)
+
+    print("[db] Updating citation counts ...")
+    update_arxiv_citation_counts(conn)
 
     elapsed = time.time() - t0
     print(

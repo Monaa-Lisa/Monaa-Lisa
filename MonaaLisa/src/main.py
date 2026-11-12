@@ -23,7 +23,6 @@ from dotenv import load_dotenv
 from config import cfg
 from util.logger import Logger
 from Database.db import is_database_empty, engine
-from Database.db_models import db_base
 from SemanticPaper.api.semantic_scholar import SemanticScholarAPI
 from SemanticPaper.api.arxiv import ArxivAPI
 from SemanticPaper.data.downloader import (
@@ -54,9 +53,9 @@ def main():
     logger.set_level(log_level)
     logger.info(f"SemanticPaper starting (log level={log_level})...")
 
-    # ---- 1. Database Check (WAIT for Prisma) ----
-    # WICHTIG: Wir erstellen keine Tabellen mehr selbst!
-    # Wir warten stattdessen kurz, bis die DB erreichbar ist.
+    # ---- 1. Database check ----
+    # The tables come from the SQL migrations (the compose `migrate` service),
+    # here we only wait until the database accepts connections.
     logger.info("Checking database connection...")
     
     # Einfacher Retry-Loop, falls der DB-Container noch nicht bereit ist
@@ -123,6 +122,11 @@ def main():
         int(os.getenv("UNCAUGHT_RETRY_INTERVAL_DAYS", "14"))
     )
 
+    max_papers_per_run = cfg.get_int(
+        "semanticpaper", "incremental_max_papers",
+        int(os.getenv("INCREMENTAL_MAX_PAPERS", "50000"))
+    )
+
     scheduler = BackgroundScheduler()
 
     # Run incremental update immediately, then on schedule
@@ -131,7 +135,7 @@ def main():
         "interval",
         days=update_interval_days,
         next_run_time=datetime.now(),
-        args=[arxiv_client, s2_client, pipeline],
+        args=[arxiv_client, s2_client, pipeline, max_papers_per_run],
         id="incremental_update",
         max_instances=1,
     )

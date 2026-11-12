@@ -79,11 +79,10 @@ check_env_file() {
             cp .env.example .env
             echo -e "${GREEN}[OK] Created .env from .env.example${NC}"
         else
-            echo "Creating default .env file..."
             cat > .env << 'EOF'
 # Database Configuration
 POSTGRES_USER=monaa
-POSTGRES_PASSWORD=sicherespasswort
+POSTGRES_PASSWORD=
 POSTGRES_DB=monaa_lisa_db
 
 # Semantic Scholar API Key (optional but recommended)
@@ -94,6 +93,11 @@ DATA_DIR=/app/data
 EOF
             echo -e "${GREEN}[OK] Created default .env file${NC}"
         fi
+
+        # Every installation gets its own random database password
+        DB_PASSWORD=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
+        sed -i.bak "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=${DB_PASSWORD}/" .env && rm -f .env.bak
+        echo -e "${GREEN}[OK] Generated a random database password in .env${NC}"
         
         echo ""
         echo "Please review and edit .env if needed."

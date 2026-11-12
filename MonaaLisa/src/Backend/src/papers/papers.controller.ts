@@ -3,59 +3,35 @@
  *
  * PapersController
  * -------------------------------
- * REST-Endpunkte rund um "Paper".
+ * Read-only REST endpoints for papers. Papers are written by the Python
+ * pipeline directly into the database, so there are no write endpoints here.
  * Der Controller ist schlank gehalten und delegiert alles an den Service.
  * Validierung/Transformation passiert über die DTOs (class-validator / class-transformer).
  */
 import {
   Body,
   Controller,
-  Delete,
+  DefaultValuePipe,
   Get,
   Param,
-  Patch,
+  ParseIntPipe,
   Post,
   Query,
 } from '@nestjs/common';
-import { PapersService } from './papers.service';
-import { CreatePaperDto } from './dto/create-paper.dto';
-import { UpdatePaperDto } from './dto/update-paper.dto';
-import { QueryPaperDto } from './dto/query-paper.dto';
+import { DEFAULT_SIMILAR, PapersService } from './papers.service';
+import { BatchPapersDto, QueryPaperDto } from './dto';
 
 @Controller('papers')
 export class PapersController {
   constructor(private readonly papers: PapersService) {}
 
   /**
-   * POST /papers
-   * Legt ein neues Paper an.
-   *
-   * Erwartet: CreatePaperDto im Body.
-   * Hinweis: Standard-HTTP-Code für POST ist 201 (Created), sofern nicht überschrieben.
-   */
-  @Post()
-  create(@Body() dto: CreatePaperDto) {
-    return this.papers.create(dto);
-  }
-
-  /**
-   * POST /papers/upsert
-   * Idempotente Ingestion: legt an oder aktualisiert anhand `entry_id`.
-   *
-   * Use-Case: Feeds/Importer, die dasselbe Item mehrfach sehen können.
-   */
-  @Post('upsert')
-  upsert(@Body() dto: CreatePaperDto) {
-    return this.papers.upsertByEntryId(dto);
-  }
-
-  /**
    * POST /papers/batch
    * Batch-Fetch: holt mehrere Papers anhand einer Liste von `entry_id`s.
    */
   @Post('batch')
-  findBatch(@Body() body: { entryIds: string[] }) {
-    return this.papers.findByEntryIds(body.entryIds ?? []);
+  findBatch(@Body() body: BatchPapersDto) {
+    return this.papers.findByEntryIds(body.entryIds);
   }
 
   // Nick - November 2025
@@ -78,6 +54,37 @@ export class PapersController {
   }
 
   /**
+   * GET /papers/count
+   * How many papers match the same filters as GET /papers: { total }
+   */
+  @Get('count')
+  async count(@Query() q: QueryPaperDto) {
+    return { total: await this.papers.count(q) };
+  }
+
+  /**
+   * GET /papers/years
+   * First and last year of publication in the dataset: { first, last }
+   */
+  @Get('years')
+  years() {
+    return this.papers.years();
+  }
+
+  /**
+   * GET /papers/:entryId/similar
+   * The papers nearest to one paper: { basis, items }, see the service.
+   */
+  @Get(':entryId/similar')
+  similar(
+    @Param('entryId') entryId: string,
+    @Query('take', new DefaultValuePipe(DEFAULT_SIMILAR), ParseIntPipe)
+    take: number,
+  ) {
+    return this.papers.similarTo(entryId, take);
+  }
+
+  /**
    * GET /papers/:entryId
    * Holt ein einzelnes Paper anhand der externen `entryId`.
    * Achtung: Das ist die externe ID (z.B. aus dem Feed), nicht die DB-Primär-ID.
@@ -85,34 +92,5 @@ export class PapersController {
   @Get(':entryId')
   findOne(@Param('entryId') entryId: string) {
     return this.papers.findByEntryId(entryId);
-  }
-
-  /**
-   * PATCH /papers/:entryId
-   * Aktualisiert Felder eines Papers.
-   *
-   * Verhalten:
-   * - Nur übergebene Felder werden geändert.
-   * - `published` wird nur gesetzt, wenn im DTO vorhanden.
-   */
-  @Patch(':entryId')
-  update(@Param('entryId') entryId: string, @Body() dto: UpdatePaperDto) {
-    return this.papers.updateByEntryId(entryId, dto);
-  }
-
-  @Post('neighbours/filtered')
-  async getNeighbours(@Body() body: { entryIds: string[]; filter: any }) {
-    return this.papers.findFilteredNeighbours(body.entryIds, body.filter);
-  }
-
-  // Nick - November 2025
-  // Die Möglichkeiten ein paper zu löschen damit es neugeladen werden kann
-  /**
-   * DELETE /papers/:entryId
-   * Löscht ein Paper.
-   */
-  @Delete(':entryId')
-  remove(@Param('entryId') entryId: string) {
-    return this.papers.deleteByEntryId(entryId);
   }
 }

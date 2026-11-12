@@ -1,27 +1,31 @@
-/**
- * Nico August 2025
- * Das hier ist ein Unit Test des Controllers. Es werden nur die Komponenten der Klasse
- * isoliert getestet, aber es werden keine Web-Requests simuliert
- */
+import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { DatabaseService } from './database/database.service';
 
 describe('AppController', () => {
-  let appController: AppController;
+  const db = { ping: jest.fn() };
+  let controller: AppController;
 
   beforeEach(async () => {
-    const app: TestingModule = await Test.createTestingModule({
+    db.ping.mockReset();
+    const module: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService],
+      providers: [{ provide: DatabaseService, useValue: db }],
     }).compile();
 
-    appController = app.get<AppController>(AppController);
+    controller = module.get(AppController);
   });
 
-  describe('root', () => {
-    it('should return "Hello from MonaaLisa!"', () => {
-      expect(appController.getHello()).toBe('Hello from MonaaLisa!');
-    });
+  it('reports ok when the database answers', async () => {
+    db.ping.mockResolvedValue(undefined);
+    await expect(controller.health()).resolves.toEqual({ status: 'ok' });
+  });
+
+  it('answers 503 when the database is down', async () => {
+    db.ping.mockRejectedValue(new Error('connection refused'));
+    await expect(controller.health()).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
   });
 });

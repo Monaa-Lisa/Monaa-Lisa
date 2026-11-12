@@ -21,6 +21,8 @@ eggs/
 .eggs/
 lib/
 lib64/
+# SvelteKit keeps shared frontend code in src/lib, that one is not a Python build folder
+!MonaaLisa/src/Frontend/src/lib/
 parts/
 sdist/
 var/

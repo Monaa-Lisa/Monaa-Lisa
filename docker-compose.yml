@@ -4,10 +4,11 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER-monaa}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD-sicherespasswort}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB-monaa_lisa_db}
     ports:
-      - "5432:5432"
+      # only reachable from this machine, not from the network
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -16,18 +17,29 @@ services:
       timeout: 5s
       retries: 5
 
+  # Applies the SQL migrations in db/migrations (dbmate), then exits.
+  # Every other service that uses the database waits for it.
+  migrate:
+    image: ghcr.io/amacneil/dbmate:2
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER-monaa}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB-monaa_lisa_db}?sslmode=disable
+    volumes:
+      - ./db:/db:ro
+    command: ["--migrations-dir", "/db/migrations", "--no-dump-schema", "--wait", "up"]
+
   app:
     build:
       context: .
       target: app
     image: monaa-lisa-app:latest
     depends_on:
-      db:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER-monaa}:${POSTGRES_PASSWORD-sicherespasswort}@db:5432/${POSTGRES_DB-monaa_lisa_db}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER-monaa}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB-monaa_lisa_db}
       PYTHONPATH: /app/MonaaLisa/src
       SEMANTIC_SCHOLAR_API_KEY: ${SEMANTIC_SCHOLAR_API_KEY:-}
       DATA_DIR: /app/data
@@ -38,48 +50,41 @@ services:
     command: ["/bin/sh", "-c", "python MonaaLisa/src/Database/db.py && python MonaaLisa/src/main.py"]
 
   backend:
-    image: node:20
-    working_dir: /app
+    build:
+      context: ./MonaaLisa/src/Backend
+      target: prod
+    restart: unless-stopped
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB}
       PORT: 3000
-    volumes:
-      - ./MonaaLisa/src/Backend:/app
-      - backend_node_modules:/app/node_modules
-    command: ["sh", "-c", "npm install && npx prisma generate && npx prisma migrate deploy && npm run build && npm run start:prod"]
     ports:
       - "3000:3000"
-    stdin_open: true
-    tty: true
     healthcheck:
-      # Prüft, ob der Server auf Port 3000 antwortet via wget
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1"]
+      # Checks that the API answers on port 3000 (the slim image has no wget/curl)
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 10
-      # WICHTIG: Gib ihm Zeit für npm install & migration, bevor der erste Check zählt
-      start_period: 90s
+      start_period: 15s
 
 
   frontend:
     build:
       context: ./MonaaLisa/src/Frontend
-      dockerfile: Dockerfile
+      target: prod
+    restart: unless-stopped
     ports:
-      - "5173:5173"
+      - "5173:3000"
     depends_on:
-      - app
       - backend
-    volumes:
-      - ./MonaaLisa/src/Frontend:/app
-      - /app/node_modules
     environment:
-      VITE_API_URL: "http://backend:3000"
+      # The browser calls the API directly, so this must be reachable from the browser
+      PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-http://localhost:3000}
 
   import:
     build:
@@ -87,10 +92,10 @@ services:
       target: app
     image: monaa-lisa-app:latest
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB}
     volumes:
       - ./MonaaLisa_dataset_full.jsonl:/app/MonaaLisa_dataset_full.jsonl:ro
       - ./import_dataset.py:/app/import_dataset.py:ro
@@ -102,5 +107,4 @@ services:
 volumes:
   pgdata:
   python_cache:
-  backend_node_modules:
   app_data:
